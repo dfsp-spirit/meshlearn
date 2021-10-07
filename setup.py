@@ -11,6 +11,8 @@ setup(
     packages=['lgilearn'],
     install_requires=['tensorflow>=2.0',
                       'numpy',
+                      'matplotlib',
+                      'nibabel',
                       ],
     classifiers=[
         'Development Status :: 1 - Planning',

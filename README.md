@@ -17,7 +17,6 @@ Computing lGI for brain surface meshes is slow and sometimes fails even for good
 Checkout the repo using git:
 
 ```bash
-cd ~/develop/    # Or whereever you want to put it.
 git clone https://github.com/dfsp-spirit/lgilearn
 cd lgilearn
 ```

@@ -17,14 +17,13 @@ Computing lGI for brain surface meshes is slow and sometimes fails even for good
 Checkout the repo using git:
 
 ```bash
-cd ~/develop/    # Or whereever you want to put it.
-git clone https://github.com/dfsp-spirit/lgi_learn
-cd lgi_learn
+git clone https://github.com/dfsp-spirit/lgilearn
+cd lgilearn
 ```
 
 Now get required pypi packages:
 
 ```bash
 pip3 install --upgrade pip
-pip3 install tensorflow
+pip3 install .
 ```

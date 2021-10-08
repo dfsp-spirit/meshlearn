@@ -6,8 +6,8 @@ AI model to predict the local gyrification index for a vertex based on the mesh 
 
 Predict the local gyrification index (lGI) for a mesh vertex. The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image (MRI).
 
-![Vis1](https://github.com/dfsp-spirit/lgilearn/blob/master/web/brain_mesh_full.png?raw=true "Brain mesh, white surface.")
-![Vis2](https://github.com/dfsp-spirit/lgilearn/blob/master/web/brain_mesh_vertices.png?raw=true "Brain mesh, zoomed view that shows the mesh structure.")
+![Vis1](https://github.com/dfsp-spirit/lgilearn/blob/master/web/brain_mesh_full.jpg?raw=true "Brain mesh, white surface.")
+![Vis2](https://github.com/dfsp-spirit/lgilearn/blob/master/web/brain_mesh_vertices.jpg?raw=true "Brain mesh, zoomed view that shows the mesh structure.")
 
 
 ## Why

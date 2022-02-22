@@ -4,10 +4,10 @@ AI model to predict vertex-wise descriptors like the local gyrification index fr
 
 ## About
 
-Predict vertex descriptors like mean geodesic distance or the local gyrification index (lGI) for a mesh vertex.
+Predict vertex descriptors like the local gyrification index (lGI) or other local descriptors for a mesh vertex.
 
 * The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image (MRI). See [Schaer et al. 2008](https://doi.org/10.1109/TMI.2007.903576) for details.
-* The mean geodesic distance and related descriptors are described in my (cpp_geodesics repo)[https://github.com/dfsp-spirit/cpp_geodesics] and in the references listed there.
+* The geodesic circle radius and related descriptors are described in my [cpp_geodesics repo](https://github.com/dfsp-spirit/cpp_geodesics) and in the references listed there.
 
 
 ![Vis1](./web/brain_mesh_full.jpg?raw=true "Brain mesh, white surface.")

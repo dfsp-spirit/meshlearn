@@ -1,0 +1,4 @@
+surf/lh.pial
+surf/rh.pial
+surf/lh.pial_lgi
+surf/rh.pial_lgi

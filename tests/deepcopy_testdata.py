@@ -17,13 +17,12 @@ def deepcopy_testdata_freesurfer():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Copy training/test data from a FreeSurfer recon-all output directory.")
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-    parser.add_argument('-s', '--source-dir', help="The recon-all source subjects directory to copy the data from.")
-    parser.add_argument('-t', '--target-dir', help="The target directory into which to copy the data.")
+    parser.add_argument('-s', '--source-dir', help="The recon-all source subjects directory to copy the data from.", required=True)
+    parser.add_argument('-t', '--target-dir', help="The target directory into which to copy the data.", required=True)
     file_group = parser.add_mutually_exclusive_group(required=True)
     file_group.add_argument("-m", "--file-list", help="A text file listing one file to copy per line.")
     file_group.add_argument('-f', '--file', help="The file to copy, relative to <source_dir>/<subject>/.", default="surf/lh.pial")
-    parser.add_argument('-l', '--subjects-file', help="The subjects file to use. Text file with one subject per line. If left at default, <source_dir>/subjects.txt is used.", default="_")
-    parser.add_argument('-d', '--descriptor', help="The descriptor to copy.", default="pial_lgi")
+    parser.add_argument('-l', '--subjects-file', help="The subjects file to use. Text file with one subject per line. If left at default, <source_dir>/subjects.txt is used.", default="_")    
     parser.add_argument("-n", "--not-so-deep", help="Do not deep-copy, rename files to reflect origin and place all directly in target-dir instead.", action="store_true")
     parser.add_argument('-a', '--add-suffix', help="An optional suffix to add to the target file name.", default="")
     args = parser.parse_args()
@@ -42,8 +41,10 @@ def deepcopy_testdata_freesurfer():
     subjects_file = args.subjects_file
     if subjects_file == "_":
         subjects_file = os.path.join(args.source_dir, 'subjects.txt')
-        if args.verbose:
-            print("Assuming subjects file '{subjects_file}'".format(subjects_file=subjects_file))
+    
+    if args.verbose:
+        print("Copying files from '{source_dir}' to '{target_dir}'.".format(source_dir=args.source_dir, target_dir=args.target_dir))
+        print("Using subjects file '{subjects_file}'".format(subjects_file=subjects_file))
 
     if not os.path.isfile(subjects_file):
         raise ValueError("The file '{subjects_file}' does not exist or cannot be read".format(subjects_file=subjects_file))
@@ -53,8 +54,12 @@ def deepcopy_testdata_freesurfer():
     files_per_subject = []
     if args.file:
         files_per_subject = [args.file]
+        if args.verbose:
+            print("Copying a single file per subject: '{sfile}'".format(sfile=args.file))
     else:
         files_per_subject = nit.read_subjects_file(args.file_list)    # It is not really a subjects file, but the format is the same.
+        if args.verbose:
+            print("Copying {num_files} files per subject.".format(num_files=len(files_per_subject)))
 
     num_files_total = len(files_per_subject)*len(subjects_list)
     if args.verbose:

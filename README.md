@@ -1,5 +1,5 @@
 # meshlearn
-AI model to predict computationally expensive vertex-wise descriptors like the local gyrification index from the mesh structure instead of computing them.
+AI model to predict computationally expensive vertex-wise descriptors like the local gyrification index from the mesh structure.
 
 
 ## About

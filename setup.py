@@ -1,18 +1,19 @@
 from setuptools import setup
 
 setup(
-    name='lgilearn',
+    name='meshlearn',
     version='0.0.1',
-    description='Predict the local gyrification index for a mesh vertex. The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image.',
-    url='https://github.com/dfsp-spirit/lgilearn',
+    description='Predict vertex-wise mesh descriptors. E.g., predict the local gyrification index for a mesh vertex. The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image.',
+    url='https://github.com/dfsp-spirit/meshlearn',
     author='Tim Schaefer',
     author_email='ts+code@rcmd.org',
     license='MIT',
-    packages=['lgilearn'],
+    packages=['meshlearn'],
     install_requires=['tensorflow>=2.0',
                       'numpy',
                       'matplotlib',
                       'nibabel',
+                      'trimesh',
                       ],
     classifiers=[
         'Development Status :: 1 - Planning',
@@ -21,4 +22,9 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3',
     ],
+    entry_points = {
+        'console_scripts': [
+            'meshlearn_lgi = meshlearn.clients.meshlearn_lgi',
+        ]
+    }
 )

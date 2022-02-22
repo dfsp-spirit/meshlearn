@@ -21,4 +21,4 @@ if [ ! -f "./deepcopy_testdata.py" ]; then
     echo "Please run this script from the '<repo_root>/tests/' directory."
 fi
 
-python ./deepcopy_testdata.py -s "${SOURCE_DIR}" -t "{$DEST_DIR}" -f ./deepcopy_filelist.txt -n
+python ./deepcopy_testdata.py -s "${SOURCE_DIR}" -t "{$DEST_DIR}" -f ./deepcopy_filelist.txt -n -v

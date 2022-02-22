@@ -4,8 +4,6 @@ from __future__ import print_function
 import sys
 import os
 import argparse
-
-from matplotlib.cbook import safe_masked_invalid
 import brainload.nitools as nit
 import shutil
 
@@ -31,11 +29,12 @@ def deepcopy_testdata_freesurfer():
     print("---Copy training/test data from a FreeSurfer recon-all output directory---")
     if args.verbose:
         print("Verbosity turned on.")
+        print("Current working directory is '{cwd}'.".format(cwd=os.getcwd()))
 
-    if not os.path.exists(args.source_dir):
+    if not os.path.isdir(args.source_dir):
         raise ValueError("The source directory '{source_dir}' does not exist or cannot be accessed".format(source_dir=args.source_dir))
 
-    if not os.path.exists(args.target_dir):
+    if not os.path.isdir(args.target_dir):
         raise ValueError("The target directory '{target_dir}' does not exist or cannot be accessed".format(target_dir=args.target_dir))
 
     subjects_file = args.subjects_file

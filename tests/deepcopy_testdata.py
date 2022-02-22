@@ -17,15 +17,15 @@ def deepcopy_testdata_freesurfer():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Copy training/test data from a FreeSurfer recon-all output directory.")
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-    parser.add_argument('-s', '--source-dir', nargs=1, help="The recon-all source subjects directory to copy the data from.", default=None)
-    parser.add_argument('-t', '--target-dir', nargs=1, help="The target directory into which to copy the data.", default=None)
+    parser.add_argument('-s', '--source-dir', help="The recon-all source subjects directory to copy the data from.")
+    parser.add_argument('-t', '--target-dir', help="The target directory into which to copy the data.")
     file_group = parser.add_mutually_exclusive_group(required=True)
     file_group.add_argument("-m", "--file-list", help="A text file listing one file to copy per line.")
-    file_group.add_argument('-f', '--file', nargs=1, help="The file to copy, relative to <source_dir>/<subject>/.", default="surf/lh.pial")
-    parser.add_argument('-l', '--subjects-file', nargs=1, help="The subjects file to use. Text file with one subject per line. If left at default, <source_dir>/subjects.txt is used.", default="_")
-    parser.add_argument('-d', '--descriptor', nargs=1, help="The descriptor to copy.", default="pial_lgi")
+    file_group.add_argument('-f', '--file', help="The file to copy, relative to <source_dir>/<subject>/.", default="surf/lh.pial")
+    parser.add_argument('-l', '--subjects-file', help="The subjects file to use. Text file with one subject per line. If left at default, <source_dir>/subjects.txt is used.", default="_")
+    parser.add_argument('-d', '--descriptor', help="The descriptor to copy.", default="pial_lgi")
     parser.add_argument("-n", "--not-so-deep", help="Do not deep-copy, rename files to reflect origin and place all directly in target-dir instead.", action="store_true")
-    parser.add_argument('-a', '--add-suffix', nargs=1, help="An optional suffix to add to the target file name.", default="")
+    parser.add_argument('-a', '--add-suffix', help="An optional suffix to add to the target file name.", default="")
     args = parser.parse_args()
 
 

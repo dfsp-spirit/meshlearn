@@ -18,6 +18,7 @@ Predict vertex descriptors like the local gyrification index (lGI) or other loca
 
 **Fig. 2** *Close up view of the triangular mesh, showing the vertices, edges and faces.*
 
+This implementation uses Python/tensorflow.
 
 ## Why
 

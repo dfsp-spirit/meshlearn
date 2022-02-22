@@ -5,6 +5,7 @@ import sys
 import os
 import argparse
 import brainload.nitools as nit
+import shutil
 
 def deepcopy_testdata_freesurfer():
     """
@@ -29,14 +30,14 @@ def deepcopy_testdata_freesurfer():
         print("Verbosity turned on.")
 
     if not os.path.exists(args.source_dir):
-        raise ValueError("The source directory '{source_directory}' does not exist or cannot be accessed".format(source_directory=args.source_dir))
+        raise ValueError("The source directory '{source_dir}' does not exist or cannot be accessed".format(source_dir=args.source_dir))
 
     if not os.path.exists(args.target_dir):
-        raise ValueError("The target directory '{target_directory}' does not exist or cannot be accessed".format(target_directory=args.target_dir))
+        raise ValueError("The target directory '{target_dir}' does not exist or cannot be accessed".format(target_dir=args.target_dir))
 
     subjects_file = args.subjects_file
     if subjects_file == "_":
-        subjects_file = os.path.join(args.source_directory, 'subjects.txt')
+        subjects_file = os.path.join(args.source_dir, 'subjects.txt')
         if args.verbose:
             print("Assuming subjects file '{subjects_file}'".format(subjects_file=subjects_file))
 
@@ -49,21 +50,28 @@ def deepcopy_testdata_freesurfer():
     if args.file:
         files_per_subject = [args.file]
     else:
-        files_per_subject = nit.read_subjects_file(args.file_list)    # It is not a subjects file, but the format is the same.
+        files_per_subject = nit.read_subjects_file(args.file_list)    # It is not really a subjects file, but the format is the same.
 
+    num_files_failed = 0
     for subject in subjects_list:
         for sfile_rel in files_per_subject:
-            sfile = os.path.join(args.source_directory, subject, sfile_rel)
-            if not os.path.isfile(sfile):
-                print("WARNING: Expected file '{sfile}' does not exist or cannot be read.".format(sfile=sfile))
+            source_file = os.path.join(args.source_dir, subject, sfile_rel)
+            subject_rel_dir = os.path.dirname(os.path.join(subject, sfile_rel)) # required below for reconstruction/creation of target path.
+            dest_file = os.path.join(args.target_dir, subject, sfile_rel)
+            if not os.path.isfile(source_file):
+                print("WARNING: Expected source file '{source_file}' does not exist or cannot be read, skipping.".format(source_file=source_file))
+                num_files_failed = num_files_failed + 1
             else:
-                
-        
-
-
-
-
-
+                dest_subdir = os.path.join(args.target_dir, subject_rel_dir)
+                if not os.path.exists(dest_subdir):
+                    os.makedirs(dest_subdir, exist_ok=True)
+                try:
+                    shutil.copyfile(source_file, dest_file)
+                except:
+                    print("WARNING: Failed to copy source file '{source_file}' to destination '{dest_file}'.".format(source_file=source_file, dest_file=dest_file))
+                    num_files_failed = num_files_failed + 1
+    num_total = len(files_per_subject)*len(subjects_list)
+    print("Done. {num_failed} of {num_total} files failed ({num_ok} okay).".format(num_failed=num_files_failed, num_total=num_total, num_ok=num_total-num_files_failed))
 
 
 if __name__ == "__main__":

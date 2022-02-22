@@ -1,5 +1,5 @@
-# lgilearn
-AI model to predict the local gyrification index for a vertex based on the mesh instead of computing it.
+# meshlearn
+AI model to predict vertex-wise descriptors like the local gyrification index from the mesh structure instead of computing them.
 
 
 ## About
@@ -24,8 +24,8 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 Checkout the repo using git:
 
 ```bash
-git clone https://github.com/dfsp-spirit/lgilearn
-cd lgilearn
+git clone https://github.com/dfsp-spirit/meshlearn
+cd meshlearn
 ```
 
 Now get required pypi packages:

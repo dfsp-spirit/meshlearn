@@ -9,6 +9,14 @@ if [ -z "${SOURCE_DIR}" -o -z "${DEST_DIR}" ]; then
     exit 1
 fi
 
+if [ ! -d "${SOURCE_DIR}" ]; then
+    echo "Source directory '${SOURCE_DIR}' does not exist."
+fi
+
+if [ ! -d "${DEST_DIR}" ]; then
+    echo "Destination directory '${DEST_DIR}' does not exist."
+fi
+
 if [ ! -f "./deepcopy_testdata.py" ]; then
     echo "Please run this from the <repo_root>/tests/ directory."
 fi

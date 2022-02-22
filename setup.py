@@ -15,6 +15,8 @@ setup(
                       'nibabel',
                       'trimesh',
                       ],
+    setup_requires=['pytest-runner'],
+    tests_require=['pytest', 'pytest-cov', 'pytest-console-scripts', 'pytest-runner', 'tox'],
     classifiers=[
         'Development Status :: 1 - Planning',
         'Intended Audience :: Science/Research',
@@ -22,9 +24,10 @@ setup(
         'Operating System :: POSIX :: Linux',
         'Programming Language :: Python :: 3',
     ],
+    package_dir = {'': 'src'},
     entry_points = {
         'console_scripts': [
-            'meshlearn_lgi = meshlearn.clients.meshlearn_lgi',
+            'meshlearn_lgi = meshlearn.clients.meshlearn_lgi:main',
         ]
     }
 )

@@ -9,8 +9,11 @@ Predict vertex descriptors like the local gyrification index (lGI) for a mesh ve
 
 ![Vis1](./web/brain_mesh_full.jpg?raw=true "Brain mesh, white surface.")
 
+**Fig. 1** *A mesh representing the human cortex.*
 
 ![Vis2](./web/brain_mesh_vertices.jpg?raw=true "Brain mesh, zoomed view that shows the mesh structure.")
+
+**Fig. 2** *Close up view of the triangular mesh, showing the vertices, edges and faces.*
 
 
 ## Why

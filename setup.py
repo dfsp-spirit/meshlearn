@@ -10,6 +10,7 @@ setup(
     license='MIT',
     packages=['meshlearn'],
     install_requires=['tensorflow>=2.0',
+                      'tensorflow_datasets',
                       'numpy',
                       'matplotlib',
                       'nibabel',

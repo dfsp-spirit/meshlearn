@@ -7,6 +7,7 @@ import nibabel.freesurfer.io as fsio
 import brainload.nitools as nit
 import brainload.freesurferdata as fsd
 import brainload.brainwrite as brw
+import meshlearn
 import argparse
 import glob
 
@@ -52,6 +53,8 @@ def meshlearn_lgi():
 
     if args.verbose:
         print("All mesh files seem to have the expected descriptor files associated with them.")
+
+    tf_data_generator = meshlearn.tf_data.VertexPropertyDataset(file_pairs)
 
     
 

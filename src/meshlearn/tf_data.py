@@ -10,6 +10,7 @@
 #from scipy.spatial import distance_matrix
 
 import tensorflow as tf
+import tensorflow_datasets as tfds
 
 class VertexPropertyDataset(tf.data.Dataset):
 
@@ -25,9 +26,10 @@ class VertexPropertyDataset(tf.data.Dataset):
     # Thus, this data generator needs to open 2 separate files to obtain a full training data set: the mesh file and the mesh descriptor file. This
     # also means that when we train to predict different mesh descriptors for a mesh, we do not need to store the same mesh several times on disk.
 
-    def _generator(mesh_file_list, descriptor_file_list, batch_size=20):
+    def _generator(datafiles, batch_size=20):
         # Opening the file
         time.sleep(0.03)
+        mesh_file_list, descriptor_file_list = zip(*datafiles)
 
         for sample_idx in range(num_samples):
             # Reading data (line, record) from the file
@@ -35,9 +37,9 @@ class VertexPropertyDataset(tf.data.Dataset):
 
             yield (sample_idx,)
 
-    def __new__(cls, mesh_file_list, descriptor_file_list, batch_size=20):
+    def __new__(self, datafiles, batch_size=20):
         return tf.data.Dataset.from_generator(
-            cls._generator,
+            self._generator,
             output_signature = tf.TensorSpec(shape = (2,), dtype = tf.float64),
-            args=(mesh_file_list, descriptor_file_list, batch_size)
+            args=(datafiles, batch_size)
         )

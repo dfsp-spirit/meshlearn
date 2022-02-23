@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import sys
+import os
 import numpy as np
 import nibabel.freesurfer.io as fsio
 import brainload.nitools as nit
 import brainload.freesurferdata as fsd
 import brainload.brainwrite as brw
 import argparse
+import glob
 
 # To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
-# SURF=tests/test_data/subject1/surf/lh.white
-# PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py -t $SURF
+# PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
 
 
 def meshlearn_lgi():
@@ -20,23 +21,42 @@ def meshlearn_lgi():
 
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
-    num_vert_group = parser.add_mutually_exclusive_group(required=True)     # we need some way to determine the number of vertices to use for the overlay
-    num_vert_group.add_argument("-n", "--num-verts", help="The number of vertices in the target surface, an integer. Hint: the number for the Freesurfer fsaverage subject is 163842.")
-    num_vert_group.add_argument("-t", "--target-surface-file", help="A target surface file to determine the number of vertices from. E.g., '<your_study>/subject1/surf/lh.white'.")
-    index_group = parser.add_mutually_exclusive_group(required=True)
-    index_group.add_argument("-i", "--index", help="The index of the vertex to query. A single integer or several integers separated by commata (no spaces allowed).")
-    index_group.add_argument("-f", "--index-file", help="A file containing a list of vertex indices, one integer per line. Can optionally contain colors per vertex, then add 3 more integers per line, separated by commata. Example line: '0,255,0,0'")
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-    parser.add_argument('-c', '--color', nargs=3, help="The color to use for the vertices as 3 RGB values between 0 and 255, e.g., '255 0 0' for red. Must be given unless an index file is used that contains the color values.", default=None)
-    parser.add_argument('-b', '--background-color', nargs=3, help="The background color to use for all the vertices which are NOT listed on the command line or in the index file. 3 RGB values between 0 and 255. Defaults to '128 128 128', a gray.", default=[128, 128, 128])
-    parser.add_argument('-e', '--extend-neighborhood', nargs=2, help="In addition to the given vertices, also color their neighbors in the given mesh file, up to the given graph distance in hops.")
-    parser.add_argument('-o', '--output-file', help="Ouput file. The format is an RGB overlay that can be loaded into Freeview.", default="surface_RGB_map.txt")
+    parser.add_argument('-d', '--data-dir', help="The data directory. Use deepcopy_testdata.py script to create.", default="./tests/test_data/tim_only")
+    parser.add_argument('-e', '--epochs', help="Number of training epochs.", default="20")
     args = parser.parse_args()
 
+    num_epochs = int(args.epochs)
+    data_dir = args.data_dir
 
     print("---Train and evaluate an lGI prediction model---")
     if args.verbose:
         print("Verbosity turned on.")
+        print("Training for {num_epochs} epochs.".format(num_epochs=num_epochs))
+        print("Using data directory '{data_dir}'.".format(data_dir=data_dir))
+
+    if not os.path.isdir(data_dir):
+        raise ValueError("The data directory '{data_dir}' does not exist or cannot be accessed".format(data_dir=data_dir))
+
+    mesh_files = np.sort(glob.glob("{data_dir}/*.pial".format(data_dir=data_dir)))
+    descriptor_files = np.sort(glob.glob("{data_dir}/*.pial_lgi".format(data_dir=data_dir)))
+    if args.verbose:
+        print("Found {num_mesh_files} mesh files: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files)))
+        print("Found {num_descriptor_files} descriptor files: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files)))
+
+    file_pairs = dict(zip(mesh_files, descriptor_files))
+    for mesh_filename, desc_filename in file_pairs.items():
+        expected_desc_filename = "{mesh_filename}_lgi".format(mesh_filename=mesh_filename)
+        if desc_filename != expected_desc_filename:
+            raise ValueError("Mesh file '{mesh_filename}' should have matching descriptor file named '{expected_desc_filename}', but was matched to '{desc_filename}'.".format(mesh_filename=mesh_filename, expected_desc_filename=expected_desc_filename, desc_filename=desc_filename))
+
+    if args.verbose:
+        print("All mesh files seem to have the expected descriptor files associated with them.")
+
+    
+
+
+
 
     sys.exit(0)
 

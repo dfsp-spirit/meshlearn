@@ -25,7 +25,7 @@ class VertexPropertyDataset(tf.data.Dataset):
     # Thus, this data generator needs to open 2 separate files to obtain a full training data set: the mesh file and the mesh descriptor file. This
     # also means that when we train to predict different mesh descriptors for a mesh, we do not need to store the same mesh several times on disk.
 
-    def _generator(num_samples):
+    def _generator(mesh_file_list, descriptor_file_list, batch_size=20):
         # Opening the file
         time.sleep(0.03)
 
@@ -35,9 +35,9 @@ class VertexPropertyDataset(tf.data.Dataset):
 
             yield (sample_idx,)
 
-    def __new__(cls, num_samples=3):
+    def __new__(cls, mesh_file_list, descriptor_file_list, batch_size=20):
         return tf.data.Dataset.from_generator(
             cls._generator,
             output_signature = tf.TensorSpec(shape = (2,), dtype = tf.float64),
-            args=(num_samples,)
+            args=(mesh_file_list, descriptor_file_list, batch_size)
         )

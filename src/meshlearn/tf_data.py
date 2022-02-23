@@ -11,6 +11,7 @@
 
 import tensorflow as tf
 import tensorflow_datasets as tfds
+import nibabel.freesurfer.io as fsio
 
 class VertexPropertyDataset(tf.data.Dataset):
 
@@ -26,6 +27,7 @@ class VertexPropertyDataset(tf.data.Dataset):
     # Thus, this data generator needs to open 2 separate files to obtain a full training data set: the mesh file and the mesh descriptor file. This
     # also means that when we train to predict different mesh descriptors for a mesh, we do not need to store the same mesh several times on disk.
 
+    # datafiles: dictionary<str,str>. the keys are mesh files, the values are the repective per-vertex descriptor files for the meshes.
     def _generator(datafiles, batch_size=20):
         # Opening the file
         time.sleep(0.03)
@@ -34,6 +36,7 @@ class VertexPropertyDataset(tf.data.Dataset):
         for sample_idx in range(num_samples):
             # Reading data (line, record) from the file
             time.sleep(0.015)
+            vert_coords, faces = fsio.read_geometry(surf_file)
 
             yield (sample_idx,)
 

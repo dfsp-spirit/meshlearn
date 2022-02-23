@@ -15,7 +15,8 @@ setup(
                       'matplotlib',
                       'nibabel',
                       'trimesh',
-                      'brainload'
+                      'brainload',
+                      'sklearn'
                       ],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-cov', 'pytest-console-scripts', 'pytest-runner', 'tox'],

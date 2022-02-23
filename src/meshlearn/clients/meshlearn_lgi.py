@@ -3,13 +3,11 @@ from __future__ import print_function
 import sys
 import os
 import numpy as np
-import nibabel.freesurfer.io as fsio
-import brainload.nitools as nit
-import brainload.freesurferdata as fsd
-import brainload.brainwrite as brw
+import tensorflow as tf
 import meshlearn
 import argparse
 import glob
+from tensorflow.keras import layers
 
 # To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
 # PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
@@ -54,7 +52,55 @@ def meshlearn_lgi():
     if args.verbose:
         print("All mesh files seem to have the expected descriptor files associated with them.")
 
+    ### Decide which files are used as training, validation and test data. ###
+    random_state = 42
+    from sklearn.model_selection import train_test_split
+    train_file_names, test_file_names = train_test_split(mesh_files, test_size = 20, random_state = random_state)
+    train_file_names, validation_file_names = train_test_split(train_file_names, test_size = 10, random_state = random_state)
+
+
     tf_data_generator = meshlearn.tf_data.VertexPropertyDataset(file_pairs)
+    batch_size = 32
+    train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
+    mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
+    train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [files_train, batch_size], 
+                                                  output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
+                                                  output_types = (tf.float32, tf.float32))
+
+    validation_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [files_validation, batch_size],
+                                                       output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
+                                                       output_types = (tf.float32, tf.float32))
+
+    test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [files_test, batch_size],
+                                                 output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
+                                                 output_types = (tf.float32, tf.float32))
+    
+    ### Create the neural network model from layers ###
+    model = tf.keras.Sequential([
+        layers.Conv2D(16, 3, activation = "relu", input_shape = (train_mesh_neighborhood_size,mesh_dim,1)),
+        layers.MaxPool2D(2),
+        layers.Conv2D(32, 3, activation = "relu"),
+        layers.MaxPool2D(2),
+        layers.Flatten(),
+        layers.Dense(16, activation = "relu"),
+        layers.Dense(5, activation = "softmax")
+    ])
+    model.summary()
+
+    model.compile(loss = "sparse_categorical_crossentropy", optimizer = "adam", metrics = ["accuracy"])
+
+    steps_per_epoch = np.int(np.ceil(len(train_file_names)/batch_size))
+    validation_steps = np.int(np.ceil(len(train_file_names)/batch_size))
+    steps = np.int(np.ceil(len(test_file_names)/batch_size))
+    print("steps_per_epoch = ", steps_per_epoch)
+    print("validation_steps = ", validation_steps)
+    print("steps = ", steps)
+
+    model.fit(train_dataset, validation_data = validation_dataset, steps_per_epoch = steps_per_epoch, validation_steps = validation_steps, epochs = 5)
+
+    test_loss, test_accuracy = model.evaluate(test_dataset, steps = steps)
+    print("Test loss: ", test_loss)
+    print("Test accuracy:", test_accuracy)
 
     
 

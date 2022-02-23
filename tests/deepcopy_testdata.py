@@ -30,6 +30,7 @@ def deepcopy_testdata_freesurfer():
     if args.verbose:
         print("Verbosity turned on.")
         print("Current working directory is '{cwd}'.".format(cwd=os.getcwd()))
+        print("Using source data directory '{source_dir}' and target directory '{target_dir}'".format(source_dir=args.source_dir, target_dir=args.target_dir))
 
     if not os.path.isdir(args.source_dir):
         raise ValueError("The source directory '{source_dir}' does not exist or cannot be accessed".format(source_dir=args.source_dir))

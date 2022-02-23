@@ -1,24 +1,31 @@
 #!/bin/sh
 
+apptag="[DO_DPCPY]"
+
+# Check whether we are in correct dir.
+if [ ! -f "./deepcopy_testdata.py" ]; then
+    echo "$apptag ERROR: Please run this script from the '<repo_root>/tests/' directory."
+    exit 1
+fi
+
 SOURCE_DIR="$1"
 DEST_DIR="$2"
 
 if [ -z "${SOURCE_DIR}" -o -z "${DEST_DIR}" ]; then
-    echo "ERROR: SYNTAX ERROR ;)"
-    echo "USAGE: $0 <source_dir> <dest_dir>"
+    echo "$apptag ERROR: SYNTAX ERROR ;)"
+    echo "$apptag USAGE: $0 <source_dir> <dest_dir>"
     exit 1
 fi
 
 if [ ! -d "${SOURCE_DIR}" ]; then
-    echo "Source directory '${SOURCE_DIR}' does not exist."
+    echo "$apptag ERROR: Source directory '${SOURCE_DIR}' does not exist."
+    exit 1
 fi
 
 if [ ! -d "${DEST_DIR}" ]; then
-    echo "Destination directory '${DEST_DIR}' does not exist."
+    echo "$apptag ERROR: Destination directory '${DEST_DIR}' does not exist."
+    exit 1
 fi
 
-if [ ! -f "./deepcopy_testdata.py" ]; then
-    echo "Please run this script from the '<repo_root>/tests/' directory."
-fi
 
 python ./deepcopy_testdata.py -s "${SOURCE_DIR}" -t "{$DEST_DIR}" -f ./deepcopy_filelist.txt -n -v

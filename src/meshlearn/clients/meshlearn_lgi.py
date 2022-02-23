@@ -58,20 +58,24 @@ def meshlearn_lgi():
     train_file_names, test_file_names = train_test_split(mesh_files, test_size = 20, random_state = random_state)
     train_file_names, validation_file_names = train_test_split(train_file_names, test_size = 10, random_state = random_state)
 
+    train_file_dict = dict(zip(train_file_names, [k + "_lgi" for k in train_file_names]))
+    validation_file_dict = dict(zip(validation_file_names, [k + "_lgi" for k in validation_file_names]))
+    test_file_dict = dict(zip(test_file_names, [k + "_lgi" for k in test_file_names]))
+
 
     tf_data_generator = meshlearn.tf_data.VertexPropertyDataset(file_pairs)
     batch_size = 32
     train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
     mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
-    train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [files_train, batch_size], 
+    train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size], 
                                                   output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
                                                   output_types = (tf.float32, tf.float32))
 
-    validation_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [files_validation, batch_size],
+    validation_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [validation_file_dict, batch_size],
                                                        output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
                                                        output_types = (tf.float32, tf.float32))
 
-    test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [files_test, batch_size],
+    test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [test_file_dict, batch_size],
                                                  output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
                                                  output_types = (tf.float32, tf.float32))
     
@@ -83,7 +87,7 @@ def meshlearn_lgi():
         layers.MaxPool2D(2),
         layers.Flatten(),
         layers.Dense(16, activation = "relu"),
-        layers.Dense(5, activation = "softmax")
+        layers.Dense(1, activation = "softmax")
     ])
     model.summary()
 

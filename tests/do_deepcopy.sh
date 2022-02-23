@@ -28,4 +28,4 @@ if [ ! -d "${DEST_DIR}" ]; then
 fi
 
 
-python ./deepcopy_testdata.py -s "${SOURCE_DIR}" -t "${DEST_DIR}" -f ./deepcopy_filelist.txt -n -v
+python ./deepcopy_testdata.py -s "${SOURCE_DIR}" -t "${DEST_DIR}" --file-list ./deepcopy_filelist.txt --not-so-deep --verbose

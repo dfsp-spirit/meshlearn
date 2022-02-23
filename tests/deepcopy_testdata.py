@@ -19,7 +19,7 @@ def deepcopy_testdata_freesurfer():
     parser.add_argument('-t', '--target-dir', help="The target directory into which to copy the data.", required=True)
     file_group = parser.add_mutually_exclusive_group(required=True)
     file_group.add_argument("-m", "--file-list", help="A text file listing one file to copy per line.")
-    file_group.add_argument('-f', '--file', help="The file to copy, relative to <source_dir>/<subject>/.", default="surf/lh.pial")
+    file_group.add_argument('-f', '--file', help="The file to copy, relative to <source_dir>/<subject>/.")
     parser.add_argument('-l', '--subjects-file', help="The subjects file to use. Text file with one subject per line. If left at default, <source_dir>/subjects.txt is used.", default="_")    
     parser.add_argument("-n", "--not-so-deep", help="Do not deep-copy, rename files to reflect origin and place all directly in target-dir instead.", action="store_true")
     parser.add_argument('-a', '--add-suffix', help="An optional suffix to add to the target file name.", default="")
@@ -62,8 +62,9 @@ def deepcopy_testdata_freesurfer():
             print("Copying {num_files} files per subject.".format(num_files=len(files_per_subject)))
 
     num_files_total = len(files_per_subject)*len(subjects_list)
+    num_files_per_subject = len(files_per_subject)
     if args.verbose:
-        print("Copying {num_files_per_subject} files per subject for {num_subjects} subjects: {num_files_total} files in total.".format(num_files_per_subject=len(files_per_subject), num_subjects=len(subjects_list), num_files_total=num_files_total))
+        print("Copying {num_files_per_subject} files per subject for {num_subjects} subjects: {num_files_total} files in total.".format(num_files_per_subject=num_files_per_subject, num_subjects=len(subjects_list), num_files_total=num_files_total))
 
     if args.verbose:
         if args.not_so_deep:
@@ -72,8 +73,15 @@ def deepcopy_testdata_freesurfer():
             print("Using deep mode: copying all files into recon-all directory structure under {target_dir}.".format(target_dir=args.target_dir))
 
     num_files_failed = 0
+    file_idx_total = 0
     for subject in subjects_list:
+        file_idx_subject = 0
         for sfile_rel in files_per_subject:
+            file_idx_total = file_idx_total + 1
+            file_idx_subject = file_idx_subject + 1
+            
+            print(" - Handling subject '{subject}' file '{sfile_rel}' (subject file {file_idx_subject} of {num_files_per_subject}, total {file_idx_total} of {num_files_total})".format(subject=subject, sfile_rel=sfile_rel, file_idx_total=file_idx_total, file_idx_subject=file_idx_subject, num_files_per_subject=num_files_per_subject, num_files_total=num_files_total))
+
             source_file = os.path.join(args.source_dir, subject, sfile_rel)
             subject_rel_dir = os.path.dirname(os.path.join(subject, sfile_rel)) # required below for reconstruction/creation of target path.
 
@@ -104,7 +112,7 @@ def deepcopy_testdata_freesurfer():
                     print("WARNING: Failed to copy source file '{source_file}' to destination '{dest_file}'.".format(source_file=source_file, dest_file=dest_file))
                     num_files_failed = num_files_failed + 1
     
-    print("Done. {num_failed} of {num_total} files failed ({num_ok} okay).".format(num_failed=num_files_failed, num_total=num_files_total, num_ok=num_files_total-num_files_failed))
+    print("Done. Successfully copied {num_ok} of {num_total} files ({num_failed} failed).".format(num_failed=num_files_failed, num_total=num_files_total, num_ok=num_files_total-num_files_failed))
 
 
 if __name__ == "__main__":

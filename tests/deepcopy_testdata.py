@@ -82,8 +82,7 @@ def deepcopy_testdata_freesurfer():
             
             print(" - Handling subject '{subject}' file '{sfile_rel}' (subject file {file_idx_subject} of {num_files_per_subject}, total {file_idx_total} of {num_files_total})".format(subject=subject, sfile_rel=sfile_rel, file_idx_total=file_idx_total, file_idx_subject=file_idx_subject, num_files_per_subject=num_files_per_subject, num_files_total=num_files_total))
 
-            source_file = os.path.join(args.source_dir, subject, sfile_rel)
-            subject_rel_dir = os.path.dirname(os.path.join(subject, sfile_rel)) # required below for reconstruction/creation of target path.
+            source_file = os.path.join(args.source_dir, subject, sfile_rel)            
 
             if args.not_so_deep:
                 sfile_rel_no_dir_separator = sfile_rel.replace(os.sep, "_") # replace the OS-specific dir separator with an underscore.
@@ -92,6 +91,7 @@ def deepcopy_testdata_freesurfer():
                 dest_subdir = args.target_dir
             else:
                 dest_file = os.path.join(args.target_dir, subject, sfile_rel)
+                subject_rel_dir = os.path.dirname(os.path.join(subject, sfile_rel)) # required below for reconstruction/creation of target path.
                 dest_subdir = os.path.join(args.target_dir, subject_rel_dir)
 
             if args.add_suffix:

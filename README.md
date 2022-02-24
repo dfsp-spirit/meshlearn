@@ -39,5 +39,13 @@ Now get required pypi packages:
 
 ```bash
 pip3 install --upgrade pip
-pip3 install .
+pip3 install -e .
+```
+
+### Running the unit tests
+
+```bash
+#pip3 install pytest
+cd <repo_dir>
+~/.local/bin/pytest
 ```

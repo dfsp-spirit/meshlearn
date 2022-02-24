@@ -33,19 +33,20 @@ class VertexPropertyDataset(tf.data.Dataset):
         time.sleep(0.03)
         mesh_file_list, descriptor_file_list = zip(*datafiles)
 
-        for sample_idx in range(num_samples):
+        for sample_idx in range(3):
             # Reading data (line, record) from the file
             time.sleep(0.015)
-            
-
             yield (sample_idx,)
 
+    # Extract mesh and descriptor data from a single pair of files.
     def _data_from_files(mesh_file_name, descriptor_file_name):
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         pvd_data = fsio.read_morph_data(descriptor_file_name)
         return(_transform_raw_data(vert_coords, faces, pvd_data))
 
     def _transform_raw_data(vertcoords, faces, pvd_data):
+        neighborhoods = []
+        return neighborhoods
 
 
     def __new__(self, datafiles, batch_size=20):

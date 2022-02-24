@@ -12,6 +12,8 @@
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import nibabel.freesurfer.io as fsio
+import trimesh as tm
+import numpy as np
 
 class VertexPropertyDataset(tf.data.Dataset):
 
@@ -56,5 +58,22 @@ class VertexPropertyDataset(tf.data.Dataset):
             args=(datafiles, batch_size)
         )
 
-def do_stuff():
-    return 42
+
+# Compute the k-neighborhood for all vertices of a mesh.
+# parameter tmesh must be a mesh instance from the trimesh package
+def _k_neighborhoods(tmesh, k=1):
+    neighborhoods = dict()
+    for vert_idx in range(tmesh.points):
+        neighborhoods[vert_idx] = np.array(tmesh.vertex_neighbors[vert_idx])
+    if k == 1:
+        return neighborhoods
+    else:
+        for step_idx in range(0, k):
+            for vert_idx in keys(neighborhoods):
+                cur_neighbors = neighborhoods[vert_idx]
+                neighborhoods[vert_idx] = np.unique([neighborhoods.get(key) for key in cur_neighbors])
+    return neighborhoods
+
+
+
+

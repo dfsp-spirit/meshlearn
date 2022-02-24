@@ -1,6 +1,7 @@
 import pytest
 import meshlearn as ml
 import meshlearn.tfdata as tfd
+import trimesh
 import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -14,8 +15,15 @@ def _get_test_file_pair():
     return { mesh_file: descriptor_file }
 
 
-def test_load_data():
+#def test_load_data():
+#    data_files = _get_test_file_pair()
+#    vpd = tfd.VertexPropertyDataset(data_files)
+#    vpd._data_from_files(data_files)
+
+def test_k_neighborhood():
     data_files = _get_test_file_pair()
-    vpd = tfd.VertexPropertyDataset(data_files)
-    vpd._data_from_files(data_files)
+    mesh_file_name = data_files.keys()[0] 
+    vert_coords, faces = fsio.read_geometry(mesh_file_name)
+    mesh = trimesh.()
+    tfd._k_neighborhoods
 

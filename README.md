@@ -47,5 +47,5 @@ pip3 install -e .
 ```bash
 #pip3 install pytest
 cd <repo_dir>
-~/.local/bin/pytest
+python3 -m pytest tests/
 ```

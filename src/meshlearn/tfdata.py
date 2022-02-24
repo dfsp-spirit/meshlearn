@@ -55,3 +55,6 @@ class VertexPropertyDataset(tf.data.Dataset):
             output_signature = tf.TensorSpec(shape = (2,), dtype = tf.float64),
             args=(datafiles, batch_size)
         )
+
+def do_stuff():
+    return 42

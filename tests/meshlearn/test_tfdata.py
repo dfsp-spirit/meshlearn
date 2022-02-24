@@ -1,5 +1,6 @@
 import pytest
 import meshlearn as ml
+import meshlearn.tfdata as tfd
 import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +16,6 @@ def _get_test_file_pair():
 
 def test_load_data():
     data_files = _get_test_file_pair()
-    vpd = ml.VertexPropertyDataset(data_files)
+    vpd = tfd.VertexPropertyDataset(data_files)
     vpd._data_from_files(data_files)
 

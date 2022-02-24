@@ -11,4 +11,4 @@ Meshlearn high-level API functions.
 __all__ = [ ]
 
 
-from .tf_data import VertexPropertyDataset
+from .tfdata import VertexPropertyDataset, do_stuff

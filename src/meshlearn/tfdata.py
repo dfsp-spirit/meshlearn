@@ -63,7 +63,7 @@ class VertexPropertyDataset(tf.data.Dataset):
 # parameter tmesh must be a mesh instance from the trimesh package
 def _k_neighborhoods(tmesh, k=1):
     neighborhoods = dict()
-    for vert_idx in range(tmesh.points):
+    for vert_idx in range(tmesh.vertices.shape[1]):
         neighborhoods[vert_idx] = np.array(tmesh.vertex_neighbors[vert_idx])
     if k == 1:
         return neighborhoods

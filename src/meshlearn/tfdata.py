@@ -64,12 +64,13 @@ class VertexPropertyDataset(tf.data.Dataset):
 def _k_neighborhoods(tmesh, k=1):
     neighborhoods = dict()
     print("Mesh has {nv} vertices, coords are in {d}d space.".format(nv=tmesh.vertices.shape[0], d=tmesh.vertices.shape[1]))
+    print("Computing k-neighborhoods for k={step_idx}, will compute up to k={k}.".format(step_idx=1, k=k))
     for vert_idx in range(tmesh.vertices.shape[0]):
         neighborhoods[vert_idx] = np.array(tmesh.vertex_neighbors[vert_idx])
     if k == 1:
         return neighborhoods
     else:
-        for step_idx in range(1, k):
+        for step_idx in range(2, k+1):
             print("Computing k-neighborhoods for k={step_idx}, will compute up to k={k}.".format(step_idx=step_idx, k=k))
             for vert_idx in neighborhoods.keys():
                 cur_neighbors = neighborhoods[vert_idx]

@@ -22,9 +22,9 @@ def _get_test_file_pairs():
 #    vpd._data_from_files(data_files)
 
 def test_k_neighborhood():
-    for mesh_file_name, descriptor_file_name in _get_test_file_pairs().items():    
+    for mesh_file_name, descriptor_file_name in _get_test_file_pairs().items():
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         tmesh = trimesh.Trimesh(vertices=vert_coords, faces=faces, process=False)
-        nh = tfd._k_neighborhoods(tmesh, k=1)
+        nh = tfd._k_neighborhoods(tmesh, k=2)
         pvd = fsio.read_morph_data(descriptor_file_name)
 

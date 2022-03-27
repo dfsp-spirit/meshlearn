@@ -24,6 +24,6 @@ def test_k_neighborhood():
     data_files = _get_test_file_pair()
     mesh_file_name = data_files.keys()[0] 
     vert_coords, faces = fsio.read_geometry(mesh_file_name)
-    mesh = trimesh.()
-    tfd._k_neighborhoods
+    tmesh = trimesh.Trimesh(vertices=vert_coords, faces=faces, process=False)
+    nh = tfd._k_neighborhoods(tmesh, k=1)
 

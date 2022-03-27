@@ -9,6 +9,7 @@
 
 #from scipy.spatial import distance_matrix
 
+from statistics import mean
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import nibabel.freesurfer.io as fsio
@@ -75,7 +76,8 @@ def _k_neighborhoods(tmesh, k=1):
             for vert_idx in neighborhoods.keys():
                 cur_neighbors = neighborhoods[vert_idx]
                 neighborhoods[vert_idx] = np.unique(np.concatenate([neighborhoods.get(key) for key in cur_neighbors]))
-    nsizes = [len(v) for k,v in neighborhoods.items()]
+    nsizes = np.array([len(v) for k,v in neighborhoods.items()])
+    print("Neighborhood sizes are min={min}, max={max}, mean={mean}.".format(min=nsizes.min(), max=nsizes.max(), mean=nsizes.mean()))
     return neighborhoods
 
 

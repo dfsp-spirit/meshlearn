@@ -49,27 +49,33 @@ def meshlearn_lgi():
         else:
             print("Found {num_descriptor_files} descriptor files, first 3: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files[0:3])))
 
-    file_pairs = dict(zip(mesh_files, descriptor_files))
-    for mesh_filename, desc_filename in file_pairs.items():
+    valid_mesh_files = list()
+    valid_desc_files = list()
+
+    for mesh_filename in mesh_files:
         expected_desc_filename = "{mesh_filename}_lgi".format(mesh_filename=mesh_filename)
-        if desc_filename != expected_desc_filename:
-            raise ValueError("Mesh file '{mesh_filename}' should have matching descriptor file named '{expected_desc_filename}', but was matched to '{desc_filename}'.".format(mesh_filename=mesh_filename, expected_desc_filename=expected_desc_filename, desc_filename=desc_filename))
+        if os.path.exists(expected_desc_filename):
+            valid_mesh_files.append(mesh_filename)
+            valid_desc_files.append(expected_desc_filename)
+
+    assert len(valid_mesh_files) == len(valid_desc_files)
+    num_valid_file_pairs = len(valid_mesh_files)
 
     if args.verbose:
-        print("All mesh files seem to have the expected descriptor files associated with them.")
+        print("Found {num_valid_file_pairs} valid pairs of mesh file with matching descriptor file.".format(num_valid_file_pairs=num_valid_file_pairs))
 
     ### Decide which files are used as training, validation and test data. ###
     random_state = 42
     from sklearn.model_selection import train_test_split
-    train_file_names, test_file_names = train_test_split(mesh_files, test_size = 20, random_state = random_state)
-    train_file_names, validation_file_names = train_test_split(train_file_names, test_size = 10, random_state = random_state)
+    train_file_names, test_file_names = train_test_split(mesh_files, test_size = 0.2, random_state = random_state)
+    train_file_names, validation_file_names = train_test_split(train_file_names, test_size = 0.1, random_state = random_state)
 
     train_file_dict = dict(zip(train_file_names, [k + "_lgi" for k in train_file_names]))
     validation_file_dict = dict(zip(validation_file_names, [k + "_lgi" for k in validation_file_names]))
     test_file_dict = dict(zip(test_file_names, [k + "_lgi" for k in test_file_names]))
 
 
-    tf_data_generator = meshlearn.tf_data.VertexPropertyDataset(file_pairs)
+    tf_data_generator = meshlearn.tfdata.VertexPropertyDataset(train_file_dict)
     batch_size = 32
     train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
     mesh_dim = 3                       # The number of mesh dimensions (x,y,z).

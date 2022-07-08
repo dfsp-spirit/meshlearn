@@ -18,9 +18,9 @@ import numpy as np
 
 class VertexPropertyDataset(tf.data.Dataset):
 
-    # Idea for organization of traning data: leave the meshes in FreeSurfer format files
+    # Idea for organization of training data: leave the meshes in FreeSurfer format files
     # and read the coordinates of the *n_neigh* closest vertices (along mesh edges) from the files for each vertex (read using nibabel or trimesh, based
-    # on the file extension maybe). 
+    # on the file extension maybe).
     # The mesh k-ring neighborhood needs to be computed for this (with a k-value that yields at least n vertices),
     # which can be done with trimesh. Then compute the distance matrix for the neighborhood vertices and take the BN closest ones, and
     # get their coordinates. This local neighborhood (given by coordinates relative to the current vertex) represents the mesh structure

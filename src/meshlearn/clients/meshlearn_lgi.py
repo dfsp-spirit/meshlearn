@@ -40,8 +40,14 @@ def meshlearn_lgi():
     mesh_files = np.sort(glob.glob("{data_dir}/*.pial".format(data_dir=data_dir)))
     descriptor_files = np.sort(glob.glob("{data_dir}/*.pial_lgi".format(data_dir=data_dir)))
     if args.verbose:
-        print("Found {num_mesh_files} mesh files: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files)))
-        print("Found {num_descriptor_files} descriptor files: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files)))
+        if len(mesh_files) < 3:
+            print("Found {num_mesh_files} mesh files: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files)))
+        else:
+            print("Found {num_mesh_files} mesh files, first 3: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files[0:3])))
+        if len(descriptor_files) < 3:
+            print("Found {num_descriptor_files} descriptor files: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files)))
+        else:
+            print("Found {num_descriptor_files} descriptor files, first 3: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files[0:3])))
 
     file_pairs = dict(zip(mesh_files, descriptor_files))
     for mesh_filename, desc_filename in file_pairs.items():
@@ -67,7 +73,7 @@ def meshlearn_lgi():
     batch_size = 32
     train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
     mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
-    train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size], 
+    train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size],
                                                   output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
                                                   output_types = (tf.float32, tf.float32))
 
@@ -78,7 +84,7 @@ def meshlearn_lgi():
     test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [test_file_dict, batch_size],
                                                  output_shapes = ((None,train_mesh_neighborhood_size,mesh_dim,1),(None,)),
                                                  output_types = (tf.float32, tf.float32))
-    
+
     ### Create the neural network model from layers ###
     model = tf.keras.Sequential([
         layers.Conv2D(16, 3, activation = "relu", input_shape = (train_mesh_neighborhood_size,mesh_dim,1)),
@@ -106,7 +112,7 @@ def meshlearn_lgi():
     print("Test loss: ", test_loss)
     print("Test accuracy:", test_accuracy)
 
-    
+
 
 
 

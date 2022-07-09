@@ -31,32 +31,38 @@ class VertexPropertyDataset(tf.data.Dataset):
     # also means that when we train to predict different mesh descriptors for a mesh, we do not need to store the same mesh several times on disk.
 
     # datafiles: dictionary<str,str>. the keys are mesh files, the values are the repective per-vertex descriptor files for the meshes.
-    def _generator(datafiles, batch_size=20):
+    def _generator(self, datafiles, num_files=None):
         # Opening the file
-        time.sleep(0.03)
         mesh_file_list, descriptor_file_list = zip(*datafiles)
 
-        for sample_idx in range(3):
-            # Reading data (line, record) from the file
-            time.sleep(0.015)
+        num_files_available = len(datafiles)
+        if num_files is None:
+            num_files = num_files_available
+        else:
+            num_files = min(num_files_available, num_files)
+
+        for mesh_file_name, descriptor_file_name in datafiles.items():
+            file_data = self._data_from_files(mesh_file_name, descriptor_file_name)
+            # TODO: extract a single sample in loop here and yield it
             yield (sample_idx,)
 
     # Extract mesh and descriptor data from a single pair of files.
-    def _data_from_files(mesh_file_name, descriptor_file_name):
+    def _data_from_files(self, mesh_file_name, descriptor_file_name):
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         pvd_data = fsio.read_morph_data(descriptor_file_name)
         return(_transform_raw_data(vert_coords, faces, pvd_data))
 
-    def _transform_raw_data(vertcoords, faces, pvd_data):
+    # Compute the vertex neighborhood of the Tmesh for a given vertex
+    def _transform_raw_data(self, vertcoords, faces, pvd_data):
         neighborhoods = []
         return neighborhoods
 
 
-    def __new__(self, datafiles, batch_size=20):
+    def __new__(self, datafiles, num_files=None):
         return tf.data.Dataset.from_generator(
             self._generator,
             output_signature = tf.TensorSpec(shape = (2,), dtype = tf.float64),
-            args=(datafiles, batch_size)
+            args=(datafiles, num_files)
         )
 
 

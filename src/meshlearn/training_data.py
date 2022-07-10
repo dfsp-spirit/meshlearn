@@ -17,5 +17,5 @@ def load_surfaces(subjects_dir, subjects_list, surf="pial"):
         #meshes[subject] = { "vertices": vertices, "faces" : faces }
         meshes[subject] = tm.Trimesh(vertices=vertices, faces=faces)
     return meshes
-        
-        
+
+

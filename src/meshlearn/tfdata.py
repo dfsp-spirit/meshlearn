@@ -10,11 +10,14 @@
 #from scipy.spatial import distance_matrix
 
 from statistics import mean
+
+from sklearn import neighbors
 import tensorflow as tf
 import tensorflow_datasets as tfds
 import nibabel.freesurfer.io as fsio
 import trimesh as tm
 import numpy as np
+from scipy.spatial import KDTree
 
 class VertexPropertyDataset(tf.data.Dataset):
 
@@ -29,40 +32,74 @@ class VertexPropertyDataset(tf.data.Dataset):
     #
     # Thus, this data generator needs to open 2 separate files to obtain a full training data set: the mesh file and the mesh descriptor file. This
     # also means that when we train to predict different mesh descriptors for a mesh, we do not need to store the same mesh several times on disk.
+    """
+    Parameters
+    ----------
+    datafiles: dictionary<str,str>. the keys are mesh files, the values are the repective per-vertex descriptor files for the meshes.
+    num_files: positive integer, the number of files to use. For the default `None`, all files are used.
+    neighborhood_radius: float, radius around point to use for neighborhood definition based on Euclidean distance.
+    """
 
-    # datafiles: dictionary<str,str>. the keys are mesh files, the values are the repective per-vertex descriptor files for the meshes.
-    def _generator(self, datafiles, num_files=None):
+    kdtree = None
+    distance_measure = "Euclidean"
+
+    #
+    def _generator(self, datafiles):
         # Opening the file
         mesh_file_list, descriptor_file_list = zip(*datafiles)
 
         num_files_available = len(datafiles)
-        if num_files is None:
-            num_files = num_files_available
+        if self.num_files is None:
+            self.num_files = num_files_available
         else:
-            num_files = min(num_files_available, num_files)
+            if self.num_files > num_files_available:
+                print("Requested {num_req} data files, but only {num_avail} available. Will use all available ones.".format(num_req=self.num_files, num_avail=num_files_available))
+            self.num_files = min(num_files_available, self.num_files)
 
+        num_files_handled = 0
         for mesh_file_name, descriptor_file_name in datafiles.items():
-            file_data = self._data_from_files(mesh_file_name, descriptor_file_name)
-            # TODO: extract a single sample in loop here and yield it
-            yield (sample_idx,)
+            if num_files_handled > self.num_files:
+                return  # generatior exhausted
+            vert_coords, _, pvd_data = self._data_from_files(mesh_file_name, descriptor_file_name)
+            if self.distance_measure == "Euclidean":
+                self.kdtree = KDTree(vert_coords)
+                neighborhoods = self._neighborhoods_euclid_around_points(self, vert_coords)
+                for vertex_idx in range(vert_coords.shape[0]):
+                    X =  neighborhoods[vertex_idx]
+                    y = pvd_data[vertex_idx]
+                    yield (X, y)
+            elif self.distance_measure == "graph":
+                raise ValueError("Distance measure 'graph' not implemented yet.")
+            else:
+                raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
+
 
     # Extract mesh and descriptor data from a single pair of files.
     def _data_from_files(self, mesh_file_name, descriptor_file_name):
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         pvd_data = fsio.read_morph_data(descriptor_file_name)
-        return(_transform_raw_data(vert_coords, faces, pvd_data))
+        return (vert_coords, faces, pvd_data)
 
-    # Compute the vertex neighborhood of the Tmesh for a given vertex
-    def _transform_raw_data(self, vertcoords, faces, pvd_data):
-        neighborhoods = []
+    # Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (query ball).
+    # NOTE: This uses a kdtree to compute all vertices in a certain radius. This is an alternative approach to the
+    #       _k_neighborhoods() function below, which computes the k-neighborhoods on the mesh instead
+    #       of simple Euclidiean distance.
+    def _neighborhoods_euclid_around_points(self, vert_coords):
+        if self.kdtree is None:
+            raise ValueError("No kdtree initialized yet.")
+        neighborhoods = self.kdtree.query_ball_point(x=vert_coords, r=self.neighborhood_radius)
         return neighborhoods
 
 
-    def __new__(self, datafiles, num_files=None):
+    def __new__(self, datafiles, num_files=None, distance_measure = "Euclidean", neighborhood_radius=20.0, neighborhood_k=10):
+        self.num_files = num_files
+        self.distance_measure = distance_measure
+        self.neighborhood_radius = neighborhood_radius
+        self.neighborhood_k = neighborhood_k
         return tf.data.Dataset.from_generator(
             self._generator,
             output_signature = tf.TensorSpec(shape = (2,), dtype = tf.float64),
-            args=(datafiles, num_files)
+            args=(datafiles)
         )
 
 

@@ -18,6 +18,7 @@ import nibabel.freesurfer.io as fsio
 import trimesh as tm
 import numpy as np
 from scipy.spatial import KDTree
+from meshlearn.neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
 
 class VertexPropertyDataset(tf.data.Dataset):
 
@@ -44,10 +45,10 @@ class VertexPropertyDataset(tf.data.Dataset):
     mesh = None
     distance_measure = "Euclidean"
 
-    #
+
     def _generator(self, datafiles):
         # Opening the file
-        mesh_file_list, descriptor_file_list = zip(*datafiles)
+        #mesh_file_list, descriptor_file_list = zip(*datafiles)
 
         num_files_available = len(datafiles)
         if self.num_files is None:
@@ -59,27 +60,26 @@ class VertexPropertyDataset(tf.data.Dataset):
 
         num_files_handled = 0
         for mesh_file_name, descriptor_file_name in datafiles.items():
-            if num_files_handled > self.num_files:
-                return  # generatior exhausted
-            vert_coords, faces, pvd_data = self._data_from_files(mesh_file_name, descriptor_file_name)
+            while num_files_handled < self.num_files:
+                vert_coords, faces, pvd_data = self._data_from_files(mesh_file_name, descriptor_file_name)
 
-            if self.distance_measure == "Euclidean":
-                self.kdtree = KDTree(vert_coords)
-                neighborhoods = self._neighborhoods_euclid_around_points(self, vert_coords)
+                if self.distance_measure == "Euclidean":
+                    self.kdtree = KDTree(vert_coords)
+                    neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree)
 
-            elif self.distance_measure == "graph":
-                self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
-                neighborhoods = self._k_neighborhoods(self.tmesh, k=self.neighborhood_k)
-                neighborhoods_centered_coords = self._neighborhoods_centered_coords(neighborhoods, self.tmesh, num_neighbors=10)
+                elif self.distance_measure == "graph":
+                    self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+                    neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
+                    neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.tmesh, num_neighbors=self.num_neighbors)
 
-            else:
-                raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
+                else:
+                    raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
 
 
-            for vertex_idx in range(vert_coords.shape[0]):
-                X =  neighborhoods_centered_coords[vertex_idx]
-                y = pvd_data[vertex_idx]
-                yield (X, y)
+                for vertex_idx in range(vert_coords.shape[0]):
+                    X =  neighborhoods_centered_coords[vertex_idx]
+                    y = pvd_data[vertex_idx]
+                    yield (X, y)
 
 
 
@@ -90,96 +90,28 @@ class VertexPropertyDataset(tf.data.Dataset):
         return (vert_coords, faces, pvd_data)
 
 
-    def _neighborhoods_euclid_around_points(self, vert_coords):
+    def __new__(self, datafiles, num_files=None, distance_measure = "Euclidean", neighborhood_radius=20.0, neighborhood_k=2, num_neighbors=10, allow_nan=False):
         """
-        Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (query ball).
-
-        This uses a kdtree to compute all vertices in a certain radius. This is an alternative approach to the
-        _k_neighborhoods() function below, which computes the k-neighborhoods on the mesh instead
-        of simple Euclidiean distance.
-
-        Returns
-        -------
-
+        Parameters
+        ----------
+        datafiles: dict str,str of mesh_file_name : pvd_file_name
+        num_files: the number of file pairs to use (from the number available in datafiles). Set to None to use all.
+        distance_measure: one of "Euclidean" or "graph"
+        neighborhood_radius: only used with distance_measure = Euclidean. The ball radius for kdtree ball queries, defining the neighborhood.
+        neighborhood_k: only used with distance_measure = graph. The k for the k-neighborhood in the mesh, i.e., the hop distance along edges in the graph that defines the neighborhood.
+        num_neighbors: int, used with both distance_measures: the number of neighbors to actually use per vertex (keeps only num_neighbors per neighborhood), to fix the dimension of the descriptor. Each vertex must have at least this many neighbors for this to work, unless allow_nan is True.
+        allow_nan: boolean, whether to continue in case a neighborhood is smaller than num_neighbors. If this is True and the situation occurs, np.nan values will be added as neighbor coordinates. If this is False and the situation occurs, an error is raised. Whether or not allowing nans makes sense depends on the machine learning method used downstream. Many methods cannot handle nan values.
         """
-        if self.kdtree is None:
-            raise ValueError("No kdtree initialized yet.")
-        neighborhoods = self.kdtree.query_ball_point(x=vert_coords, r=self.neighborhood_radius)
-        return neighborhoods
-
-
-    def __new__(self, datafiles, num_files=None, distance_measure = "Euclidean", neighborhood_radius=20.0, neighborhood_k=10):
         self.num_files = num_files
         self.distance_measure = distance_measure
         self.neighborhood_radius = neighborhood_radius
         self.neighborhood_k = neighborhood_k
+        self.num_neighbors = num_neighbors
+        self.allow_nan = allow_nan
         return tf.data.Dataset.from_generator(
             self._generator,
             output_signature = tf.TensorSpec(shape = (2,), dtype = tf.float64),
             args=(datafiles)
         )
-
-
-    # Compute the k-neighborhood for all vertices of a mesh.
-    # parameter tmesh must be a mesh instance from the trimesh package
-    def _k_neighborhoods(tmesh, k=1):
-        """
-        Compute k-neighborhood for all mesh vertices.
-
-        Parameters:
-        -----------
-        tmesh: tmesh.Tmesh instance, the mesh for which vertex neighborhoods are to be computed
-        k: positive integer, the hop distance (number of mesh esges to travel) to define neighborhoods
-
-        Returns
-        -------
-        dictionary, keys are integer vertex indices in the mesh. values are 1D numpy.ndarrays of vertex indices making up the neighborhood for the key vertex.
-        """
-        neighborhoods = dict()
-        print("Mesh has {nv} vertices, coords are in {d}d space.".format(nv=tmesh.vertices.shape[0], d=tmesh.vertices.shape[1]))
-        print("Computing k-neighborhoods for k={step_idx}, will compute up to k={k}.".format(step_idx=1, k=k))
-        for vert_idx in range(tmesh.vertices.shape[0]):
-            neighborhoods[vert_idx] = np.array(tmesh.vertex_neighbors[vert_idx])
-        if k == 1:
-            return neighborhoods
-        else:
-            for step_idx in range(2, k+1):
-                print("Computing k-neighborhoods for k={step_idx}, will compute up to k={k}.".format(step_idx=step_idx, k=k))
-                for vert_idx in neighborhoods.keys():
-                    cur_neighbors = neighborhoods[vert_idx]
-                    neighborhoods[vert_idx] = np.unique(np.concatenate([neighborhoods.get(key) for key in cur_neighbors]))
-        nsizes = np.array([len(v) for k,v in neighborhoods.items()])
-        print("Neighborhood sizes are min={min}, max={max}, mean={mean}.".format(min=nsizes.min(), max=nsizes.max(), mean=nsizes.mean()))
-        return neighborhoods
-
-
-    # Extract vertex coords of all neighborhood vertices and center them, so that
-    # the respective source vertex is at the origin.
-    def _neighborhoods_centered_coords(neighborhoods, tmesh, num_neighbors=10):
-        """
-        Compute coordinates of neighborhood vertices, setting the central query vertex to the origin ```(0,0,0)```.
-
-        Parameters:
-        -----------
-        neighborhoods: dictionary, keys are integer vertex indices in the mesh. values are 1D numpy.ndarrays of vertex indices making up the neighborhood for the key vertex. Typically obtained by calling `_k_neighborhoods()`.
-        tmesh: tmesh.Tmesh instance, the mesh for which vertex neighborhoods are to be computed
-        num_neighbors: positive integer, how many neighbors to return per vertex.
-
-
-        Returns
-        -------
-        list of num_neighbors x 3 numpy.ndarrays, each 2D array contains the centered neighborhood coordinates for a single vertex
-        """
-        all_neigh_coords = list()
-
-        vert_idx = 0
-        for central_vertex, neighbors in neighborhoods.items():
-            neigh_coords = np.ndarray(shape=(num_neighbors, 3), dtype=float)
-            central_coords = tmesh.vertices[central_vertex, :]
-            all_neigh_coords[vert_idx] = np.substract(tmesh.vertices[neighborhoods[vert_idx]], central_coords)
-            vert_idx += 1
-        return all_neigh_coords
-
-
 
 

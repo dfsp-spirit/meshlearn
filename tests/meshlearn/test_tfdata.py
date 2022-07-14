@@ -10,21 +10,23 @@ TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')
 # Respect the environment variable BRAINLOAD_TEST_DATA_DIR if it is set. If not, fall back to default:
 TEST_DATA_DIR = os.getenv('BRAINLOAD_TEST_DATA_DIR', TEST_DATA_DIR)
 
-def _get_test_file_pairs():
+
+@pytest.fixture
+def test_file_pair():
     mesh_file = os.path.join(TEST_DATA_DIR, 'tim_only', 'tim_surf_lh.pial')
     descriptor_file = os.path.join(TEST_DATA_DIR, 'tim_only', 'tim_surf_lh.pial_lgi')
-    return { mesh_file: descriptor_file }
+    return mesh_file, descriptor_file
 
 
-#def test_load_data():
-#    data_files = _get_test_file_pair()
-#    vpd = tfd.VertexPropertyDataset(data_files)
-#    vpd._data_from_files(data_files)
+@pytest.fixture
+def mesh_data(test_file_pair):
+    (mesh_file_name, descriptor_file_name) = test_file_pair
+    vert_coords, faces = fsio.read_geometry(mesh_file_name)
+    return vert_coords, faces
 
-def test_k_neighborhood():
-    for mesh_file_name, descriptor_file_name in _get_test_file_pairs().items():
-        vert_coords, faces = fsio.read_geometry(mesh_file_name)
-        tmesh = trimesh.Trimesh(vertices=vert_coords, faces=faces, process=False)
-        nh = tfd._k_neighborhoods(tmesh, k=2)
-        pvd = fsio.read_morph_data(descriptor_file_name)
+
+def test_k_neighborhood(mesh_data):
+    (vert_coords, faces) = mesh_data
+    tmesh = trimesh.Trimesh(vertices=vert_coords, faces=faces, process=False)
+    assert 1 == 1
 

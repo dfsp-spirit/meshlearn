@@ -53,7 +53,15 @@ class TrainingData():
     def data_from_files(mesh_file_name, descriptor_file_name):
         """
         Extract mesh and descriptor data from a single pair of files.
-        Returns 3-tuple of:
+
+        Parameters
+        ----------
+        mesh_file_name: str, the mesh file name. Must be a FreeSurfer surf file.
+        descriptor_file_name: str, the descriptor file name. Must be FreeSurfer curv file that assigns one value to each vertex of the mesh_file_name.
+
+        Returns
+        -------
+        3-tuple of:
         vert_coords: 2d nx3 float ndarray of n vertex coordinates in 3D space
         faces: 2d nx3 integer ndarray of n triangles, given as indices into the vert_coords
         pvd_data: 1d n float ndarray, one value per vertex of per-vertex data
@@ -63,6 +71,17 @@ class TrainingData():
         return (vert_coords, faces, pvd_data)
 
     def gen_data(self, datafiles):
+        """Generator for training data from files. Allows sample-wise loading of very large data sets.
+
+        Parameters
+        ----------
+        datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
+
+        Yields
+        ------
+        X 2d nx3 float ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. the n rows form the neighborhood around the source vertex.
+        y scalar float, the per-vertex data value for the source vertex.
+        """
         for mesh_file_name, descriptor_file_name in datafiles.items():
 
             if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
@@ -88,6 +107,68 @@ class TrainingData():
                 X =  neighborhoods_centered_coords[vertex_idx]
                 y = pvd_data[vertex_idx]
                 yield (X, y)
+
+    def load_data(self, datafiles, num_samples=np.inf):
+        """Loader for training data from files.
+
+        Note that the data must fit into memory.
+
+        Parameters
+        ----------
+        datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
+        num_samples: positive integer, the number of samples to return from the files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
+
+        Returns
+        ------
+        X 2d nx3 float ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. the n rows form the neighborhood around the source vertex.
+        y scalar float, the per-vertex data value for the source vertex.
+        """
+        num_samples_loaded = 0
+        do_break = False
+
+        if np.isfinite(num_samples):
+            full_data = np.empty((num_samples * self.num_neighbors, 3), np.float)
+        else:
+            full_data = np.empty((0, 3), np.float) # Will be expanded as needed, which is slow.
+
+        for mesh_file_name, descriptor_file_name in datafiles.items():
+            if do_break:
+                break
+
+            if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
+                warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
+                continue
+
+            vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
+
+            if self.distance_measure == "Euclidean":
+                self.kdtree = KDTree(vert_coords)
+                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree)
+
+            elif self.distance_measure == "graph":
+                self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+                neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
+                neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors=self.num_neighbors)
+
+            else:
+                raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
+
+
+            for vertex_idx in range(vert_coords.shape[0]):
+                if num_samples_loaded >= num_samples:
+                    do_break = True
+                    break
+                else:
+                    neighborhood_start_idx = num_samples_loaded * self.num_neighbors # TODO: fix me
+                    neighborhood_end_idx = neighborhood_start_idx + self.num_neighbors
+                    full_data[neighborhood_start_idx:neighborhood_end_idx,:] = neighborhoods_centered_coords[vertex_idx]
+                    y = pvd_data[vertex_idx]
+                    num_samples_loaded += 1
+
+        return full_data[0:(num_samples_loaded+1)*self.num_neighbors,:]
+
+
+
 
 
 

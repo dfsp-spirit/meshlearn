@@ -11,12 +11,9 @@
 
 from statistics import mean
 
-from sklearn import neighbors
 import tensorflow as tf
-import tensorflow_datasets as tfds
 import nibabel.freesurfer.io as fsio
 import trimesh as tm
-import numpy as np
 from scipy.spatial import KDTree
 from meshlearn.neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
 
@@ -70,7 +67,7 @@ class VertexPropertyDataset(tf.data.Dataset):
                 elif self.distance_measure == "graph":
                     self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
                     neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
-                    neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.tmesh, num_neighbors=self.num_neighbors)
+                    neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors=self.num_neighbors)
 
                 else:
                     raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))

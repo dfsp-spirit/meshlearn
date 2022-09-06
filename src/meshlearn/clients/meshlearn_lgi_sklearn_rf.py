@@ -17,13 +17,15 @@ dataset = pd.read_csv(os.path.join(data_dir, "Caltech_0051456_lh_pial_meshdist_e
 print(f"Loaded dataset with shape {dataset.shape}.")
 
 nc = len(dataset.columns)
-X = dataset.iloc[:, 0:(nc-2)].values
+X = dataset.iloc[:, 0:(nc-1)].values
 y = dataset.iloc[:, (nc-1)].values
 
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
 print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}.")
+print(f"The target value arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
+
 
 print("Scaling...")
 

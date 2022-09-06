@@ -4,17 +4,63 @@ from __future__ import print_function
 import pandas as pd
 import numpy as np
 import os.path
+import glob
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
 
-
+### Settings
 data_dir = os.path.expanduser("~/develop/cpp_geodesics/output/")
-dataset = pd.read_csv(os.path.join(data_dir, "Caltech_0051456_lh_pial_meshdist_edge_5_neigh.csv"), sep=" ")
 
-print(f"Loaded dataset with shape {dataset.shape}.")
+max_files_to_load = 10  # Set to something <= 0 for unlimited.
+
+### End of settings
+
+csv_files = glob.glob(os.path.join(data_dir, "*meshdist_edge_5_neigh.csv"))
+
+num_csv_files = len(csv_files)
+print(f"Discovered {num_csv_files} CSV files containing data in dir '{data_dir}'.")
+
+if num_csv_files < 1:
+    raise ValueError(f"Found no CSV files with training data in directory '{data_dir}'.")
+
+dataset = pd.read_csv(csv_files[0], sep=" ")
+
+print(f"Loaded initial dataset with shape {dataset.shape}.")
+
+## Read additional CSV files and merge results with 1st one. This may flood RAM for many
+## large CSV files on less powerful machines. In that case, you will have to use `partial_fit` and train on chunks.
+num_files_loaded = 1
+num_incompatible = 0
+if num_csv_files > 1:
+    print(f"Loading additional datasets from the {num_csv_files} files.")
+    for idx, filename in enumerate(csv_files):
+        print(f"-At file #{idx}: '{filename}'")
+        if idx == 0:
+            print(" -Skipping first one, already loaded")
+            continue  # The first one was already loaded.
+
+        if max_files_to_load > 0 and num_files_loaded >= max_files_to_load:   # Limit
+            print(f"-Loaded {num_files_loaded} CSV files so far, ignoring the rest due to 'max_files_to_load'={max_files_to_load} setting.")
+            break
+        else:   # No limit, keep loading.
+            dset_preview = pd.read_csv(filename, sep=" ", nrows=1)
+            if len(dset_preview.columns) == len(dataset.columns):
+                dset = pd.read_csv(filename, sep=" ")
+                print(f" -Adding {len(dset)} rows from CSV file '{filename}' to current dataset with {len(dataset)} rows.")
+                dataset = pd.concat([dataset, dset], ignore_index=True)
+                num_files_loaded += 1
+            else:
+                print(f" -Ignoring data from CSV file '{filename}': it has {len(dset_preview.columns)}, but existing dataset has {len(dataset.columns)} columns.")
+                num_incompatible += 1
+else:
+    print("Cannot add any additional datasets from more CSV files, found only a single one.")
+
+
+
+print(f"Loaded dataset with shape {dataset.shape} from {num_files_loaded} files. Ignored {num_incompatible} CSV files with incompatible column count.")
 
 nc = len(dataset.columns)
 X = dataset.iloc[:, 0:(nc-1)].values

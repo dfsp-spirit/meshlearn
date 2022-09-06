@@ -24,7 +24,7 @@ y = dataset.iloc[:, (nc-1)].values
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
 print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}.")
-print(f"The target value arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
+print(f"The label arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
 
 
 print("Scaling...")

@@ -5,6 +5,8 @@ import pandas as pd
 import numpy as np
 import os.path
 import glob
+import time
+from datetime import timedelta
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -37,27 +39,23 @@ num_incompatible = 0
 if num_csv_files > 1:
     print(f"Loading additional datasets from the {num_csv_files} files.")
     for idx, filename in enumerate(csv_files):
-        print(f"-At file #{idx}: '{filename}'")
         if idx == 0:
-            print(" -Skipping first one, already loaded")
+            print(f" -At file #{idx}: '{filename}': Skipping first one, already loaded")
             continue  # The first one was already loaded.
 
         if max_files_to_load > 0 and num_files_loaded >= max_files_to_load:   # Limit
-            print(f"-Loaded {num_files_loaded} CSV files so far, ignoring the rest due to 'max_files_to_load'={max_files_to_load} setting.")
+            print(f"Loaded {num_files_loaded} CSV files with a total of {len(dataset)} rows so far, ignoring the rest due to 'max_files_to_load'={max_files_to_load} setting.")
             break
         else:   # No limit, keep loading.
             dset_preview = pd.read_csv(filename, sep=" ", nrows=1)
             if len(dset_preview.columns) == len(dataset.columns):
                 dset = pd.read_csv(filename, sep=" ")
-                print(f" -Adding {len(dset)} rows from CSV file '{filename}' to current dataset with {len(dataset)} rows.")
+                print(f" -At file #{idx}: Adding {len(dset)} rows from CSV file '{filename}' to current dataset with {len(dataset)} rows.")
                 dataset = pd.concat([dataset, dset], ignore_index=True)
                 num_files_loaded += 1
             else:
-                print(f" -Ignoring data from CSV file '{filename}': it has {len(dset_preview.columns)}, but existing dataset has {len(dataset.columns)} columns.")
+                print(f" -At file #{idx}: Ignoring CSV file '{filename}': it has {len(dset_preview.columns)}, but existing dataset has {len(dataset.columns)}.")
                 num_incompatible += 1
-else:
-    print("Cannot add any additional datasets from more CSV files, found only a single one.")
-
 
 
 print(f"Loaded dataset with shape {dataset.shape} from {num_files_loaded} files. Ignored {num_incompatible} CSV files with incompatible column count.")
@@ -84,9 +82,15 @@ X_test = sc.transform(X_test)
 n_estimators = 20
 print(f"Fitting with RandomForestRegressor with {n_estimators} estimators.")
 
+fit_start = time.time()
+
 regressor = RandomForestRegressor(n_estimators=n_estimators, random_state=0)
 regressor.fit(X_train, y_train)
 
+fit_end = time.time()
+execution_time = fit_end - fit_start
+
+print(f"Fitting done, it took: {timedelta(seconds=execution_time)}")
 print("Using trained model to predict for test data set with shape {X_test.shape}.")
 
 y_pred = regressor.predict(X_test)

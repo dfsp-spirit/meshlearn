@@ -36,6 +36,11 @@ def load_data(data_dir, max_files_to_load):
         raise ValueError(f"Found no CSV files with training data in directory '{data_dir}'.")
 
     dataset = pd.read_csv(csv_files[0], sep=" ")
+    dataset_num_rows_with_na = dataset.isna().any(axis=0).sum()
+    dataset_num_cols_with_na = dataset.isna().any(axis=1).sum()
+    if dataset_num_rows_with_na > 0:
+        print(f"  * Data loaded from file {csv_files[0]} contained {dataset_num_rows_with_na} rows with NA values (and {dataset_num_cols_with_na} columns). Dropping {dataset_num_rows_with_na} of {len(dataset)} rows.")
+    dataset.dropna(axis=0, inplace=True)
 
     print(f"Loaded initial dataset with shape {dataset.shape}.")
 
@@ -61,7 +66,7 @@ def load_data(data_dir, max_files_to_load):
                     dset_num_rows_with_na = dset.isna().any(axis=0).sum()
                     dset_num_cols_with_na = dset.isna().any(axis=1).sum()
                     if dset_num_rows_with_na > 0:
-                        print(f"  * Data loaded from file #{idx} contained {dset_num_rows_with_na} rows with NA values (and {dset_num_cols_with_na} columns). Dropping {dset_num_rows_with_na} of {len(dataset)} rows.")
+                        print(f"  * Data loaded from file #{idx} contained {dset_num_rows_with_na} rows with NA values (and {dset_num_cols_with_na} columns). Dropping {dset_num_rows_with_na} of {len(dset)} rows.")
                     dset.dropna(axis=0, inplace=True)
                     dataset = pd.concat([dataset, dset], ignore_index=True)
                     num_files_loaded += 1
@@ -80,7 +85,7 @@ dataset_num_cols_with_na = dataset.isna().any(axis=1).sum()
 if dataset_num_rows_with_na > 0:
     print(f"WARNING: Found {dataset_num_rows_with_na} rows with NA values in dataset (and {dataset_num_cols_with_na} columns).")
 else:
-    print(f"Found no NA values in dataset")
+    print(f"Found no NA values in dataset.")
 
 
 

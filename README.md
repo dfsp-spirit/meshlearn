@@ -49,3 +49,17 @@ pip3 install -e .
 cd <repo_dir>
 python3 -m pytest tests/
 ```
+
+### Getting tensorflow-gpu stuff running
+
+If you want to run the neural network scripts that use tensorflow and you have a powerful GPU, I highly recommend that you install `tensorflow-gpu` to use it. Here is how I did it under Ubuntu 20.04 LTS:
+
+```shell
+conda create --name meshlearn-gpu python=3.7
+conda activate meshlearn-gpu
+conda install tensorflow-gpu
+conda install pandas
+conda install matplotlib
+conda install ipython
+conda install scitkit-learn
+```

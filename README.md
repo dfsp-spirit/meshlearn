@@ -63,3 +63,5 @@ conda install matplotlib
 conda install ipython
 conda install scitkit-learn
 ```
+
+Keep in mind though that your GPU memory may be smaller than your system RAM, and you will most likely have to train in batches.

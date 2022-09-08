@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+
+# All credits for this go to Narasimha Karthik, this script is based on the one from his blog here:
+# https://www.analyticsvidhya.com/blog/2022/02/approaching-regression-with-neural-networks-using-tensorflow/
+
 from __future__ import print_function
 
 import pandas as pd
@@ -18,7 +23,9 @@ from sklearn.preprocessing import StandardScaler
 #data_dir = os.path.expanduser("~/develop/cpp_geodesics/output/")
 data_dir = os.path.expanduser("/media/spirit/science/data/abide_meshlearn/")
 
-max_files_to_load = 2  # Set to something <= 0 for unlimited.
+max_files_to_load = 10  # Set to something <= 0 for unlimited.
+
+do_plot = True
 
 ##### End of settings #####
 
@@ -77,6 +84,8 @@ def load_data(data_dir, max_files_to_load):
                     num_incompatible += 1
 
     print(f"Loaded dataset with shape {dataset.shape} from {num_files_loaded} files. Ignored {num_incompatible} CSV files with incompatible column count.")
+    dataset_size_bytes = dataset.memory_usage(deep=True).sum()
+    print(f"Dataset size in RAM is about {dataset_size_bytes} bytes, or {dataset_size_bytes / 1024. / 1024.} MB.")
     return dataset
 
 
@@ -132,13 +141,14 @@ test_labels = label_scaler.transform(test_labels.values.reshape(-1, 1))
 
 # Now let's create a Deep Neural Network to train a regression model on our data.
 model = Sequential([
-    layers.Dense(32, activation='relu'),
+    layers.Dense(352, activation='relu'),
+    layers.Dense(128, activation='relu'),
     layers.Dense(64, activation='relu'),
+    layers.Dense(32, activation='relu'),
     layers.Dense(1)
 ])
 
-model.compile(optimizer="RMSProp",
-              loss="mean_squared_error")
+model.compile(optimizer="RMSProp", loss="mean_absolute_error") #loss="mean_squared_error")
 
 ##### Fit model #####
 
@@ -156,6 +166,25 @@ def plot_loss(history):
     plt.legend()
     plt.grid(True)
 
-plot_loss(history)
+if do_plot:
+    plt.ion()
+    plot_loss(history)
+    plt.show()
+
+
+# Model evaluation on testing dataset
+model.evaluate(test_features, test_labels)
+
+model_output_file = "trained_meshlearn_model_edge_neigh_dist_5.h5"
+model.save(model_output_file)
+print(f"Saved trained model to '{model_output_file}'.")
+
+
+### NOTE: To use saved model on new data:
+#saved_model = models.load_model('trained_model.h5')
+#results = saved_model.predict(test_features)
+## To look at results:
+#decoded_result = label_scaler.inverse_transform(results.reshape(-1,1))
+#print(decoded_result)
 
 

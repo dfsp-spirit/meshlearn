@@ -158,15 +158,16 @@ class TrainingData():
             if self.distance_measure == "Euclidean":
                 self.kdtree = KDTree(vert_coords)
                 print(f"Computing neighborhoods based on Euklidean radius {neighborhood_radius} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
+                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
                 neighborhoods = { i : neighborhoods[i] for i in range(0, len(neighborhoods) ) } # Convert list to dict.
 
                 neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
 
             elif self.distance_measure == "graph":
-                print(f"Computing neighborhoods based on graph edge distance {self.neighborhood_k} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
-                neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
+                raise ValueError("graph distance not implemented yet")
+                #print(f"Computing neighborhoods based on graph edge distance {self.neighborhood_k} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
+                #neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
+                #neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
 
             else:
                 raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))

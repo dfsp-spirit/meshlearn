@@ -2,7 +2,7 @@
 import numpy as np
 import trimesh as tm
 
-def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius):
+def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -14,10 +14,13 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius)
     ----------
     vert_coords nx3 numpy.ndarray for n 3D points
     kdtree scipy.spatial.KDTree instance
+    neighborhood_radius the radius for sphere used in kdtree query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with num_neighbors.
+    mesh tmesh.Trimesh instance (the one from which vert_coords also come, currently duplicated)
+    max_num_neighbors number of neighbors max to consider per neighborhood. must be changed together with neighborhood_radius.
+    pvd_data vector of length vert_coords.shape[0] (number of vertes in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
 
     Returns
     -------
-
     """
     if kdtree is None:
         raise ValueError("No kdtree initialized yet.")
@@ -25,9 +28,60 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius)
         raise ValueError("Expected np.ndarray as input.")
     if not vert_coords.shape[1] == 3:
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
-def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius):
+    assert vert_coords.shape[1] == 3  # 3 coords for the x,y,z. Just to make sure it is not transposed.
+    num_verts_in_mesh = vert_coords.shape[0]
     print("TODO: neighborhoods_euclid_around_points :this should accept the max number of neighbors per neighboorhood to include and return a matrix of shape (num_verts, neigh_data_len). Also normals should be part of neigh_data_len.")
-    neighborhoods = kdtree.query_ball_point(x=vert_coords, r=neighborhood_radius)
+    neighbor_indices = kdtree.query_ball_point(x=vert_coords, r=neighborhood_radius) # list of arrays
+    assert neighbor_indices.shape[0] == num_verts_in_mesh
+
+    ## Atm, the number of neighbors differs between the source vertices, as we simply found all within a fixed Euclidean radius (and vertex density obvisouly differs).
+    ## So we need to fix the lengths to max_num_neighbors.
+    neigh_lengths = [len(neigh) for neigh in neighbor_indices]
+    min_neigh_size = np.min(neigh_lengths)
+    max_neigh_size = np.max(neigh_lengths)
+    mean_neigh_size = np.mean(neigh_lengths)
+    median_neigh_size = np.median(neigh_lengths)
+
+
+    if max_num_neighbors == 0:
+        max_num_neighbors = min_neigh_size # set to minimum to avoid NANs
+        print(f"Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
+    print(f"min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
+
+    ## filter neighborhoods which are too small
+    neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
+    print(f"Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
+
+    neighbor_indices = neighbor_indices_filtered
+
+    neighborhood_col_num_values = max_num_neighbors * (3 + 3) + 1 # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd value per neighborhood
+
+    ## Full matrix for all neighborhoods
+    neighborhoods = np.zeros((num_verts_in_mesh, neighborhood_col_num_values), dtype=np.float)
+
+    for row_idx, neigh_indices in enumerate(neighbor_indices):
+        col_start_idx = 0
+
+        col_end_idx = col_start_idx+(max_num_neighbors*3)
+        #print(f"Add coords for {len(neigh_indices)} neighbors into col positions {col_start_idx} to {col_end_idx} (num columns is {neighborhood_col_num_values}).")
+        neighborhoods[row_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_indices]) # Add vertex coords
+
+
+        col_start_idx = col_end_idx
+        col_end_idx = col_start_idx+(max_num_neighbors*3)
+        #print(f"Add normals for {max_num_neighbors} neighbors into col positions {col_start_idx} to {col_end_idx}")
+
+        # TODO: center the coords
+
+        neighborhoods[row_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_indices]) # Add vertex normals
+        col_start_idx = col_end_idx
+
+        #print(f"Add pvd value at col position {col_start_idx}")
+
+        neighborhoods[row_idx, col_start_idx] = pvd_data[row_idx] # Add label (lgi, thickness, or whatever)
+
+    print("Neighborhoods filled.")
+
     return neighborhoods
 
 

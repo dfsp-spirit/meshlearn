@@ -6,7 +6,10 @@ import numpy as np
 import tensorflow as tf
 import argparse
 import glob
+
 from tensorflow.keras import layers
+from tensorflow.keras import Sequential
+
 from sklearn.model_selection import train_test_split
 from meshlearn.tfdata import VertexPropertyDataset
 from meshlearn.training_data import TrainingData
@@ -25,12 +28,14 @@ def meshlearn_lgi():
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
     parser.add_argument('-d', '--data-dir', help="The data directory. Use deepcopy_testdata.py script to create.", default="./tests/test_data/tim_only")
     parser.add_argument('-e', '--epochs', help="Number of training epochs.", default="20")
-    parser.add_argument('-n', '--neigh_size', help="Number of vertices in the edge neighborhoods for Euclidean dist.", default="50")
+    parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="50")
+    parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
     args = parser.parse_args()
 
     num_epochs = int(args.epochs)
     data_dir = args.data_dir
-    train_mesh_neighborhood_size = int(args.neigh_size) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
+    mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
+    mesh_neighborhood_radius = int(args.neigh_radius)
 
     print("---Train and evaluate an lGI prediction model---")
     if args.verbose:
@@ -80,41 +85,58 @@ def meshlearn_lgi():
 
     do_use_tfloader = False
     mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
+    num_neighborhoods_to_load = 50000
+    batch_size = 32
 
     if do_use_tfloader:
+        print(f"Using tensorflow loader.")
+        # This is not functional yet.
         tf_data_generator = VertexPropertyDataset(train_file_dict)
-        batch_size = 32
 
         train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size],
-                                                    output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
+                                                    output_shapes = ((None, mesh_neighborhood_count, mesh_dim, 1),(None,)),
                                                     output_types = (tf.float32, tf.float32))
 
         validation_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [validation_file_dict, batch_size],
-                                                        output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
+                                                        output_shapes = ((None, mesh_neighborhood_count, mesh_dim, 1),(None,)),
                                                         output_types = (tf.float32, tf.float32))
 
         test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [test_file_dict, batch_size],
-                                                    output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
+                                                    output_shapes = ((None, mesh_neighborhood_count, mesh_dim, 1),(None,)),
                                                     output_types = (tf.float32, tf.float32))
-    else:
-        tdl = TrainingData()
-        tdl.load_data(train_file_dict, num_samples_to_load=300000, neighborhood_radius=5)
+    else:         # number of neighborhoods to load from training data. Set to None for all. Can limit here during development.
+        print(f"Using basic loader to load {num_neighborhoods_to_load} samples.")
+        tdl = TrainingData(distance_measure = "Euclidean", neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
+        train_dataset = tdl.load_data(train_file_dict, num_samples_to_load=num_neighborhoods_to_load, neighborhood_radius=mesh_neighborhood_radius)
+        validation_dataset = tdl.load_data(validation_file_dict, num_samples_to_load=num_neighborhoods_to_load, neighborhood_radius=mesh_neighborhood_radius)
+        test_dataset = tdl.load_data(test_file_dict, num_samples_to_load=num_neighborhoods_to_load, neighborhood_radius=mesh_neighborhood_radius)
+
+    print(f"Loaded train, validation and test datasets with shapes: train={train_dataset.shape}, validation={validation_dataset.shape}, test{test_dataset.shape}.")
 
 
     ### Create the neural network model from layers ###
-    model = tf.keras.Sequential([
-        layers.Conv2D(16, 3, activation = "relu", input_shape = (train_mesh_neighborhood_size, mesh_dim, 1)),
-        layers.MaxPool2D(2),
-        layers.Conv2D(32, 3, activation = "relu"),
-        layers.MaxPool2D(2),
-        layers.Flatten(),
-        layers.Dense(16, activation = "relu"),
-        layers.Dense(1, activation = "softmax")
+    #input_shape = (mesh_neighborhood_count, mesh_dim)
+    print(f"=== Creating tensorflow model. ===")
+    #model = tf.keras.Sequential([
+    #    layers.Conv2D(16, 3, activation = "relu", input_shape = input_shape),
+    #    layers.MaxPool2D(2),
+    #    layers.Conv2D(32, 3, activation = "relu"),
+    #    layers.MaxPool2D(2),
+    #    layers.Flatten(),
+    #    layers.Dense(16, activation = "relu"),
+    #    layers.Dense(1, activation = "softmax")
+    #])
+    model = Sequential([
+        layers.Dense(352, activation='relu'),
+        layers.Dense(128, activation='relu'),
+        layers.Dense(64, activation='relu'),
+        layers.Dense(32, activation='relu'),
+        layers.Dense(1)
     ])
-    model.summary()
 
     model.compile(loss = "sparse_categorical_crossentropy", optimizer = "adam", metrics = ["accuracy"])
 
+    print(f"=== Training model. ===")
     steps_per_epoch = np.int(np.ceil(len(train_file_names)/batch_size))
     validation_steps = np.int(np.ceil(len(train_file_names)/batch_size))
     steps = np.int(np.ceil(len(test_file_names)/batch_size))
@@ -122,16 +144,13 @@ def meshlearn_lgi():
     print("validation_steps = ", validation_steps)
     print("steps = ", steps)
 
-    model.fit(train_dataset, validation_data = validation_dataset, steps_per_epoch = steps_per_epoch, validation_steps = validation_steps, epochs = 5)
+    model.fit(train_dataset, validation_data = validation_dataset, steps_per_epoch = steps_per_epoch, validation_steps = validation_steps, epochs = num_epochs)
+
+    model.summary()
 
     test_loss, test_accuracy = model.evaluate(test_dataset, steps = steps)
     print("Test loss: ", test_loss)
     print("Test accuracy:", test_accuracy)
-
-
-
-
-
 
     sys.exit(0)
 

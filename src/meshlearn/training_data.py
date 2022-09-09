@@ -110,7 +110,7 @@ class TrainingData():
                 y = pvd_data[vertex_idx]
                 yield (X, y)
 
-    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=25):
+    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None):
         """Loader for training data from files.
 
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
@@ -125,6 +125,8 @@ class TrainingData():
         X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
         y scalar float, the per-vertex data value for the source vertex.
         """
+        if neighborhood_radius is None:
+            self.neighborhood_radius = self.neighborhood_radius
 
 
         if not num_samples_to_load is None:

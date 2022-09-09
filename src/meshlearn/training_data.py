@@ -70,8 +70,10 @@ class TrainingData():
         pvd_data = fsio.read_morph_data(descriptor_file_name)
         return (vert_coords, faces, pvd_data)
 
-    def gen_data(self, datafiles):
+    def gen_data(self, datafiles, neighborhood_radius=25):
         """Generator for training data from files. Allows sample-wise loading of very large data sets.
+
+        Use this or `load_data`, depending on whether or not you want everything in memory at once.
 
         Parameters
         ----------
@@ -79,7 +81,7 @@ class TrainingData():
 
         Yields
         ------
-        X 2d nx3 float ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. the n rows form the neighborhood around the source vertex.
+        X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
         y scalar float, the per-vertex data value for the source vertex.
         """
         for mesh_file_name, descriptor_file_name in datafiles.items():
@@ -89,13 +91,13 @@ class TrainingData():
                 continue
 
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
+            self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
 
             if self.distance_measure == "Euclidean":
                 self.kdtree = KDTree(vert_coords)
-                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree)
+                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
 
             elif self.distance_measure == "graph":
-                self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
                 neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
                 neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors=self.num_neighbors)
 
@@ -108,10 +110,10 @@ class TrainingData():
                 y = pvd_data[vertex_idx]
                 yield (X, y)
 
-    def load_data(self, datafiles, num_samples=np.inf):
+    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=25):
         """Loader for training data from files.
 
-        Note that the data must fit into memory.
+        Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
 
         Parameters
         ----------
@@ -120,17 +122,22 @@ class TrainingData():
 
         Returns
         ------
-        X 2d nx3 float ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. the n rows form the neighborhood around the source vertex.
+        X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
         y scalar float, the per-vertex data value for the source vertex.
         """
+
+
+        if not num_samples_to_load is None:
+            full_data = np.empty((num_samples_to_load * self.num_neighbors, 3,), dtype=np.float)
+            print(f"Will load up to {num_samples_to_load} samples from the {len(datafiles)} input file pairs.")
+        else:
+            full_data = np.empty((0, 3), dtype=np.float) # Will be expanded as needed, which is slow.
+            print(f"Will load all data from the {len(datafiles)} input file pairs.")
+
+        print(f"Will use distance metric {self.distance_measure}")
+
         num_samples_loaded = 0
         do_break = False
-
-        if np.isfinite(num_samples):
-            full_data = np.empty((num_samples * self.num_neighbors, 3), np.float)
-        else:
-            full_data = np.empty((0, 3), np.float) # Will be expanded as needed, which is slow.
-
         for mesh_file_name, descriptor_file_name in datafiles.items():
             if do_break:
                 break
@@ -139,14 +146,20 @@ class TrainingData():
                 warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
                 continue
 
+            print(f"Loading mesh file '{mesh_file_name}' and descriptor file '{descriptor_file_name}'.")
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
+            self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
 
             if self.distance_measure == "Euclidean":
                 self.kdtree = KDTree(vert_coords)
-                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree)
+                print(f"Computing neighborhoods based on Euklidean radius {neighborhood_radius} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
+                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
+                neighborhoods = { i : neighborhoods[i] for i in range(0, len(neighborhoods) ) } # Convert list to dict.
+
+                neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors=self.num_neighbors)
 
             elif self.distance_measure == "graph":
-                self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+                print(f"Computing neighborhoods based on graph edge distance {self.neighborhood_k} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
                 neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
                 neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors=self.num_neighbors)
 
@@ -155,15 +168,17 @@ class TrainingData():
 
 
             for vertex_idx in range(vert_coords.shape[0]):
-                if num_samples_loaded >= num_samples:
-                    do_break = True
-                    break
-                else:
-                    neighborhood_start_idx = num_samples_loaded * self.num_neighbors # TODO: fix me
-                    neighborhood_end_idx = neighborhood_start_idx + self.num_neighbors
-                    full_data[neighborhood_start_idx:neighborhood_end_idx,:] = neighborhoods_centered_coords[vertex_idx]
-                    y = pvd_data[vertex_idx]
-                    num_samples_loaded += 1
+                if num_samples_to_load is not None:
+                    if num_samples_loaded >= num_samples_to_load:
+                        print(f"Done loading the requested {num_samples_to_load} samples, ignoring the rest.")
+                        do_break = True
+                        break
+
+                neighborhood_start_idx = num_samples_loaded * self.num_neighbors
+                neighborhood_end_idx = neighborhood_start_idx + self.num_neighbors
+                full_data[neighborhood_start_idx:neighborhood_end_idx, :] = neighborhoods_centered_coords[vertex_idx]
+                y = pvd_data[vertex_idx]
+                num_samples_loaded += 1
 
         return full_data[0:(num_samples_loaded+1)*self.num_neighbors,:]
 

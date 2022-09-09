@@ -9,6 +9,7 @@ import glob
 from tensorflow.keras import layers
 from sklearn.model_selection import train_test_split
 from meshlearn.tfdata import VertexPropertyDataset
+from meshlearn.training_data import TrainingData
 
 # To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
 # PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
@@ -75,21 +76,28 @@ def meshlearn_lgi():
     test_file_dict = dict(zip(test_file_names, [k + "_lgi" for k in test_file_names]))
 
 
-    tf_data_generator = VertexPropertyDataset(train_file_dict)
-    batch_size = 32
-    train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
-    mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
-    train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size],
-                                                  output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
-                                                  output_types = (tf.float32, tf.float32))
+    do_use_tfloader = False
 
-    validation_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [validation_file_dict, batch_size],
-                                                       output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
-                                                       output_types = (tf.float32, tf.float32))
+    if do_use_tfloader:
+        tf_data_generator = VertexPropertyDataset(train_file_dict)
+        batch_size = 32
+        train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
+        mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
+        train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size],
+                                                    output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
+                                                    output_types = (tf.float32, tf.float32))
 
-    test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [test_file_dict, batch_size],
-                                                 output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
-                                                 output_types = (tf.float32, tf.float32))
+        validation_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [validation_file_dict, batch_size],
+                                                        output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
+                                                        output_types = (tf.float32, tf.float32))
+
+        test_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [test_file_dict, batch_size],
+                                                    output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
+                                                    output_types = (tf.float32, tf.float32))
+    else:
+        tdl = TrainingData()
+        tdl.load_data(train_file_dict, num_samples_to_load=300000, neighborhood_radius=5)
+
 
     ### Create the neural network model from layers ###
     model = tf.keras.Sequential([

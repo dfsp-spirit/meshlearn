@@ -58,7 +58,7 @@ class VertexPropertyDataset(tf.data.Dataset):
         num_files_handled = 0
         for mesh_file_name, descriptor_file_name in datafiles.items():
             while num_files_handled < self.num_files:
-                vert_coords, faces, pvd_data = self._data_from_files(mesh_file_name, descriptor_file_name)
+                vert_coords, faces, pvd_data = VertexPropertyDataset.load_mesh_pvd_file_pair(mesh_file_name, descriptor_file_name)
 
                 if self.distance_measure == "Euclidean":
                     self.kdtree = KDTree(vert_coords)
@@ -79,9 +79,11 @@ class VertexPropertyDataset(tf.data.Dataset):
                     yield (X, y)
 
 
-
-    # Extract mesh and descriptor data from a single pair of files.
-    def _data_from_files(self, mesh_file_name, descriptor_file_name):
+    @staticmethod
+    def load_mesh_pvd_file_pair(self, mesh_file_name, descriptor_file_name):
+        """
+        Extract mesh and descriptor data from a single pair of files.
+        """
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         pvd_data = fsio.read_morph_data(descriptor_file_name)
         return (vert_coords, faces, pvd_data)

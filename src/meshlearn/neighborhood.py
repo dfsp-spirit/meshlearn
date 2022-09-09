@@ -1,5 +1,6 @@
 
 import numpy as np
+import trimesh as tm
 
 def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius):
     """
@@ -20,6 +21,10 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius)
     """
     if kdtree is None:
         raise ValueError("No kdtree initialized yet.")
+    if not isinstance(vert_coords, np.ndarray):
+        raise ValueError("Expected np.ndarray as input.")
+    if not vert_coords.shape[1] == 3:
+        raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
     neighborhoods = kdtree.query_ball_point(x=vert_coords, r=neighborhood_radius)
     return neighborhoods
 
@@ -43,6 +48,8 @@ def mesh_k_neighborhoods(tmesh, k=1):
     -------
     dictionary, keys are integer vertex indices in the mesh. values are 1D numpy.ndarrays of vertex indices making up the neighborhood for the key vertex.
     """
+    if not isinstance(tmesh, tm.Trimesh):
+        raise ValueError("Parameter 'tmesh' must be a trimesh.Trimesh instance.")
     neighborhoods = dict()
     print("Mesh has {nv} vertices, coords are in {d}d space.".format(nv=tmesh.vertices.shape[0], d=tmesh.vertices.shape[1]))
     print("Computing k-neighborhoods for k={step_idx}, will compute up to k={k}.".format(step_idx=1, k=k))
@@ -77,6 +84,10 @@ def mesh_neighborhoods_coords(neighborhoods, tmesh, num_neighbors=None, do_cente
     -------
     list of num_neighbors x 3 numpy.ndarrays, each 2D array contains the centered neighborhood coordinates for a single vertex
     """
+    if not isinstance(neighborhoods, dict):
+        raise ValueError("Parameter 'neighborhoods' must be a dict.")
+    if not isinstance(tmesh, tm.Trimesh):
+        raise ValueError("Parameter 'tmesh' must be a trimesh.Trimesh instance.")
     all_neigh_coords = list()
 
     vert_idx = 0
@@ -88,7 +99,7 @@ def mesh_neighborhoods_coords(neighborhoods, tmesh, num_neighbors=None, do_cente
 
         if do_center:
             central_coords = tmesh.vertices[central_vertex, :]
-            all_neigh_coords[vert_idx] = np.substract(neigh_coords, central_coords)
+            all_neigh_coords[vert_idx] = np.subtract(neigh_coords, central_coords)
         else:
             all_neigh_coords[vert_idx] = central_coords
         vert_idx += 1

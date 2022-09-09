@@ -113,6 +113,7 @@ def meshlearn_lgi():
 
     print(f"Loaded train, validation and test datasets with shapes: train={train_dataset.shape}, validation={validation_dataset.shape}, test{test_dataset.shape}.")
 
+    # TODO: the shape of the training data is stupid. it currenlty has one vertex (x,y,z coords) per row. but it needs coords and normals of a neighborhood per row.
 
     ### Create the neural network model from layers ###
     #input_shape = (mesh_neighborhood_count, mesh_dim)

@@ -25,6 +25,8 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius)
         raise ValueError("Expected np.ndarray as input.")
     if not vert_coords.shape[1] == 3:
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
+def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius):
+    print("TODO: neighborhoods_euclid_around_points :this should accept the max number of neighbors per neighboorhood to include and return a matrix of shape (num_verts, neigh_data_len). Also normals should be part of neigh_data_len.")
     neighborhoods = kdtree.query_ball_point(x=vert_coords, r=neighborhood_radius)
     return neighborhoods
 
@@ -48,6 +50,7 @@ def mesh_k_neighborhoods(tmesh, k=1):
     -------
     dictionary, keys are integer vertex indices in the mesh. values are 1D numpy.ndarrays of vertex indices making up the neighborhood for the key vertex.
     """
+    print("TODO: mesh_k_neighborhoods: this should accept the max number of neighbors per neighboorhood to include and return a matrix of shape (num_verts, neigh_data_len). Also normals should be part of neigh_data_len.")
     if not isinstance(tmesh, tm.Trimesh):
         raise ValueError("Parameter 'tmesh' must be a trimesh.Trimesh instance.")
     neighborhoods = dict()

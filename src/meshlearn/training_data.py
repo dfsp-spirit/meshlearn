@@ -84,6 +84,9 @@ class TrainingData():
         X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
         y scalar float, the per-vertex data value for the source vertex.
         """
+
+        # TODO: this is not done yet
+
         for mesh_file_name, descriptor_file_name in datafiles.items():
 
             if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
@@ -179,7 +182,6 @@ class TrainingData():
                 neighborhood_start_idx = num_samples_loaded * self.num_neighbors
                 neighborhood_end_idx = neighborhood_start_idx + self.num_neighbors
                 full_data[neighborhood_start_idx:neighborhood_end_idx, :] = neighborhoods_centered_coords[vertex_idx]
-                y = pvd_data[vertex_idx]
                 num_samples_loaded += 1
 
         return full_data[0:(num_samples_loaded+1)*self.num_neighbors,:]

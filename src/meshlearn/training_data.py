@@ -113,7 +113,8 @@ class TrainingData():
                 y = pvd_data[vertex_idx]
                 yield (X, y)
 
-    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None):
+
+    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False):
         """Loader for training data from files.
 
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
@@ -131,18 +132,11 @@ class TrainingData():
         if neighborhood_radius is None:
             self.neighborhood_radius = self.neighborhood_radius
 
-
-        if not num_samples_to_load is None:
-            full_data = np.empty((num_samples_to_load * self.num_neighbors, 3,), dtype=np.float)
-            print(f"Will load up to {num_samples_to_load} samples from the {len(datafiles)} input file pairs.")
-        else:
-            full_data = np.empty((0, 3), dtype=np.float) # Will be expanded as needed, which is slow.
-            print(f"Will load all data from the {len(datafiles)} input file pairs.")
-
         print(f"Will use distance metric {self.distance_measure}")
 
         num_samples_loaded = 0
         do_break = False
+        full_data = None
         for mesh_file_name, descriptor_file_name in datafiles.items():
             if do_break:
                 break
@@ -159,9 +153,17 @@ class TrainingData():
                 self.kdtree = KDTree(vert_coords)
                 print(f"Computing neighborhoods based on Euklidean radius {neighborhood_radius} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
                 neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
-                neighborhoods = { i : neighborhoods[i] for i in range(0, len(neighborhoods) ) } # Convert list to dict.
+                #neighborhoods = { i : neighborhoods[i] for i in range(0, len(neighborhoods) ) } # Convert list to dict.
 
-                neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
+                #neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
+                if full_data is None:
+                    full_data = neighborhoods
+                else:
+                    full_data = np.concatenate((full_data, neighborhoods,), axis=1)
+
+                num_samples_loaded += neighborhoods.shape[0]
+
+
 
             elif self.distance_measure == "graph":
                 raise ValueError("graph distance not implemented yet")
@@ -173,19 +175,19 @@ class TrainingData():
                 raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
 
 
-            for vertex_idx in range(vert_coords.shape[0]):
-                if num_samples_to_load is not None:
-                    if num_samples_loaded >= num_samples_to_load:
+
+            if num_samples_to_load is not None:
+                if num_samples_loaded >= num_samples_to_load:
                         print(f"Done loading the requested {num_samples_to_load} samples, ignoring the rest.")
                         do_break = True
                         break
 
-                neighborhood_start_idx = num_samples_loaded * self.num_neighbors
-                neighborhood_end_idx = neighborhood_start_idx + self.num_neighbors
-                full_data[neighborhood_start_idx:neighborhood_end_idx, :] = neighborhoods_centered_coords[vertex_idx]
-                num_samples_loaded += 1
+        if num_samples_to_load is not None:
+                if num_samples_loaded > num_samples_to_load:
+                    if force_no_more_than_num_samples_to_load:
+                        return full_data[0:num_samples_to_load, :] # this wastes stuff we spent time loading
 
-        return full_data[0:(num_samples_loaded+1)*self.num_neighbors,:]
+        return full_data
 
 
 

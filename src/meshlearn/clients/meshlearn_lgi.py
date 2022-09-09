@@ -135,7 +135,8 @@ def meshlearn_lgi():
         layers.Dense(1)
     ])
 
-    model.compile(loss = "sparse_categorical_crossentropy", optimizer = "adam", metrics = ["accuracy"])
+    #model.compile(loss = "sparse_categorical_crossentropy", optimizer = "adam", metrics = ["accuracy"])
+
 
     print(f"=== Training model. ===")
     steps_per_epoch = np.int(np.ceil(len(train_file_names)/batch_size))

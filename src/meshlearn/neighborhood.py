@@ -59,26 +59,23 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     ## Full matrix for all neighborhoods
     neighborhoods = np.zeros((num_verts_in_mesh, neighborhood_col_num_values), dtype=np.float)
 
-    for row_idx, neigh_indices in enumerate(neighbor_indices):
+    for central_vert_idx, neigh_vert_indices in enumerate(neighbor_indices):
         col_start_idx = 0
 
         col_end_idx = col_start_idx+(max_num_neighbors*3)
         #print(f"Add coords for {len(neigh_indices)} neighbors into col positions {col_start_idx} to {col_end_idx} (num columns is {neighborhood_col_num_values}).")
-        neighborhoods[row_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_indices]) # Add vertex coords
-
+        neighborhoods[central_vert_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices] - mesh.vertices[central_vert_idx]) # Add vertex coords relative to central vertex
 
         col_start_idx = col_end_idx
         col_end_idx = col_start_idx+(max_num_neighbors*3)
         #print(f"Add normals for {max_num_neighbors} neighbors into col positions {col_start_idx} to {col_end_idx}")
 
-        # TODO: center the coords
-
-        neighborhoods[row_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_indices]) # Add vertex normals
+        neighborhoods[central_vert_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
         col_start_idx = col_end_idx
 
         #print(f"Add pvd value at col position {col_start_idx}")
 
-        neighborhoods[row_idx, col_start_idx] = pvd_data[row_idx] # Add label (lgi, thickness, or whatever)
+        neighborhoods[central_vert_idx, col_start_idx] = pvd_data[central_vert_idx] # Add label (lgi, thickness, or whatever)
 
     print("Neighborhoods filled.")
 

@@ -1,5 +1,5 @@
 
-
+import numpy as np
 
 def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius):
     """
@@ -32,7 +32,7 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius)
 
 def mesh_k_neighborhoods(tmesh, k=1):
     """
-    Compute k-neighborhood for all mesh vertices.
+    Compute k-neighborhood for all mesh vertices. This is quite slow for larger k.
 
     Parameters:
     -----------

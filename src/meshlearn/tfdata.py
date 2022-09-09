@@ -67,7 +67,7 @@ class VertexPropertyDataset(tf.data.Dataset):
                 elif self.distance_measure == "graph":
                     self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
                     neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
-                    neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors=self.num_neighbors)
+                    neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
 
                 else:
                     raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))

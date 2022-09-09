@@ -25,10 +25,12 @@ def meshlearn_lgi():
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
     parser.add_argument('-d', '--data-dir', help="The data directory. Use deepcopy_testdata.py script to create.", default="./tests/test_data/tim_only")
     parser.add_argument('-e', '--epochs', help="Number of training epochs.", default="20")
+    parser.add_argument('-n', '--neigh_size', help="Number of vertices in the edge neighborhoods for Euclidean dist.", default="50")
     args = parser.parse_args()
 
     num_epochs = int(args.epochs)
     data_dir = args.data_dir
+    train_mesh_neighborhood_size = int(args.neigh_size) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
 
     print("---Train and evaluate an lGI prediction model---")
     if args.verbose:
@@ -77,12 +79,12 @@ def meshlearn_lgi():
 
 
     do_use_tfloader = False
+    mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
 
     if do_use_tfloader:
         tf_data_generator = VertexPropertyDataset(train_file_dict)
         batch_size = 32
-        train_mesh_neighborhood_size = 50  # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
-        mesh_dim = 3                       # The number of mesh dimensions (x,y,z).
+
         train_dataset = tf.data.Dataset.from_generator(tf_data_generator, args = [train_file_dict, batch_size],
                                                     output_shapes = ((None, train_mesh_neighborhood_size, mesh_dim, 1),(None,)),
                                                     output_types = (tf.float32, tf.float32))

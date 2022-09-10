@@ -36,7 +36,6 @@ def meshlearn_lgi():
     parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
     parser.add_argument('-d', '--data-dir', help="The data directory. Use deepcopy_testdata.py script to create.", default="./tests/test_data/tim_only")
-    parser.add_argument('-e', '--epochs', help="Number of training epochs.", default="20")
     parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="100")
     parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
     args = parser.parse_args()

@@ -2,9 +2,11 @@
 Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory.
 """
 
+from genericpath import isdir, isfile
 import brainload as bl
 import trimesh as tm
 import nibabel.freesurfer.io as fsio
+import brainload.nitools as nit
 import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree
@@ -193,6 +195,50 @@ class TrainingData():
 
 
         return full_data
+
+
+
+def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descriptor="pial_lgi", verbose=True, subjects_file=None, subjects_list=None, hemis=["lh", "rh"]):
+    """
+    Discover valid pairs of mesh and descriptor files in FreeSurfer recon-all output dir.
+    """
+    if not os.path.isdir(recon_dir):
+        raise ValueError("The data directory '{recon_dir}' does not exist or cannot be accessed".format(data_dir=recon_dir))
+
+    if subjects_file is not None and subjects_list is not None:
+        raise ValueError("Pass only one of 'subjects_file' and 'subjects_list', not both.")
+
+    if subjects_file is None and subjects_list is None: # Assume standard subjects file in data dir.
+        subjects_file = os.path.join(recon_dir, "subjects.txt")
+
+    if not subjects_file is None:
+        if not os.path.isfile(subjects_file):
+            raise ValueError(f"Subjects file '{subjects_file}' cannot be read.")
+        subjects_list = nit.read_subjects_file(subjects_file)
+
+    if verbose:
+        print(f"Using subjects list containing {len(subjects_list)} subjects. Loading them from recon-all output dir '{recon_dir}'.")
+
+    valid_mesh_files = []
+    valid_desc_files = []
+
+    for subject in subjects_list:
+        sjd = os.path.join(recon_dir, subject)
+        if os.path.isdir(sjd):
+            for hemi in hemis:
+                surf_file = os.path.join(sjd, "surf", f"{hemi}.{surface}")
+                desc_file = os.path.join(sjd, "surf", f"{hemi}.{descriptor}")
+
+                if os.path.isfile(surf_file) and os.path.isfile(desc_file):
+                    valid_mesh_files.append(surf_file)
+                    valid_desc_files.append(desc_file)
+
+    if verbose:
+        print(f"Out of {len(subjects_list)*2} subject hemispheres, {len(valid_mesh_files)} had the requested surface and descrpitor file.")
+
+    return valid_mesh_files, valid_desc_files
+
+
 
 
 

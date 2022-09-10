@@ -138,7 +138,10 @@ class TrainingData():
         if neighborhood_radius is None:
             neighborhood_radius = self.neighborhood_radius
 
-        print(f"Will use distance metric {self.distance_measure}")
+        if not isinstance(datafiles, dict):
+            raise ValueError("datafiles must be a dict")
+        if len(datafiles) == 0:
+            raise ValueError("datafiles must not be empty")
 
         num_samples_loaded = 0
         do_break = False
@@ -159,9 +162,7 @@ class TrainingData():
                 self.kdtree = KDTree(vert_coords)
                 print(f"Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
                 neighborhoods, col_names = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
-                #neighborhoods = { i : neighborhoods[i] for i in range(0, len(neighborhoods) ) } # Convert list to dict.
 
-                #neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
                 if full_data is None:
                     full_data = neighborhoods
                 else:
@@ -218,6 +219,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
     if verbose:
         print(f"Using subjects list containing {len(subjects_list)} subjects. Loading them from recon-all output dir '{recon_dir}'.")
+        print(f"Loading surface '{surface}', descriptor '{descriptor}' for {len(hemis)} hemis: {hemis}.")
 
     valid_mesh_files = []
     valid_desc_files = []
@@ -232,6 +234,8 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                 if os.path.isfile(surf_file) and os.path.isfile(desc_file):
                     valid_mesh_files.append(surf_file)
                     valid_desc_files.append(desc_file)
+                else:
+                    print(f"One of the files '{surf_file}' and '{desc_file}' does not exist.")
 
     if verbose:
         print(f"Out of {len(subjects_list)*2} subject hemispheres, {len(valid_mesh_files)} had the requested surface and descrpitor file.")

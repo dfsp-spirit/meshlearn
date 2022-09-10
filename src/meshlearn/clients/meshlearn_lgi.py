@@ -14,7 +14,7 @@ from datetime import timedelta
 
 from sklearn.model_selection import train_test_split
 from meshlearn.tfdata import VertexPropertyDataset
-from meshlearn.training_data import TrainingData, get_valid_mesh_desc_lgi_file_pairs
+from meshlearn.training_data import TrainingData, get_valid_mesh_desc_lgi_file_pairs, get_valid_mesh_desc_file_pairs_reconall
 
 # To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
 # PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
@@ -35,12 +35,13 @@ def meshlearn_lgi():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-    parser.add_argument('-d', '--data-dir', help="The data directory. Use deepcopy_testdata.py script to create.", default="./tests/test_data/tim_only")
+    #parser.add_argument('-d', '--data-flat-dir', help="The flat data directory. Use deepcopy_testdata.py script to create.", default="")
+    parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default="/media/spirit/science/data/abide")
     parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="100")
     parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
+    parser.add_argument('-l', '--load_max', help="Number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="1000000")
     args = parser.parse_args()
 
-    num_epochs = int(args.epochs)
     data_dir = args.data_dir
     mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
     mesh_neighborhood_radius = int(args.neigh_radius)
@@ -49,10 +50,9 @@ def meshlearn_lgi():
     print("---Train and evaluate an lGI prediction model---")
     if args.verbose:
         print("Verbosity turned on.")
-        print("Training for {num_epochs} epochs.".format(num_epochs=num_epochs))
         print("Using data directory '{data_dir}'.".format(data_dir=data_dir))
 
-    mesh_files, desc_files = get_valid_mesh_desc_lgi_file_pairs(data_dir, args.verbose)
+    mesh_files, desc_files = get_valid_mesh_desc_file_pairs_reconall(data_dir)
 
     ### Decide which files are used as training, validation and test data. ###
     input_file_dict = dict(zip(mesh_files, desc_files))
@@ -60,7 +60,12 @@ def meshlearn_lgi():
     if args.verbose:
         print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
 
-    num_neighborhoods_to_load = 50000
+    num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
+
+    if num_neighborhoods_to_load is None:
+        print(f"Will load all data from the {len(input_file_dict)} files.")
+    else:
+        print(f"Will load {num_neighborhoods_to_load} samples from the {len(input_file_dict)} files.")
 
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
     dataset = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)

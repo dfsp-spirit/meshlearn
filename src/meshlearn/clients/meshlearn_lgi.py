@@ -64,7 +64,7 @@ def meshlearn_lgi():
     num_neighborhoods_to_load = 50000
 
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-    dataset = tdl.load_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
+    dataset = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
 
     assert isinstance(dataset, pd.DataFrame)
 

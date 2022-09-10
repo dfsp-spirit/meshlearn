@@ -117,8 +117,8 @@ class TrainingData():
 
 
 
-    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False, df=True):
-        """Loader for training data from FreeSurfer format (non-preprocessed) files.
+    def load_raw_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False, df=True):
+        """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
 
@@ -188,6 +188,9 @@ class TrainingData():
 
         if df:
             full_data = pd.DataFrame(full_data, columns=col_names)
+            dataset_size_bytes = full_data.memory_usage(deep=True).sum()
+            print(f"Dataset size in RAM is about {dataset_size_bytes} bytes, or {dataset_size_bytes / 1024. / 1024.} MB.")
+
 
         return full_data
 

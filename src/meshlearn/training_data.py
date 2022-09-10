@@ -6,11 +6,12 @@ import brainload as bl
 import trimesh as tm
 import nibabel.freesurfer.io as fsio
 import numpy as np
+import pandas as pd
 from scipy.spatial import KDTree
 from meshlearn.neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
 from warnings import warn
 import os.path
-
+import glob
 
 def load_piallgi_morph_data(subjects_dir, subjects_list):
     return bl.group_native("pial_lgi", subjects_dir, subjects_list)
@@ -114,8 +115,10 @@ class TrainingData():
                 yield (X, y)
 
 
-    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False):
-        """Loader for training data from files.
+
+
+    def load_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False, df=True):
+        """Loader for training data from FreeSurfer format (non-preprocessed) files.
 
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
 
@@ -123,6 +126,7 @@ class TrainingData():
         ----------
         datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
         num_samples: positive integer, the number of samples to return from the files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
+        df : bool, whether to return as padnas.DataFrame (instead of numpy.ndarray)
 
         Returns
         ------
@@ -130,7 +134,7 @@ class TrainingData():
         y scalar float, the per-vertex data value for the source vertex.
         """
         if neighborhood_radius is None:
-            self.neighborhood_radius = self.neighborhood_radius
+            neighborhood_radius = self.neighborhood_radius
 
         print(f"Will use distance metric {self.distance_measure}")
 
@@ -151,8 +155,8 @@ class TrainingData():
 
             if self.distance_measure == "Euclidean":
                 self.kdtree = KDTree(vert_coords)
-                print(f"Computing neighborhoods based on Euklidean radius {neighborhood_radius} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
+                print(f"Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
+                neighborhoods, col_names = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
                 #neighborhoods = { i : neighborhoods[i] for i in range(0, len(neighborhoods) ) } # Convert list to dict.
 
                 #neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
@@ -162,17 +166,8 @@ class TrainingData():
                     full_data = np.concatenate((full_data, neighborhoods,), axis=1)
 
                 num_samples_loaded += neighborhoods.shape[0]
-
-
-
-            elif self.distance_measure == "graph":
-                raise ValueError("graph distance not implemented yet")
-                #print(f"Computing neighborhoods based on graph edge distance {self.neighborhood_k} for '{vert_coords.shape[0]}' vertices in mesh file '{mesh_file_name}'.")
-                #neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
-                #neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
-
             else:
-                raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
+                raise ValueError("Invalid distance_measure {dm}, must be 'Euclidean'.".format(dm=self.distance_measure))
 
 
 
@@ -185,9 +180,65 @@ class TrainingData():
         if num_samples_to_load is not None:
                 if num_samples_loaded > num_samples_to_load:
                     if force_no_more_than_num_samples_to_load:
-                        return full_data[0:num_samples_to_load, :] # this wastes stuff we spent time loading
+                        print(f"Truncating data of size {num_samples_loaded} to {num_samples_to_load} samples, 'force_no_more_than_num_samples_to_load' is true.")
+                        full_data = full_data[0:num_samples_to_load, :] # this wastes stuff we spent time loading
+                    else:
+                        print(f"Returning {num_samples_loaded} instead of {num_samples_to_load} samples, file contained more and 'force_no_more_than_num_samples_to_load' is false.")
+
+
+        if df:
+            full_data = pd.DataFrame(full_data, columns=col_names)
 
         return full_data
+
+
+
+def get_valid_mesh_desc_lgi_file_pairs(dc_data_dir, verbose=True):
+        """
+        Discover valid pairs of mesh and descriptor files in datadir created with `deepcopy_testdata.py` script.
+
+        WARNING: Note that `dc_data_dir` is NOT a standard FreeSurfer directory structure, but a flat directory with
+                renamed files (including subject to make them unique in the dir). Use the mentioned script `deepcopy_testdata.py` to
+                turn a FreeSUrfer recon-all output dir into such a flat dir.
+
+        TODO: We should maybe rewrite this function to just work directly on a recon-all output dir.
+
+        Returns
+        -------
+        tuple of 2 lists of filenames, the first list is a list of pial surface mesh files. the 2nd a list of lgi descriptor files. It is
+        guaranteed that the lists have some lengths, and that the files at identical indices in them belong to each other.
+        """
+
+        if not os.path.isdir(dc_data_dir):
+            raise ValueError("The data directory '{data_dir}' does not exist or cannot be accessed".format(data_dir=dc_data_dir))
+
+        mesh_files = np.sort(glob.glob("{data_dir}/*.pial".format(data_dir=dc_data_dir)))
+        descriptor_files = np.sort(glob.glob("{data_dir}/*.pial_lgi".format(data_dir=dc_data_dir)))
+        if verbose:
+            if len(mesh_files) < 3:
+                print("Found {num_mesh_files} mesh files: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files)))
+            else:
+                print("Found {num_mesh_files} mesh files, first 3: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files[0:3])))
+            if len(descriptor_files) < 3:
+                print("Found {num_descriptor_files} descriptor files: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files)))
+            else:
+                print("Found {num_descriptor_files} descriptor files, first 3: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files[0:3])))
+
+        valid_mesh_files = list()
+        valid_desc_files = list()
+
+        for mesh_filename in mesh_files:
+            expected_desc_filename = "{mesh_filename}_lgi".format(mesh_filename=mesh_filename)
+            if os.path.exists(expected_desc_filename):
+                valid_mesh_files.append(mesh_filename)
+                valid_desc_files.append(expected_desc_filename)
+
+        assert len(valid_mesh_files) == len(valid_desc_files)
+        num_valid_file_pairs = len(valid_mesh_files)
+
+        if verbose:
+            print("Found {num_valid_file_pairs} valid pairs of mesh file with matching descriptor file.".format(num_valid_file_pairs=num_valid_file_pairs))
+        return valid_mesh_files, valid_desc_files
 
 
 

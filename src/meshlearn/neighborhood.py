@@ -30,7 +30,6 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
     assert vert_coords.shape[1] == 3  # 3 coords for the x,y,z. Just to make sure it is not transposed.
     num_verts_in_mesh = vert_coords.shape[0]
-    print("TODO: neighborhoods_euclid_around_points :this should accept the max number of neighbors per neighboorhood to include and return a matrix of shape (num_verts, neigh_data_len). Also normals should be part of neigh_data_len.")
     neighbor_indices = kdtree.query_ball_point(x=vert_coords, r=neighborhood_radius) # list of arrays
     assert neighbor_indices.shape[0] == num_verts_in_mesh
 
@@ -59,6 +58,16 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     ## Full matrix for all neighborhoods
     neighborhoods = np.zeros((num_verts_in_mesh, neighborhood_col_num_values), dtype=np.float)
 
+    col_names = []
+    for n_idx in range(max_num_neighbors):
+        for coord in ["x", "y", "z"]:
+            col_names.append("nc" + str(n_idx)) # "coord) # nc for neighbor coord
+    for n_idx in range(max_num_neighbors):
+        for coord in ["x", "y", "z"]:
+            col_names.append("nn" + str(n_idx)) # nn for neighbor normal
+    col_names.append("label")
+
+
     for central_vert_idx, neigh_vert_indices in enumerate(neighbor_indices):
         col_start_idx = 0
 
@@ -79,7 +88,8 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
 
     print("Neighborhoods filled.")
 
-    return neighborhoods
+    assert neighborhoods.shape[1] == len(col_names)
+    return neighborhoods, col_names
 
 
 

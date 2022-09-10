@@ -148,6 +148,8 @@ class TrainingData():
         num_samples_loaded = 0
         do_break = False
         full_data = None
+
+        num_files_loaded = 0
         for mesh_file_name, descriptor_file_name in datafiles.items():
             if do_break:
                 break
@@ -165,13 +167,18 @@ class TrainingData():
                 print(f"Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
                 neighborhoods, col_names = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
 
+                num_files_loaded += 1
+
                 neighborhoods_size_bytes = getsizeof(neighborhoods)
-                print(f"Current neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
+                print(f"Current neighborhood #{num_files_loaded} size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
 
                 if full_data is None:
                     full_data = neighborhoods
                 else:
                     full_data = np.concatenate((full_data, neighborhoods,), axis=0)
+                    full_data_size_bytes = getsizeof(neighborhoods)
+                    full_data_size_MB = full_data_size_bytes / 1024. / 1024.
+                    print(f"Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_bytes} bytes, or {full_data_size_MB} MB ({full_data_size_MB / num_files_loaded} MB per file on avg).")
 
                 num_samples_loaded += neighborhoods.shape[0]
             else:

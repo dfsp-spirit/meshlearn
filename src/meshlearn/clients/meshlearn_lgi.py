@@ -46,13 +46,20 @@ def meshlearn_lgi():
     mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
     mesh_neighborhood_radius = int(args.neigh_radius)
 
+    num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
 
     print("---Train and evaluate an lGI prediction model---")
     if args.verbose:
         print("Verbosity turned on.")
-        print("Using data directory '{data_dir}'.".format(data_dir=data_dir))
+        print(f"Using data directory '{data_dir}', observations to load limit is set to: {num_neighborhoods_to_load}.")
+        print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
 
-    mesh_files, desc_files = get_valid_mesh_desc_file_pairs_reconall(data_dir)
+
+    discover_start = time.time()
+    mesh_files, desc_files, cortex_files, val_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir)
+    discover_end = time.time()
+    discover_execution_time = discover_end - discover_start
+    print(f"Discovering data files done, it took: {timedelta(seconds=discover_execution_time)}")
 
     ### Decide which files are used as training, validation and test data. ###
     input_file_dict = dict(zip(mesh_files, desc_files))
@@ -60,15 +67,17 @@ def meshlearn_lgi():
     if args.verbose:
         print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
 
-    num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
-
     if num_neighborhoods_to_load is None:
         print(f"Will load all data from the {len(input_file_dict)} files.")
     else:
-        print(f"Will load {num_neighborhoods_to_load} samples from the {len(input_file_dict)} files.")
+        print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
 
+    load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
     dataset = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
+    load_end = time.time()
+    load_execution_time = load_end - load_start
+    print(f"Loading data files done, it took: {timedelta(seconds=load_execution_time)}")
 
     assert isinstance(dataset, pd.DataFrame)
 
@@ -89,8 +98,6 @@ def meshlearn_lgi():
     X_train = sc.fit_transform(X_train)
     X_test = sc.transform(X_test)
 
-
-
     n_estimators = 20
     print(f"Fitting with RandomForestRegressor with {n_estimators} estimators.")
 
@@ -100,9 +107,9 @@ def meshlearn_lgi():
     regressor.fit(X_train, y_train)
 
     fit_end = time.time()
-    execution_time = fit_end - fit_start
+    fit_execution_time = fit_end - fit_start
 
-    print(f"Fitting done, it took: {timedelta(seconds=execution_time)}")
+    print(f"Fitting done, it took: {timedelta(seconds=fit_execution_time)}")
     print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
 
     y_pred = regressor.predict(X_test)

@@ -15,6 +15,8 @@ from warnings import warn
 import os.path
 import glob
 
+from sys import getsizeof
+
 def load_piallgi_morph_data(subjects_dir, subjects_list):
     return bl.group_native("pial_lgi", subjects_dir, subjects_list)
 
@@ -163,10 +165,13 @@ class TrainingData():
                 print(f"Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
                 neighborhoods, col_names = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
 
+                neighborhoods_size_bytes = getsizeof(neighborhoods)
+                print(f"Current neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
+
                 if full_data is None:
                     full_data = neighborhoods
                 else:
-                    full_data = np.concatenate((full_data, neighborhoods,), axis=1)
+                    full_data = np.concatenate((full_data, neighborhoods,), axis=0)
 
                 num_samples_loaded += neighborhoods.shape[0]
             else:
@@ -192,16 +197,27 @@ class TrainingData():
         if df:
             full_data = pd.DataFrame(full_data, columns=col_names)
             dataset_size_bytes = full_data.memory_usage(deep=True).sum()
-            print(f"Dataset size in RAM is about {dataset_size_bytes} bytes, or {dataset_size_bytes / 1024. / 1024.} MB.")
+            print(f"Total dataset size in RAM is about {dataset_size_bytes} bytes, or {dataset_size_bytes / 1024. / 1024.} MB.")
 
 
         return full_data
 
 
 
-def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descriptor="pial_lgi", verbose=True, subjects_file=None, subjects_list=None, hemis=["lh", "rh"]):
+def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descriptor="pial_lgi", verbose=True, subjects_file=None, subjects_list=None, hemis=["lh", "rh"], cortex_label=False):
     """
     Discover valid pairs of mesh and descriptor files in FreeSurfer recon-all output dir.
+
+    Parameters
+    ----------
+    recon_dir str, recon-all output dir.
+    surface str, surface file to load. 'white', 'pial', 'sphere', etc
+    descriptor str, desc to load (per-vertex data). 'thickness', 'volume', 'area' etc
+    verbose bool, whether to print status info
+    subjects_file str, path to subjects file. assumed to be recon_dir/subjects.txt if omitted
+    subjects_list list of str, use only if no subjects_file is given.
+    hemis list of str, containing one or more of 'lh', 'rh'
+    cortex_label bool, whether to also require label/<hemi>.cortex.label files.
     """
     if not os.path.isdir(recon_dir):
         raise ValueError("The data directory '{recon_dir}' does not exist or cannot be accessed".format(data_dir=recon_dir))
@@ -219,10 +235,16 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
     if verbose:
         print(f"Using subjects list containing {len(subjects_list)} subjects. Loading them from recon-all output dir '{recon_dir}'.")
-        print(f"Loading surface '{surface}', descriptor '{descriptor}' for {len(hemis)} hemis: {hemis}.")
+        print(f"Discovering surface '{surface}', descriptor '{descriptor}' for {len(hemis)} hemis: {hemis}.")
+        if cortex_label:
+            print(f"Discovering cortex labels.")
+        else:
+            print(f"Not discovering cortex labels.")
 
     valid_mesh_files = []
     valid_desc_files = []
+    valid_labl_files = []
+    valid_subjects = []
 
     for subject in subjects_list:
         sjd = os.path.join(recon_dir, subject)
@@ -231,16 +253,24 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                 surf_file = os.path.join(sjd, "surf", f"{hemi}.{surface}")
                 desc_file = os.path.join(sjd, "surf", f"{hemi}.{descriptor}")
 
-                if os.path.isfile(surf_file) and os.path.isfile(desc_file):
-                    valid_mesh_files.append(surf_file)
-                    valid_desc_files.append(desc_file)
+                if cortex_label:
+                    labl_file = os.path.join(sjd, "label", f"{hemi}.cortex.label")
+                    if os.path.isfile(surf_file) and os.path.isfile(desc_file) and os.path.isfile(labl_file):
+                        valid_mesh_files.append(surf_file)
+                        valid_desc_files.append(desc_file)
+                        valid_labl_files.append(labl_file)
+                        valid_subjects.append(subject)
                 else:
-                    print(f"One of the files '{surf_file}' and '{desc_file}' does not exist.")
+                    if os.path.isfile(surf_file) and os.path.isfile(desc_file):
+                        valid_mesh_files.append(surf_file)
+                        valid_desc_files.append(desc_file)
+                        valid_subjects.append(subject)
+
 
     if verbose:
         print(f"Out of {len(subjects_list)*2} subject hemispheres, {len(valid_mesh_files)} had the requested surface and descrpitor file.")
 
-    return valid_mesh_files, valid_desc_files
+    return valid_mesh_files, valid_desc_files, valid_labl_files, valid_subjects
 
 
 

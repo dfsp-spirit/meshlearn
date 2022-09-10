@@ -1,6 +1,7 @@
 
 import numpy as np
 import trimesh as tm
+#from sys import getsizeof
 
 def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0):
     """
@@ -45,7 +46,7 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     if max_num_neighbors == 0:
         max_num_neighbors = min_neigh_size # set to minimum to avoid NANs
         print(f"Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
-    print(f"min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
+    print(f"Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
 
     ## filter neighborhoods which are too small
     neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
@@ -86,7 +87,8 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
 
         neighborhoods[central_vert_idx, col_start_idx] = pvd_data[central_vert_idx] # Add label (lgi, thickness, or whatever)
 
-    print("Neighborhoods filled.")
+    #neighborhoods_size_bytes = getsizeof(neighborhoods)
+    #print(f"Neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
 
     assert neighborhoods.shape[1] == len(col_names)
     return neighborhoods, col_names

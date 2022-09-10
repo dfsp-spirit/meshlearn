@@ -62,10 +62,10 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     col_names = []
     for n_idx in range(max_num_neighbors):
         for coord in ["x", "y", "z"]:
-            col_names.append("nc" + str(n_idx)) # "coord) # nc for neighbor coord
+            col_names.append("nc" + str(n_idx) + coord) # "coord) # nc for neighbor coord
     for n_idx in range(max_num_neighbors):
         for coord in ["x", "y", "z"]:
-            col_names.append("nn" + str(n_idx)) # nn for neighbor normal
+            col_names.append("nn" + str(n_idx) + coord) # nn for neighbor normal
     col_names.append("label")
 
 

@@ -176,7 +176,7 @@ class TrainingData():
                     full_data = neighborhoods
                 else:
                     full_data = np.concatenate((full_data, neighborhoods,), axis=0)
-                    full_data_size_bytes = getsizeof(neighborhoods)
+                    full_data_size_bytes = getsizeof(full_data)
                     full_data_size_MB = full_data_size_bytes / 1024. / 1024.
                     print(f"Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_bytes} bytes, or {full_data_size_MB} MB ({full_data_size_MB / num_files_loaded} MB per file on avg).")
 

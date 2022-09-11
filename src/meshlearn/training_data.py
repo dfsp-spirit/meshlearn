@@ -289,7 +289,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
 
     if verbose:
-        print(f"Out of {len(subjects_list)*2} subject hemispheres, {len(valid_mesh_files)} had the requested surface and descrpitor file.")
+        print(f"Out of {len(subjects_list)*2} subject hemispheres, {len(valid_mesh_files)} had the requested surface and descriptor files.")
 
     return valid_mesh_files, valid_desc_files, valid_labl_files, valid_subjects
 

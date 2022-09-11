@@ -118,9 +118,10 @@ X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
 n_estimators = 100
-print(f"Fitting with RandomForestRegressor with {n_estimators} estimators.")
+
 
 fit_start = time.time()
+print(f"Fitting with RandomForestRegressor with {n_estimators} estimators. (Started at {fit_start}.)")
 
 regressor = RandomForestRegressor(n_estimators=n_estimators, random_state=0, n_jobs=-1)
 regressor.fit(X_train, y_train)

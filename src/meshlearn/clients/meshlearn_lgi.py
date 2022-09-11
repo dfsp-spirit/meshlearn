@@ -75,7 +75,7 @@ discover_start = time.time()
 mesh_files, desc_files, cortex_files, val_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir)
 discover_end = time.time()
 discover_execution_time = discover_end - discover_start
-print(f"Discovering data files done, it took: {timedelta(seconds=discover_execution_time)}")
+print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
 
 ### Decide which files are used as training, validation and test data. ###
 input_file_dict = dict(zip(mesh_files, desc_files))
@@ -93,14 +93,17 @@ tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=m
 dataset = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
 load_end = time.time()
 load_execution_time = load_end - load_start
-print(f"Loading data files done, it took: {timedelta(seconds=load_execution_time)}")
+print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
 
 assert isinstance(dataset, pd.DataFrame)
+
+print("Separating observations and labels...")
 
 nc = len(dataset.columns)
 X = dataset.iloc[:, 0:(nc-1)].values
 y = dataset.iloc[:, (nc-1)].values
 
+print("Splitting data into train and test sets...")
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
@@ -125,7 +128,7 @@ regressor.fit(X_train, y_train)
 fit_end = time.time()
 fit_execution_time = fit_end - fit_start
 
-print(f"Fitting done, it took: {timedelta(seconds=fit_execution_time)}")
+print(f"===Fitting done, it took: {timedelta(seconds=fit_execution_time)} ===")
 print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
 
 y_pred = regressor.predict(X_test)
@@ -134,3 +137,7 @@ y_pred = regressor.predict(X_test)
 print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
 print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
 print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+
+# Evaluate feature importance
+
+

@@ -221,7 +221,7 @@ class TrainingData():
                 print(f"[load] RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
 
-        return full_data
+        return full_data, col_names
 
 
 

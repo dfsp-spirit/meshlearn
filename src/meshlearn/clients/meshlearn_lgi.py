@@ -90,7 +90,7 @@ else:
 
 load_start = time.time()
 tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-dataset = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
+dataset, col_names = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
 load_end = time.time()
 load_execution_time = load_end - load_start
 print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
@@ -140,5 +140,23 @@ print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
 print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
 
 # Evaluate feature importance
+importances = regressor.feature_importances_
+
+feature_names = col_names[:-1]
+
+print(f"=== Evaluating Feature importance ===")
+print(f"Feature names: {feature_names}")
+print(f"Feature impor: {importances}")
+
+do_plot = False
+if do_plot:
+    std = np.std([regressor.feature_importances_ for tree in regressor.estimators_], axis=0)
+    forest_importances = pd.Series(importances, index=feature_names)
+    import matplotlib.pyplot as plt
+    fig, ax = plt.subplots()
+    forest_importances.plot.bar(yerr=std, ax=ax)
+    ax.set_title("Feature importances using MDI")
+    ax.set_ylabel("Mean decrease in impurity")
+    fig.tight_layout()
 
 

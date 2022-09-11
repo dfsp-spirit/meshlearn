@@ -150,7 +150,7 @@ print(f"Feature impor: {importances}")
 
 do_plot = False
 if do_plot:
-    std = np.std([regressor.feature_importances_ for tree in regressor.estimators_], axis=0)
+    std = np.std([tree.feature_importances_ for tree in regressor.estimators_], axis=0)
     forest_importances = pd.Series(importances, index=feature_names)
     import matplotlib.pyplot as plt
     fig, ax = plt.subplots()

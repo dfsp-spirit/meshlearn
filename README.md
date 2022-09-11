@@ -57,11 +57,12 @@ If you want to run the neural network scripts that use tensorflow and you have a
 ```shell
 conda create --name meshlearn-gpu python=3.7
 conda activate meshlearn-gpu
-conda install tensorflow-gpu
-conda install pandas
-conda install matplotlib
-conda install ipython
-conda install scitkit-learn
+conda install -y tensorflow-gpu
+conda install -y pandas
+conda install -y matplotlib
+conda install -y ipython
+conda install -y scitkit-learn
+conda install -y psutil
 ```
 
 Keep in mind though that your GPU memory may be smaller than your system RAM, and you will most likely have to train in batches.

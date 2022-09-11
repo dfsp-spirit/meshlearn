@@ -15,6 +15,8 @@ from warnings import warn
 import os.path
 import glob
 
+import psutil
+
 from sys import getsizeof
 
 def load_piallgi_morph_data(subjects_dir, subjects_list):
@@ -121,7 +123,7 @@ class TrainingData():
 
 
 
-    def load_raw_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False, df=True):
+    def load_raw_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False, df=True, verbose=True):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
@@ -150,35 +152,42 @@ class TrainingData():
         full_data = None
 
         num_files_loaded = 0
+        if verbose:
+                print(f"[load] Loading data.")
         for mesh_file_name, descriptor_file_name in datafiles.items():
             if do_break:
                 break
 
             if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
-                warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
+                warn("[load] Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
                 continue
 
-            print(f"Loading mesh file '{mesh_file_name}' and descriptor file '{descriptor_file_name}'.")
+            if verbose:
+                print(f"[load] * Loading mesh file '{mesh_file_name}' and descriptor file '{descriptor_file_name}'.")
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
             self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
 
             if self.distance_measure == "Euclidean":
                 self.kdtree = KDTree(vert_coords)
-                print(f"Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
+                if verbose:
+                    print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
                 neighborhoods, col_names = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
 
                 num_files_loaded += 1
 
                 neighborhoods_size_bytes = getsizeof(neighborhoods)
-                print(f"Current neighborhood #{num_files_loaded} size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
+                if verbose:
+                    print(f"[load]  - Current neighborhood #{num_files_loaded} size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
 
                 if full_data is None:
                     full_data = neighborhoods
                 else:
                     full_data = np.concatenate((full_data, neighborhoods,), axis=0)
                     full_data_size_bytes = getsizeof(full_data)
-                    full_data_size_MB = full_data_size_bytes / 1024. / 1024.
-                    print(f"Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_bytes} bytes, or {full_data_size_MB} MB ({full_data_size_MB / num_files_loaded} MB per file on avg).")
+                    full_data_size_MB = int(full_data_size_bytes / 1024. / 1024.)
+                    if verbose:
+                        print(f"[load]  - Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_bytes} bytes, or {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg).")
+                        print(f"[load]  - RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
                 num_samples_loaded += neighborhoods.shape[0]
             else:
@@ -188,23 +197,28 @@ class TrainingData():
 
             if num_samples_to_load is not None:
                 if num_samples_loaded >= num_samples_to_load:
-                        print(f"Done loading the requested {num_samples_to_load} samples, ignoring the rest.")
+                        if verbose:
+                            print(f"[load] Done loading the requested {num_samples_to_load} samples, ignoring the rest.")
                         do_break = True
                         break
 
         if num_samples_to_load is not None:
                 if num_samples_loaded > num_samples_to_load:
                     if force_no_more_than_num_samples_to_load:
-                        print(f"Truncating data of size {num_samples_loaded} to {num_samples_to_load} samples, 'force_no_more_than_num_samples_to_load' is true.")
+                        if verbose:
+                            print(f"[load] Truncating data of size {num_samples_loaded} to {num_samples_to_load} samples, 'force_no_more_than_num_samples_to_load' is true.")
                         full_data = full_data[0:num_samples_to_load, :] # this wastes stuff we spent time loading
                     else:
-                        print(f"Returning {num_samples_loaded} instead of {num_samples_to_load} samples, file contained more and 'force_no_more_than_num_samples_to_load' is false.")
+                        if verbose:
+                            print(f"[load] Returning {num_samples_loaded} instead of {num_samples_to_load} samples, file contained more and 'force_no_more_than_num_samples_to_load' is false.")
 
 
         if df:
             full_data = pd.DataFrame(full_data, columns=col_names)
             dataset_size_bytes = full_data.memory_usage(deep=True).sum()
-            print(f"Total dataset size in RAM is about {dataset_size_bytes} bytes, or {dataset_size_bytes / 1024. / 1024.} MB.")
+            if verbose:
+                print(f"[load] Total dataset size in RAM is about {dataset_size_bytes} bytes, or {int(dataset_size_bytes / 1024. / 1024.)} MB.")
+                print(f"[load] RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
 
         return full_data

@@ -10,6 +10,7 @@ from tensorflow.keras import layers
 from tensorflow.keras import Sequential
 import time
 from datetime import timedelta
+import psutil
 
 
 from sklearn.model_selection import train_test_split
@@ -23,6 +24,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
+from sys import getsizeof
 
 
 
@@ -39,7 +41,7 @@ parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default="/media/spirit/science/data/abide")
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
-parser.add_argument('-l', '--load_max', help="Number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="50000")
+parser.add_argument('-l', '--load_max', help="Number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="400000")
 args = parser.parse_args()
 
 data_dir = args.data_dir
@@ -51,8 +53,22 @@ num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_m
 print("---Train and evaluate an lGI prediction model---")
 if args.verbose:
     print("Verbosity turned on.")
-    print(f"Using data directory '{data_dir}', observations to load limit is set to: {num_neighborhoods_to_load}.")
-    print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
+
+print(f"Using data directory '{data_dir}', observations to load limit is set to: {num_neighborhoods_to_load}.")
+print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
+
+if num_neighborhoods_to_load is not None:
+    # Estimate total dataset size in RAM early to prevent crashing later, if possible.
+    ds_estimated_num_values_per_neighborhood = 6 * mesh_neighborhood_count + 1
+    ds_estimated_num_neighborhoods = num_neighborhoods_to_load
+    # try to allocate, will err if too little RAM.
+    print(f"RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
+    ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
+    ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
+    ds_dummy = None
+    ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
+    print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
+
 
 
 discover_start = time.time()

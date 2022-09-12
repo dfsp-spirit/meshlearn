@@ -12,6 +12,9 @@ import time
 from datetime import timedelta
 import psutil
 
+from sklearnex import patch_sklearn
+patch_sklearn()
+
 
 from sklearn.model_selection import train_test_split
 from meshlearn.tfdata import VertexPropertyDataset

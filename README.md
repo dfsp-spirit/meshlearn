@@ -30,6 +30,9 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 
 ## Development
 
+Note: This is structured like a python module, but the code should be treated as a very specific application, I guess. It's just convenient for me to have it in a model to re-use some data loading stuff.
+
+
 ### Development setup for Ubuntu 20.04 LTS
 
 We highly recommend to work in a `conda` environment, especially when using `tensorflow-gpu` instead of the CPU-version `tensorflow`:

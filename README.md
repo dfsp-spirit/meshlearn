@@ -50,7 +50,7 @@ conda install -y matplotlib
 conda install -y ipython
 conda install -y scitkit-learn
 conda install -y psutil
-conda install scikit-learn-intelex
+conda install -c conda-forge scikit-learn-intelex
 ```
 
 Keep in mind though that your GPU memory may be smaller than your system RAM, and you will most likely have to train in batches.

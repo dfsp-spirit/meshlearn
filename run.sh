@@ -8,4 +8,4 @@ if [ ! -d "${abide_lgi_dir}" ]; then
     exit 1
 fi
 
-python ./src/meshlearn/clients/meshlearn_lgi.py -v -d tests/test_data/abide/
+python ./src/meshlearn/clients/meshlearn_lgi.py -v

@@ -44,7 +44,8 @@ parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default="/media/spirit/science/data/abide")
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
-parser.add_argument('-l', '--load_max', help="Number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="400000")
+parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="400000")
+parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="10000")
 args = parser.parse_args()
 
 data_dir = args.data_dir
@@ -52,6 +53,7 @@ mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge 
 mesh_neighborhood_radius = int(args.neigh_radius)
 
 num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
+num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
 
 print("---Train and evaluate an lGI prediction model---")
 if args.verbose:
@@ -86,14 +88,20 @@ input_file_dict = dict(zip(mesh_files, desc_files))
 if args.verbose:
     print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
 
-if num_neighborhoods_to_load is None:
-    print(f"Will load all data from the {len(input_file_dict)} files.")
-else:
-    print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
+    if num_neighborhoods_to_load is None:
+        print(f"Will load all data from the {len(input_file_dict)} files.")
+    else:
+        print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
+
+    if num_samples_per_file is None:
+        print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
+    else:
+        print(f"Will load at most {num_samples_per_file} vertex neighborhoods per mesh file.")
+
 
 load_start = time.time()
 tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load)
+dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file)
 load_end = time.time()
 load_execution_time = load_end - load_start
 print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")

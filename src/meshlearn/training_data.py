@@ -121,18 +121,22 @@ class TrainingData():
                 yield (X, y)
 
 
-
-
-    def load_raw_data(self, datafiles, num_samples_to_load=None, neighborhood_radius=None, force_no_more_than_num_samples_to_load=False, df=True, verbose=True):
+    def neighborhoods_from_raw_data(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
+        Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
+        Returns, for each such vertex neighborhood, the coordinates and normals of all neighborhood vertices.
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
 
         Parameters
         ----------
         datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
-        num_samples: positive integer, the number of samples to return from the files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
-        df : bool, whether to return as padnas.DataFrame (instead of numpy.ndarray)
+        neighborhood_radius: radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
+        num_samples_total: positive integer, the total number of samples (neighborhoods) to return from the mesh files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
+        exactly: bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
+        num_samples_per_file: positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `self.num_neighbors`.
+        df : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray)
+        verbose: bool, whether to print output (or be silent)
 
         Returns
         ------
@@ -141,6 +145,9 @@ class TrainingData():
         """
         if neighborhood_radius is None:
             neighborhood_radius = self.neighborhood_radius
+
+        if max_num_neighbors is None:
+            max_num_neighbors = self.num_neighbors
 
         if not isinstance(datafiles, dict):
             raise ValueError("datafiles must be a dict")
@@ -167,17 +174,30 @@ class TrainingData():
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
             self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
 
+            num_verts_total = vert_coords.shape[0]
+
+            if num_samples_per_file == None:
+                query_vert_coords = vert_coords
+                query_vert_indices = np.arange(num_verts_total)
+            else:
+                query_vert_coords = vert_coords.copy()
+                # Sample 'num_samples_per_file' vertex coords from the full coords list
+                randomstate = np.random.default_rng(0)
+                query_vert_indices = randomstate.choice(num_verts_total, num_samples_per_file, replace=False, shuffle=False)
+                query_vert_coords = query_vert_coords[query_vert_indices, :]
+
             if self.distance_measure == "Euclidean":
                 self.kdtree = KDTree(vert_coords)
                 if verbose:
-                    print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {vert_coords.shape[0]} vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods, col_names = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=self.num_neighbors, pvd_data=pvd_data)
+                    print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
+                neighborhoods, col_names, _ = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data)
+
 
                 num_files_loaded += 1
 
                 neighborhoods_size_bytes = getsizeof(neighborhoods)
                 if verbose:
-                    print(f"[load]  - Current neighborhood #{num_files_loaded} size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
+                    print(f"[load]  - Current neighborhoods #{num_files_loaded} size in RAM is about {neighborhoods_size_bytes / 1024. / 1024.} MB.")
 
                 if full_data is None:
                     full_data = neighborhoods
@@ -186,7 +206,7 @@ class TrainingData():
                     full_data_size_bytes = getsizeof(full_data)
                     full_data_size_MB = int(full_data_size_bytes / 1024. / 1024.)
                     if verbose:
-                        print(f"[load]  - Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_bytes} bytes, or {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg).")
+                        print(f"[load]  - Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg).")
                         print(f"[load]  - RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
                 num_samples_loaded += neighborhoods.shape[0]
@@ -195,29 +215,29 @@ class TrainingData():
 
 
 
-            if num_samples_to_load is not None:
-                if num_samples_loaded >= num_samples_to_load:
+            if num_samples_total is not None:
+                if num_samples_loaded >= num_samples_total:
                         if verbose:
-                            print(f"[load] Done loading the requested {num_samples_to_load} samples, ignoring the rest.")
+                            print(f"[load] Done loading the requested {num_samples_total} samples, ignoring the rest.")
                         do_break = True
                         break
 
-        if num_samples_to_load is not None:
-                if num_samples_loaded > num_samples_to_load:
-                    if force_no_more_than_num_samples_to_load:
+        if num_samples_total is not None:
+                if num_samples_loaded > num_samples_total:
+                    if exactly:
                         if verbose:
-                            print(f"[load] Truncating data of size {num_samples_loaded} to {num_samples_to_load} samples, 'force_no_more_than_num_samples_to_load' is true.")
-                        full_data = full_data[0:num_samples_to_load, :] # this wastes stuff we spent time loading
+                            print(f"[load] Truncating data of size {num_samples_loaded} to {num_samples_total} samples, 'force_no_more_than_num_samples_to_load' is true.")
+                        full_data = full_data[0:num_samples_total, :] # this wastes stuff we spent time loading
                     else:
                         if verbose:
-                            print(f"[load] Returning {num_samples_loaded} instead of {num_samples_to_load} samples, file contained more and 'force_no_more_than_num_samples_to_load' is false.")
+                            print(f"[load] Returning {num_samples_loaded} instead of {num_samples_total} samples, file contained more and 'force_no_more_than_num_samples_to_load' is false.")
 
 
         if df:
             full_data = pd.DataFrame(full_data, columns=col_names)
             dataset_size_bytes = full_data.memory_usage(deep=True).sum()
             if verbose:
-                print(f"[load] Total dataset size in RAM is about {dataset_size_bytes} bytes, or {int(dataset_size_bytes / 1024. / 1024.)} MB.")
+                print(f"[load] Total dataset size in RAM is about {int(dataset_size_bytes / 1024. / 1024.)} MB.")
                 print(f"[load] RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
 

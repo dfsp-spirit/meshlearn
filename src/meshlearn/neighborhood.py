@@ -3,7 +3,7 @@ import numpy as np
 import trimesh as tm
 #from sys import getsizeof
 
-def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -13,7 +13,8 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
 
     Parameters
     ----------
-    vert_coords nx3 numpy.ndarray for n 3D points
+    query_vert_coords nx3 numpy.ndarray for n 3D points
+    query_vert_indices np.array of ints, the vertex indices in the mesh for the vert_coords. required to assign proper pvd_data value. Set to None to assume that the coords are the coords of all mesh vertices.
     kdtree scipy.spatial.KDTree instance
     neighborhood_radius the radius for sphere used in kdtree query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with num_neighbors.
     mesh tmesh.Trimesh instance (the one from which vert_coords also come, currently duplicated)
@@ -25,14 +26,22 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     """
     if kdtree is None:
         raise ValueError("No kdtree initialized yet.")
-    if not isinstance(vert_coords, np.ndarray):
-        raise ValueError("Expected np.ndarray as input.")
-    if not vert_coords.shape[1] == 3:
+    if not isinstance(query_vert_coords, np.ndarray):
+        raise ValueError("Expected np.ndarray as 'query_vert_coords' input.")
+    if not isinstance(query_vert_indices, np.ndarray):
+        raise ValueError("Expected np.ndarray as 'query_vert_indices' input.")
+    if not query_vert_coords.shape[1] == 3:
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
-    assert vert_coords.shape[1] == 3  # 3 coords for the x,y,z. Just to make sure it is not transposed.
-    num_verts_in_mesh = vert_coords.shape[0]
-    neighbor_indices = kdtree.query_ball_point(x=vert_coords, r=neighborhood_radius) # list of arrays
-    assert neighbor_indices.shape[0] == num_verts_in_mesh
+
+    num_query_verts = query_vert_coords.shape[0]
+    if query_vert_indices is None:
+        query_vert_indices = np.arange(num_query_verts) # Assume we were passed coords of all vertices, so we can compute the indices.
+
+    if not num_query_verts == query_vert_indices.size:
+        raise ValueError("Expected number of rows in 'query_vert_coords' to match length of 'query_vert_indices'.")
+
+    neighbor_indices = kdtree.query_ball_point(x=query_vert_coords, r=neighborhood_radius) # list of arrays
+    assert neighbor_indices.shape[0] == num_query_verts
 
     ## Atm, the number of neighbors differs between the source vertices, as we simply found all within a fixed Euclidean radius (and vertex density obvisouly differs).
     ## So we need to fix the lengths to max_num_neighbors.
@@ -49,15 +58,19 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     print(f"Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
 
     ## filter neighborhoods which are too small
+    kept_vertex_indices_rel = np.where(len(neigh) >= max_num_neighbors for neigh in neighbor_indices) # These are indices into the query_vert_coords, but that may not be all vertices in the mesh.
+    kept_vertex_indices_mesh = query_vert_indices[kept_vertex_indices_rel]
     neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
     print(f"Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
+
+    assert len(neighbor_indices_filtered) == len(kept_vertex_indices_mesh)
 
     neighbor_indices = neighbor_indices_filtered
 
     neighborhood_col_num_values = max_num_neighbors * (3 + 3) + 1 # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd value per neighborhood
 
     ## Full matrix for all neighborhoods
-    neighborhoods = np.zeros((num_verts_in_mesh, neighborhood_col_num_values), dtype=np.float)
+    neighborhoods = np.zeros((num_query_verts, neighborhood_col_num_values), dtype=np.float)
 
     col_names = []
     for n_idx in range(max_num_neighbors):
@@ -69,29 +82,31 @@ def neighborhoods_euclid_around_points(vert_coords, kdtree, neighborhood_radius,
     col_names.append("label")
 
 
-    for central_vert_idx, neigh_vert_indices in enumerate(neighbor_indices):
+    for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
+        central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
         col_start_idx = 0
 
         col_end_idx = col_start_idx+(max_num_neighbors*3)
         #print(f"Add coords for {len(neigh_indices)} neighbors into col positions {col_start_idx} to {col_end_idx} (num columns is {neighborhood_col_num_values}).")
-        neighborhoods[central_vert_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices] - mesh.vertices[central_vert_idx]) # Add vertex coords relative to central vertex
+        neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices] - mesh.vertices[central_vert_idx_mesh]) # Add vertex coords relative to central vertex
 
         col_start_idx = col_end_idx
         col_end_idx = col_start_idx+(max_num_neighbors*3)
         #print(f"Add normals for {max_num_neighbors} neighbors into col positions {col_start_idx} to {col_end_idx}")
 
-        neighborhoods[central_vert_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
+        neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
         col_start_idx = col_end_idx
 
         #print(f"Add pvd value at col position {col_start_idx}")
 
-        neighborhoods[central_vert_idx, col_start_idx] = pvd_data[central_vert_idx] # Add label (lgi, thickness, or whatever)
+        neighborhoods[central_vert_rel_idx, col_start_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
 
     #neighborhoods_size_bytes = getsizeof(neighborhoods)
     #print(f"Neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
 
+    assert neighborhoods.shape[0] == len(kept_vertex_indices_mesh)
     assert neighborhoods.shape[1] == len(col_names)
-    return neighborhoods, col_names
+    return neighborhoods, col_names, kept_vertex_indices_mesh
 
 
 

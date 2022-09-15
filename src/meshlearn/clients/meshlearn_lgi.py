@@ -93,7 +93,7 @@ else:
 
 load_start = time.time()
 tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-dataset, col_names = tdl.load_raw_data(input_file_dict, num_samples_to_load=num_neighborhoods_to_load)
+dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load)
 load_end = time.time()
 load_execution_time = load_end - load_start
 print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")

@@ -8,7 +8,7 @@ AI model to predict computationally expensive local, vertex-wise descriptors lik
 
 ## About
 
-Predict vertex descriptors like the local gyrification index (lGI) or other local descriptors for a mesh vertex.
+Predict per-vertex descriptors like the local gyrification index (lGI) or other local descriptors for a mesh.
 
 * The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image (MRI). See [Schaer et al. 2008](https://doi.org/10.1109/TMI.2007.903576) for details.
 * The geodesic circle radius and related descriptors are described in my [cpp_geodesics repo](https://github.com/dfsp-spirit/cpp_geodesics) and in the references listed there.
@@ -42,15 +42,11 @@ We highly recommend to work in a `conda` environment, especially when using `ten
 If you want to run the neural network scripts that use tensorflow and you have a powerful GPU, I highly recommend that you install `tensorflow-gpu` to use it. Here is how I did it under Ubuntu 20.04 LTS:
 
 ```shell
-conda create --name meshlearn-gpu python=3.7
+conda create -y --name meshlearn-gpu python=3.7
 conda activate meshlearn-gpu
-conda install -y tensorflow-gpu
-conda install -y pandas
-conda install -y matplotlib
-conda install -y ipython
-conda install -y scitkit-learn
-conda install -y psutil
-conda install -c conda-forge scikit-learn-intelex
+conda install -y tensorflow-gpu  # Or just 'tensorflow' if you don't have a suitable GPU.
+conda install -y pandas matplotlib ipython scitkit-learn psutil
+conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, speedups for scikit-learn.
 ```
 
 Keep in mind though that your GPU memory may be smaller than your system RAM, and you will most likely have to train in batches.

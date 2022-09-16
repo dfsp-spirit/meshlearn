@@ -135,7 +135,7 @@ n_estimators = 100
 
 
 fit_start = time.time()
-print(f"Fitting with RandomForestRegressor with {n_estimators} estimators. (Started at {fit_start}.)")
+print(f"Fitting with RandomForestRegressor with {n_estimators} estimators. (Started at {time.ctime()}.)")
 
 regressor = RandomForestRegressor(n_estimators=n_estimators, random_state=0, n_jobs=-1)
 regressor.fit(X_train, y_train)

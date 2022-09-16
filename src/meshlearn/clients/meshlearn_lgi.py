@@ -160,8 +160,8 @@ feature_names = col_names[:-1]
 assert len(feature_names) == len(importances)
 
 print(f"=== Evaluating Feature importance ===")
-print(f"Feature names: {feature_names}")
-print(f"Feature impor: {importances}")
+print(f"Feature names       : {feature_names}")
+print(f"Feature importances : {importances}")
 
 max_importance = np.max(importances)
 min_importance = np.min(importances)

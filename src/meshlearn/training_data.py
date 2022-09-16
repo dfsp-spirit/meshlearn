@@ -197,7 +197,7 @@ class TrainingData():
 
                 neighborhoods_size_bytes = getsizeof(neighborhoods)
                 if verbose:
-                    print(f"[load]  - Current neighborhoods #{num_files_loaded} size in RAM is about {neighborhoods_size_bytes / 1024. / 1024.} MB.")
+                    print(f"[load]  - Current {neighborhoods.shape[0]} neighborhoods (from file #{num_files_loaded}) size in RAM is about {int(neighborhoods_size_bytes / 1024. / 1024.)} MB.")
 
                 if full_data is None:
                     full_data = neighborhoods
@@ -206,8 +206,7 @@ class TrainingData():
                     full_data_size_bytes = getsizeof(full_data)
                     full_data_size_MB = int(full_data_size_bytes / 1024. / 1024.)
                     if verbose:
-                        print(f"[load]  - Currently after {num_files_loaded} files, full_data size in RAM is about {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg).")
-                        print(f"[load]  - RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
+                        print(f"[load]  - Currently after {num_files_loaded} files, {full_data.shape[0]} neighborhoods loaded, and full_data size in RAM is about {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM still available.")
 
                 num_samples_loaded += neighborhoods.shape[0]
             else:

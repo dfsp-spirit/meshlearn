@@ -57,8 +57,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     if max_num_neighbors == 0:
         max_num_neighbors = min_neigh_size # set to minimum to avoid NANs
-        print(f"Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
-    print(f"Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
+        print(f"[neig]   - Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
+    print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
 
     ## Filter neighborhoods which are too small.
     kept_vertex_indices_rel = np.where([len(neigh) >= max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords, but that may not be all vertices in the mesh.
@@ -66,7 +66,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert kept_vertex_indices_rel.ndim == 1
     kept_vertex_indices_mesh = query_vert_indices[kept_vertex_indices_rel]
     neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
-    print(f"Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
+    print(f"[neig]   - Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
 
     num_query_verts_after_filtering = len(neighbor_indices_filtered)
     assert len(kept_vertex_indices_rel) == len(kept_vertex_indices_mesh)

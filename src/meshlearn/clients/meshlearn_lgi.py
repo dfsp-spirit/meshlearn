@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+from genericpath import isfile
 import sys
 import os
 import numpy as np
@@ -30,6 +31,39 @@ from sklearn import metrics
 from sys import getsizeof
 
 
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None):
+    discover_start = time.time()
+    mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
+    discover_end = time.time()
+    discover_execution_time = discover_end - discover_start
+    print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
+
+    ### Decide which files are used as training, validation and test data. ###
+    input_file_dict = dict(zip(mesh_files, desc_files))
+
+    if verbose:
+        print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
+
+        if num_neighborhoods_to_load is None:
+            print(f"Will load all data from the {len(input_file_dict)} files.")
+        else:
+            print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
+
+        if num_samples_per_file is None:
+            print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
+        else:
+            print(f"Will load at most {num_samples_per_file} vertex neighborhoods per mesh file.")
+
+
+    load_start = time.time()
+    tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
+    dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file)
+    load_end = time.time()
+    load_execution_time = load_end - load_start
+    print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
+
+    assert isinstance(dataset, pd.DataFrame)
+    return dataset, col_names
 
 
 
@@ -37,8 +71,8 @@ from sys import getsizeof
 Train and evaluate an lGI prediction model.
 """
 
-default_data_dir = os.path.expanduser("~/data/abide_freesurfer_lgi_2persite")
-#default_data_dir = "/media/spirit/science/data/abide"
+#default_data_dir = os.path.expanduser("~/data/abide_freesurfer_lgi_2persite")
+default_data_dir = "/media/spirit/science/data/abide"
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
@@ -66,50 +100,30 @@ print(f"Using data directory '{data_dir}', observations to load limit is set to:
 print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
 
 if num_neighborhoods_to_load is not None:
-    # Estimate total dataset size in RAM early to prevent crashing later, if possible.
-    ds_estimated_num_values_per_neighborhood = 6 * mesh_neighborhood_count + 1
-    ds_estimated_num_neighborhoods = num_neighborhoods_to_load
-    # try to allocate, will err if too little RAM.
-    print(f"RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
-    ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
-    ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
-    ds_dummy = None
-    ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
-    print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
+    if args.verbose:
+        # Estimate total dataset size in RAM early to prevent crashing later, if possible.
+        ds_estimated_num_values_per_neighborhood = 6 * mesh_neighborhood_count + 1
+        ds_estimated_num_neighborhoods = num_neighborhoods_to_load
+        # try to allocate, will err if too little RAM.
+        print(f"RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
+        ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
+        ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
+        ds_dummy = None
+        ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
+        print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
 
+do_pickle_data = True
+dataset_pickle_file = "meshlearn_dset.pkl"
+if do_pickle_data and os.path.isfile(dataset_pickle_file):
+    print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings!")
+    dataset = pd.read_pickle(dataset_pickle_file)
+    col_names = dataset.columns
+else:
+    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=args.verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file)
+    if do_pickle_data:
+        dataset.to_pickle(dataset_pickle_file)
+        print(f"INFO: Saving dataset to pickle file '{dataset_pickle_file}' to load next run.")
 
-
-discover_start = time.time()
-mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False)
-discover_end = time.time()
-discover_execution_time = discover_end - discover_start
-print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
-
-### Decide which files are used as training, validation and test data. ###
-input_file_dict = dict(zip(mesh_files, desc_files))
-
-if args.verbose:
-    print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
-
-    if num_neighborhoods_to_load is None:
-        print(f"Will load all data from the {len(input_file_dict)} files.")
-    else:
-        print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
-
-    if num_samples_per_file is None:
-        print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
-    else:
-        print(f"Will load at most {num_samples_per_file} vertex neighborhoods per mesh file.")
-
-
-load_start = time.time()
-tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file)
-load_end = time.time()
-load_execution_time = load_end - load_start
-print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
-
-assert isinstance(dataset, pd.DataFrame)
 
 print("Separating observations and labels...")
 
@@ -156,7 +170,7 @@ print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_p
 # Evaluate feature importance
 importances = regressor.feature_importances_
 
-feature_names = col_names[:-1]
+feature_names = np.array(col_names[:-1])
 assert len(feature_names) == len(importances)
 
 print(f"=== Evaluating Feature importance ===")
@@ -170,10 +184,10 @@ mean_importance = np.mean(importances)
 print(f"Max feature importance is {max_importance}, min is {min_importance}, mean is {mean_importance}.")
 max_important_idx = np.argmax(importances)
 min_important_idx = np.argmin(importances)
-print(f"Most important feature is {feature_names[max_important_idx]}, min important one is {feature_names[max_important_idx]}.")
+print(f"Most important feature is {feature_names[max_important_idx]}, min important one is {feature_names[min_important_idx]}.")
 
 sorted_indices = np.argsort(importances)
-num_to_report = min(10, len(feature_names))
+num_to_report = int(min(10, len(feature_names)))
 print(f"Most important {num_to_report} features are: {feature_names[sorted_indices[-num_to_report:]]}")
 print(f"Least important {num_to_report} features are: {feature_names[sorted_indices[0:num_to_report]]}")
 

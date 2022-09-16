@@ -3,8 +3,9 @@ AI model to predict computationally expensive local, vertex-wise descriptors lik
 
 **This is highly experimental and work-in-progress, ignore this.**
 
-**This is not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
+**This is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
 
+*Note: This only reason this is public it that this makes it more convenient to install the package from scripts running on cloud-based AI platforms, like Google Colab, without having to mess with the Github authentication system.*
 
 ## About
 
@@ -33,11 +34,12 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 Note: This is structured like a python module, but the code should be treated as a very specific application, I guess. It's just convenient for me to have it in a model to re-use some data loading stuff.
 
 
-### Development setup for Ubuntu 20.04 LTS
+### Development installation for Ubuntu 20.04 LTS
 
 We highly recommend to work in a `conda` environment, especially when using `tensorflow-gpu` instead of the CPU-version `tensorflow`:
 
-#### Getting tensorflow-gpu stuff running
+
+#### Step 1 of 2: Create conda env and install conda packages into it
 
 If you want to run the neural network scripts that use tensorflow and you have a powerful GPU, I highly recommend that you install `tensorflow-gpu` to use it. Here is how I did it under Ubuntu 20.04 LTS:
 
@@ -49,11 +51,11 @@ conda install -y pandas matplotlib ipython scitkit-learn psutil
 conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, speedups for scikit-learn.
 ```
 
-Keep in mind though that your GPU memory may be smaller than your system RAM, and you will most likely have to train in batches.
+Keep in mind though that your GPU's memory (video RAM) may be smaller than your system RAM, and you will most likely have to train in batches for large datasets.
 
 If you do not have a good GPU, simply replace `tensorflow-gpu` with `tensorflow`.
 
-#### Install meshlearn into the conda env ####
+#### Step 2 of 2: Install meshlearn into the conda env ####
 
 Checkout the repo using git:
 
@@ -70,16 +72,21 @@ pip3 install --upgrade pip
 pip3 install -e .
 ```
 
-#### Running the unit tests
-
-```bash
-#pip3 install pytest
-cd <repo_dir>
-python3 -m pytest tests/
-```
+### Running the development version
 
 ##### Running model training
 
 Use one of the run scripts, like: `./run.sh`.
 
 Be sure to run within the correct `conda` environment!
+
+
+#### Running the unit tests
+
+These are limited.
+
+```bash
+#pip3 install pytest
+cd <repo_dir>
+python3 -m pytest tests/
+```

@@ -5,7 +5,7 @@ AI model to predict computationally expensive local, vertex-wise descriptors lik
 
 **This is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
 
-*Note: This only reason this is public it that this makes it more convenient to install the package from scripts running on cloud-based AI platforms, like Google Colab, without having to mess with the Github authentication system.*
+*Note: The only reason this repo is public is to make it more convenient to install the module from scripts running on cloud-based AI platforms, like Google Colab, without having to mess with the Github authentication system.*
 
 ## About
 

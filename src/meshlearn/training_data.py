@@ -284,7 +284,8 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     valid_mesh_files = []
     valid_desc_files = []
     valid_labl_files = []
-    valid_subjects = []
+    subjects_valid = []
+    subjects_missing_some_file = []
 
     for subject in subjects_list:
         sjd = os.path.join(recon_dir, subject)
@@ -299,18 +300,23 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                         valid_mesh_files.append(surf_file)
                         valid_desc_files.append(desc_file)
                         valid_labl_files.append(labl_file)
-                        valid_subjects.append(subject)
+                        subjects_valid.append(subject)
+                    else:
+                        subjects_missing_some_file.append(subject)
                 else:
                     if os.path.isfile(surf_file) and os.path.isfile(desc_file):
                         valid_mesh_files.append(surf_file)
                         valid_desc_files.append(desc_file)
-                        valid_subjects.append(subject)
-
+                        subjects_valid.append(subject)
+                    else:
+                        subjects_missing_some_file.append(subject)
 
     if verbose:
         print(f"Out of {len(subjects_list)*2} subject hemispheres ({len(subjects_list)} subjects), {len(valid_mesh_files)} had the requested surface and descriptor files.")
+        if len(subjects_missing_some_file) > 0:
+            print(f"The following {len(subjects_missing_some_file)} subjects where missing files: {', '.join(subjects_missing_some_file)}")
 
-    return valid_mesh_files, valid_desc_files, valid_labl_files, valid_subjects
+    return valid_mesh_files, valid_desc_files, valid_labl_files, subjects_valid, subjects_missing_some_file
 
 
 

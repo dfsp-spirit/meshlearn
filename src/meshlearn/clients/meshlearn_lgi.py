@@ -80,7 +80,7 @@ if num_neighborhoods_to_load is not None:
 
 
 discover_start = time.time()
-mesh_files, desc_files, cortex_files, val_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir)
+mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False)
 discover_end = time.time()
 discover_execution_time = discover_end - discover_start
 print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
@@ -157,10 +157,25 @@ print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_p
 importances = regressor.feature_importances_
 
 feature_names = col_names[:-1]
+assert len(feature_names) == len(importances)
 
 print(f"=== Evaluating Feature importance ===")
 print(f"Feature names: {feature_names}")
 print(f"Feature impor: {importances}")
+
+max_importance = np.max(importances)
+min_importance = np.min(importances)
+mean_importance = np.mean(importances)
+
+print(f"Max feature importance is {max_importance}, min is {min_importance}, mean is {mean_importance}.")
+max_important_idx = np.argmax(importances)
+min_important_idx = np.argmin(importances)
+print(f"Most important feature is {feature_names[max_important_idx]}, min important one is {feature_names[max_important_idx]}.")
+
+sorted_indices = np.argsort(importances)
+num_to_report = min(10, len(feature_names))
+print(f"Most important {num_to_report} features are: {feature_names[sorted_indices[-num_to_report:]]}")
+print(f"Least important {num_to_report} features are: {feature_names[sorted_indices[0:num_to_report]]}")
 
 do_plot = False
 if do_plot:

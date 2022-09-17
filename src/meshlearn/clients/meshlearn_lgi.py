@@ -81,18 +81,26 @@ parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default=default_data_dir)
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
-parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="100000")
-parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="10000")
+parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="500000")
+parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="30000")
 args = parser.parse_args()
 
+# Settings from cmd line args
 data_dir = args.data_dir
 mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
 mesh_neighborhood_radius = int(args.neigh_radius)
-
 num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
 num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
 
+# Other Settings, not exposed on cmd line
+do_pickle_data = False
+
+# Model-specific settings
+rf_num_estimators = 50
+
+
 print("---Train and evaluate an lGI prediction model---")
+args.verbose = True
 if args.verbose:
     print("Verbosity turned on.")
 
@@ -105,17 +113,21 @@ if num_neighborhoods_to_load is not None:
         ds_estimated_num_values_per_neighborhood = 6 * mesh_neighborhood_count + 1
         ds_estimated_num_neighborhoods = num_neighborhoods_to_load
         # try to allocate, will err if too little RAM.
-        print(f"RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
+        mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
+        print(f"RAM available is about {mem_avail_mb} MB")
         ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
         ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
         ds_dummy = None
         ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
         print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
+        if ds_estimated_full_data_size_MB * 2.0 >= mem_avail_mb:
+            print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
 
-do_pickle_data = True
+
+
 dataset_pickle_file = "meshlearn_dset.pkl"
 if do_pickle_data and os.path.isfile(dataset_pickle_file):
-    print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings!")
+    print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings! Delete file or set 'do_pickle_data'to False to prevent.")
     dataset = pd.read_pickle(dataset_pickle_file)
     col_names = dataset.columns
 else:
@@ -124,7 +136,7 @@ else:
         dataset.to_pickle(dataset_pickle_file)
         print(f"INFO: Saving dataset to pickle file '{dataset_pickle_file}' to load next run.")
 
-
+print(f"Obtained dataset of size {int(psutil.virtual_memory().available / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} features.")
 print("Separating observations and labels...")
 
 nc = len(dataset.columns)
@@ -145,13 +157,11 @@ sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
-n_estimators = 100
-
 
 fit_start = time.time()
-print(f"Fitting with RandomForestRegressor with {n_estimators} estimators. (Started at {time.ctime()}.)")
+print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators. (Started at {time.ctime()}.)")
 
-regressor = RandomForestRegressor(n_estimators=n_estimators, random_state=0, n_jobs=-1)
+regressor = RandomForestRegressor(n_estimators=rf_num_estimators, random_state=0, n_jobs=-1)
 regressor.fit(X_train, y_train)
 
 fit_end = time.time()

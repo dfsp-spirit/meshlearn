@@ -77,51 +77,63 @@ class TrainingData():
         pvd_data = fsio.read_morph_data(descriptor_file_name)
         return (vert_coords, faces, pvd_data)
 
-    def gen_data(self, datafiles, neighborhood_radius=25):
-        """Generator for training data from files. Allows sample-wise loading of very large data sets.
+    # def gen_data(self, datafiles, neighborhood_radius=25):
+    #     """Generator for training data from files. Allows sample-wise loading of very large data sets.
 
-        Use this or `load_data`, depending on whether or not you want everything in memory at once.
+    #     Use this or `load_data`, depending on whether or not you want everything in memory at once.
 
-        Parameters
-        ----------
-        datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
+    #     Parameters
+    #     ----------
+    #     datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
 
-        Yields
-        ------
-        X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
-        y scalar float, the per-vertex data value for the source vertex.
+    #     Yields
+    #     ------
+    #     X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
+    #     y scalar float, the per-vertex data value for the source vertex.
+    #     """
+
+    #     # TODO: this is not done yet
+
+    #     for mesh_file_name, descriptor_file_name in datafiles.items():
+
+    #         if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
+    #             warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
+    #             continue
+
+    #         vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
+    #         self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+
+    #         if self.distance_measure == "Euclidean":
+    #             self.kdtree = KDTree(vert_coords)
+    #             neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
+
+    #         elif self.distance_measure == "graph":
+    #             neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
+    #             neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
+
+    #         else:
+    #             raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
+
+
+    #         for vertex_idx in range(vert_coords.shape[0]):
+    #             X =  neighborhoods_centered_coords[vertex_idx]
+    #             y = pvd_data[vertex_idx]
+    #             yield (X, y)
+
+
+    @staticmethod
+    def get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_fields=[], with_label=False):
         """
-
-        # TODO: this is not done yet
-
-        for mesh_file_name, descriptor_file_name in datafiles.items():
-
-            if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
-                warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
-                continue
-
-            vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
-            self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
-
-            if self.distance_measure == "Euclidean":
-                self.kdtree = KDTree(vert_coords)
-                neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
-
-            elif self.distance_measure == "graph":
-                neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
-                neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
-
-            else:
-                raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
+        Compute number of features, i.e., length of an observation or number of columns in a data row (without the final label column).
+        """
+        num_per_vertex_features = 3  # For x,y,z coords
+        if with_normals:
+            num_per_vertex_features += 3
+        return neigh_count * num_per_vertex_features + len(extra_fields)
 
 
-            for vertex_idx in range(vert_coords.shape[0]):
-                X =  neighborhoods_centered_coords[vertex_idx]
-                y = pvd_data[vertex_idx]
-                yield (X, y)
 
-
-    def neighborhoods_from_raw_data(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None):
+    def neighborhoods_from_raw_data(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
@@ -190,8 +202,7 @@ class TrainingData():
                 self.kdtree = KDTree(vert_coords)
                 if verbose:
                     print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods, col_names, _ = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data)
-
+                neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
 
                 num_files_loaded += 1
 
@@ -225,11 +236,11 @@ class TrainingData():
                 if num_samples_loaded > num_samples_total:
                     if exactly:
                         if verbose:
-                            print(f"[load] Truncating data of size {num_samples_loaded} to {num_samples_total} samples, 'force_no_more_than_num_samples_to_load' is true.")
+                             print(f"[load] Truncating data of size {num_samples_loaded} to {num_samples_total} samples, 'exactly' is true.")
                         full_data = full_data[0:num_samples_total, :] # this wastes stuff we spent time loading
                     else:
                         if verbose:
-                            print(f"[load] Returning {num_samples_loaded} instead of {num_samples_total} samples, file contained more and 'force_no_more_than_num_samples_to_load' is false.")
+                            print(f"[load] Returning {num_samples_loaded} instead of {num_samples_total} samples, file contained more and 'exactly' is false.")
 
 
         if df:

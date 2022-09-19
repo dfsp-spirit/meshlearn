@@ -1,9 +1,11 @@
 
 import numpy as np
 import trimesh as tm
+
+from meshlearn.training_data import TrainingData
 #from sys import getsizeof
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -18,7 +20,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     kdtree scipy.spatial.KDTree instance
     neighborhood_radius the radius for sphere used in kdtree query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with num_neighbors.
     mesh tmesh.Trimesh instance (the one from which vert_coords also come, currently duplicated)
-    max_num_neighbors number of neighbors max to consider per neighborhood. must be changed together with neighborhood_radius.
+    max_num_neighbors number of neighbors max to consider per neighborhood. must be changed together with neighborhood_radius. Set to None or 0 to auto-determine from min size over all neighborhoods (will differ across mesh files then!).
     pvd_data vector of length vert_coords.shape[0] (number of vertes in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
 
     Returns
@@ -55,7 +57,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     median_neigh_size = np.median(neigh_lengths)
 
 
-    if max_num_neighbors == 0:
+    if max_num_neighbors == 0 or max_num_neighbors is None:
         max_num_neighbors = min_neigh_size # set to minimum to avoid NANs
         print(f"[neig]   - Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
     print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
@@ -74,9 +76,16 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods to be left after size filtering (absolute/mesh indices), but found {num_query_verts_after_filtering}."
 
     neighbor_indices = neighbor_indices_filtered
+    neigh_lengths_filtered = neigh_lengths[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
 
+    extra_fields = []
+    if add_desc_vertex_index:
+        extra_fields.append("vertex_index")
+    if add_desc_neigh_size:
+        extra_fields.append("neigh_size")
 
-    neighborhood_col_num_values = max_num_neighbors * (3 + 3) + 1 # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd value per neighborhood
+    neighborhood_col_num_values = TrainingData.get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
+    # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.zeros((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float)
@@ -88,6 +97,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     for n_idx in range(max_num_neighbors):
         for coord in ["x", "y", "z"]:
             col_names.append("nn" + str(n_idx) + coord) # nn for neighbor normal
+    if add_desc_vertex_index:
+        col_names.append("svidx") # 'svidx' for source vertex index (in mesh)
+    if add_desc_neigh_size:
+        col_names.append("nsize") # 'nsize' for neighborhood size
     col_names.append("label")
 
 
@@ -106,8 +119,18 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
         col_start_idx = col_end_idx
 
-        #print(f"Add pvd value at col position {col_start_idx}")
 
+        if add_desc_vertex_index:
+            #print(f"Add source vertex index in mesh at col position {col_start_idx}")
+            neighborhoods[central_vert_rel_idx, col_start_idx] = central_vert_idx_mesh   # Add index of central vertex
+            col_start_idx = col_end_idx
+
+        if add_desc_neigh_size:
+            #print(f"Add neighborhood size at col position {col_start_idx}")
+            neighborhoods[central_vert_rel_idx, col_start_idx] = neigh_lengths_filtered[central_vert_rel_idx]   # Add index of central vertex
+            col_start_idx = col_end_idx
+
+        #print(f"Add pvd value at col position {col_start_idx}")
         neighborhoods[central_vert_rel_idx, col_start_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
 
     #neighborhoods_size_bytes = getsizeof(neighborhoods)

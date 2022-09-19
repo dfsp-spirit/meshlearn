@@ -66,6 +66,14 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     return dataset, col_names
 
 
+def get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_fields=[]):
+    """
+    Compute number of features, i.e., length of an observation or number of columns in a data row (without the final label column).
+    """
+    num_per_vertex_features = 3  # For x,y,z coords
+    if with_normals:
+        num_per_vertex_features += 3
+    return neigh_count * num_per_vertex_features + len(extra_fields)
 
 """
 Train and evaluate an lGI prediction model.
@@ -85,9 +93,9 @@ parser.add_argument('-l', '--load_max', help="Total number of samples to load. S
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="30000")
 args = parser.parse_args()
 
-# Settings from cmd line args
+# Post-process the settings from cmd line args (change defaults above if needed)
 data_dir = args.data_dir
-mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn).
+mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn, and from which we take coords, normals, etc as features).
 mesh_neighborhood_radius = int(args.neigh_radius)
 num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
 num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
@@ -96,7 +104,7 @@ num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_p
 do_pickle_data = False
 
 # Model-specific settings
-rf_num_estimators = 50
+rf_num_estimators = 50   # For regression problems, take one third of the number of features as a starting point.
 
 
 print("---Train and evaluate an lGI prediction model---")

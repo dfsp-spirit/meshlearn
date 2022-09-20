@@ -2,7 +2,6 @@
 Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory.
 """
 
-from genericpath import isdir, isfile
 import brainload as bl
 import trimesh as tm
 import nibabel.freesurfer.io as fsio
@@ -10,13 +9,12 @@ import brainload.nitools as nit
 import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree
-from meshlearn.neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
+from meshlearn import neighborhoods_euclid_around_points
 from warnings import warn
 import os.path
 import glob
 
 import psutil
-
 from sys import getsizeof
 
 def load_piallgi_morph_data(subjects_dir, subjects_list):
@@ -79,57 +77,34 @@ class TrainingData():
 
     # def gen_data(self, datafiles, neighborhood_radius=25):
     #     """Generator for training data from files. Allows sample-wise loading of very large data sets.
-
-    #     Use this or `load_data`, depending on whether or not you want everything in memory at once.
-
+    #     Use this or `load_data`, depending on whether or not you want everything in memory at once
     #     Parameters
     #     ----------
     #     datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
-
     #     Yields
     #     ------
     #     X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
     #     y scalar float, the per-vertex data value for the source vertex.
     #     """
-
     #     # TODO: this is not done yet
-
     #     for mesh_file_name, descriptor_file_name in datafiles.items():
-
     #         if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
     #             warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
     #             continue
-
     #         vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
     #         self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
-
     #         if self.distance_measure == "Euclidean":
     #             self.kdtree = KDTree(vert_coords)
     #             neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
-
     #         elif self.distance_measure == "graph":
     #             neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
     #             neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
-
     #         else:
     #             raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
-
-
     #         for vertex_idx in range(vert_coords.shape[0]):
     #             X =  neighborhoods_centered_coords[vertex_idx]
     #             y = pvd_data[vertex_idx]
     #             yield (X, y)
-
-
-    @staticmethod
-    def get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_fields=[], with_label=False):
-        """
-        Compute number of features, i.e., length of an observation or number of columns in a data row (without the final label column).
-        """
-        num_per_vertex_features = 3  # For x,y,z coords
-        if with_normals:
-            num_per_vertex_features += 3
-        return neigh_count * num_per_vertex_features + len(extra_fields)
 
 
 
@@ -271,7 +246,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     cortex_label bool, whether to also require label/<hemi>.cortex.label files.
     """
     if not os.path.isdir(recon_dir):
-        raise ValueError("The data directory '{recon_dir}' does not exist or cannot be accessed".format(data_dir=recon_dir))
+        raise ValueError(f"The data directory '{recon_dir}' does not exist or cannot be accessed")
 
     if subjects_file is not None and subjects_list is not None:
         raise ValueError("Pass only one of 'subjects_file' and 'subjects_list', not both.")

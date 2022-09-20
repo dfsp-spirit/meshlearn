@@ -2,8 +2,16 @@
 import numpy as np
 import trimesh as tm
 
-from meshlearn.training_data import TrainingData
-#from sys import getsizeof
+
+
+def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_fields=[], with_label=False):
+        """
+        Compute number of features, i.e., length of an observation or number of columns in a data row (without the final label column).
+        """
+        num_per_vertex_features = 3  # For x,y,z coords
+        if with_normals:
+            num_per_vertex_features += 3
+        return neigh_count * num_per_vertex_features + len(extra_fields)
 
 def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False):
     """
@@ -84,7 +92,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     if add_desc_neigh_size:
         extra_fields.append("neigh_size")
 
-    neighborhood_col_num_values = TrainingData.get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
+    neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
     # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood
 
     ## Full matrix for all neighborhoods

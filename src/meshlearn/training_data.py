@@ -127,8 +127,7 @@ class TrainingData():
 
         if num_files_total is not None:
             if num_files_total < len(datafiles):
-                keys_to_extract = list(datafiles)[0:num_files_total]
-                datafiles_subset = {k: datafiles[k] for k in keys_to_extract}
+                datafiles_subset = datafiles[0:num_files_total]
                 assert len(datafiles_subset) == num_files_total
                 datafiles = datafiles_subset
 

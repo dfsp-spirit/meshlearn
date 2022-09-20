@@ -31,7 +31,7 @@ from sklearn import metrics
 from sys import getsizeof
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8):
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8, num_files_to_load=None):
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
     discover_end = time.time()
@@ -95,9 +95,10 @@ parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Crea
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="500000")
-parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="30000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="0")
+parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="20")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
+parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
 args = parser.parse_args()
 
 # Post-process the settings from cmd line args (change defaults above if needed)
@@ -109,7 +110,7 @@ num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_p
 num_files_to_load = None if int(args.load_files) == 0 else int(args.load_files)
 sequential = args.sequential
 verbose = args.verbose
-num_cores = 8  # Number of cores for loading data in parallel, ignored if sequential is True.
+num_cores = None if args.cores == "0" else int(args.cores)  # Number of cores for loading data in parallel, ignored if sequential is True.
 
 # Other Settings, not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True
@@ -176,7 +177,7 @@ if do_pickle_data and os.path.isfile(dataset_pickle_file):
     pickle_load_time = unpickle_end - unpickle_start
     print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took  {timedelta(seconds=pickle_load_time)}.")
 else:
-    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores)
+    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load)
     if do_pickle_data:
         pickle_start = time.time()
         dataset.to_pickle(dataset_pickle_file)

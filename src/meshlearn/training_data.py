@@ -107,14 +107,26 @@ class TrainingData():
     #             yield (X, y)
 
 
-    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8):
+    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None):
         """
         Parallel version of `neighborhoods_from_raw_data`.
+
+        Note: Parameter 'num_samples_total' is not supported in parallel mode.
+              Use 'num_files_total' (and 'num_samples_per_file') instead
+              to limit total number of entries."
         """
-        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+        from concurrent.futures import ThreadPoolExecutor
         from functools import partial
+
+        if num_files_total is not None:
+            if num_files_total < len(datafiles):
+                keys_to_extract = list(datafiles)[0:num_files_total]
+                datafiles_subset = {k: datafiles[k] for k in keys_to_extract}
+                assert len(datafiles_subset) == num_files_total
+                datafiles = datafiles_subset
+
         with ThreadPoolExecutor(num_cores) as pool:
-            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data, self=self, neighborhood_radius=neighborhood_radius, num_samples_total=num_samples_total, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data, self=self, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
         return df
 

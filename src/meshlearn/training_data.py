@@ -165,12 +165,14 @@ class TrainingData():
         if max_num_neighbors is None:
             max_num_neighbors = self.num_neighbors
 
+        is_parallel_wrapped = False
         if isinstance(datafiles, tuple):  # We come from the parallel wrapper 'neighborhoods_from_raw_data_parallel', and received a single tuple from the full list.
             if len(datafiles) == 2:
                 datafiles_tmp = list()
                 datafiles_tmp.append(datafiles)
                 datafiles = datafiles_tmp   # We wrap this into a list (with 1 element) because the sequential function works with a list.
                 print(f"[seq] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
+                is_parallel_wrapped = True
             else:
                 raise ValueError(f"[seq] Received tuple (assuming parallel mode) with length {len(datafiles)}, but required is length 2.")
 
@@ -266,8 +268,10 @@ class TrainingData():
                 print(f"[load] Total dataset size in RAM is about {int(dataset_size_bytes / 1024. / 1024.)} MB.")
                 print(f"[load] RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
-
-        return full_data, col_names
+        if is_parallel_wrapped:
+            return full_data
+        else:
+            return full_data, col_names
 
 
 

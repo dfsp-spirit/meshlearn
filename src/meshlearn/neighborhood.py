@@ -11,7 +11,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
         num_per_vertex_features = 3  # For x,y,z coords
         if with_normals:
             num_per_vertex_features += 3
-        return neigh_count * num_per_vertex_features + len(extra_fields)
+        return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
 def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False):
     """
@@ -42,6 +42,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         raise ValueError("Expected np.ndarray as 'query_vert_indices' input.")
     if not query_vert_coords.shape[1] == 3:
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
+    assert np.array(pvd_data).size == (mesh.vertices.size / 3), f"Expected {mesh.vertices.size / 3} per-vertex data values for mesh with {mesh.vertices.size / 3} verts, but got {np.array(pvd_data).size} pvd values."
 
     num_query_verts = query_vert_coords.shape[0]
     if query_vert_indices is None:
@@ -84,7 +85,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods to be left after size filtering (absolute/mesh indices), but found {num_query_verts_after_filtering}."
 
     neighbor_indices = neighbor_indices_filtered
-    neigh_lengths_filtered = neigh_lengths[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
+    neigh_lengths_filtered = np.array(neigh_lengths)[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
 
     extra_fields = []
     if add_desc_vertex_index:
@@ -94,6 +95,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
     # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood
+    print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns (the last 1 of them is the label) per observation.")
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.zeros((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float)
@@ -111,6 +113,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         col_names.append("nsize") # 'nsize' for neighborhood size
     col_names.append("label")
 
+    assert mesh.vertices.ndim == 2
+    assert mesh.vertices.shape[1] == 3 #x,y,z
 
     for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
         central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
@@ -125,21 +129,21 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         #print(f"Add normals for {max_num_neighbors} neighbors into col positions {col_start_idx} to {col_end_idx}")
 
         neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
-        col_start_idx = col_end_idx
+        col_idx = col_end_idx  # The end is not included.
 
 
         if add_desc_vertex_index:
-            #print(f"Add source vertex index in mesh at col position {col_start_idx}")
-            neighborhoods[central_vert_rel_idx, col_start_idx] = central_vert_idx_mesh   # Add index of central vertex
-            col_start_idx = col_end_idx
+            #print(f"Add source vertex index in mesh at col position {col_idx}")
+            neighborhoods[central_vert_rel_idx, col_idx] = central_vert_idx_mesh   # Add index of central vertex
+            col_idx += 1
 
         if add_desc_neigh_size:
-            #print(f"Add neighborhood size at col position {col_start_idx}")
-            neighborhoods[central_vert_rel_idx, col_start_idx] = neigh_lengths_filtered[central_vert_rel_idx]   # Add index of central vertex
-            col_start_idx = col_end_idx
+            #print(f"Add neighborhood size at col position {col_idx}")
+            neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_filtered[central_vert_rel_idx]   # Add index of central vertex
+            col_idx += 1
 
-        #print(f"Add pvd value at col position {col_start_idx}")
-        neighborhoods[central_vert_rel_idx, col_start_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
+        #print(f"Adding pvd value at row {central_vert_rel_idx}, column {col_idx}, value is from mesh vertex idx {central_vert_idx_mesh}.")
+        neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
 
     #neighborhoods_size_bytes = getsizeof(neighborhoods)
     #print(f"Neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")

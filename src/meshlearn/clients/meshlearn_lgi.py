@@ -39,19 +39,23 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
 
     ### Decide which files are used as training, validation and test data. ###
-    input_file_dict = dict(zip(mesh_files, desc_files))
+    #input_file_dict = dict(zip(mesh_files, desc_files))  # Dict with mesh_file as key, desc_file as value.
+    input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
+
+    num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
+    seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
 
     if verbose:
-        print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
+        print(f"Discovered {len(input_filepair_list)} valid pairs of input mesh and descriptor files.")
 
         if sequential:
             if num_neighborhoods_to_load is None:
-                print(f"Will load all data from the {len(input_file_dict)} files.")
+                print(f"Will load all data from the {len(input_filepair_list)} files{seq_par_tag}.")
             else:
-                print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
+                print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_filepair_list)} files.")
         else:
             if num_files_to_load is None:
-                print(f"Will load data from all {len(input_file_dict)} files.")
+                print(f"Will load data from all {len(input_filepair_list)} files{seq_par_tag}.")
             else:
                 print(f"Will load data from {num_files_to_load} input files.")
 
@@ -64,12 +68,12 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
     if sequential:
-        dataset, col_names = tdl.neighborhoods_from_raw_data_seq(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+        dataset, col_names = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
     else:
-        dataset, col_names = tdl.neighborhoods_from_raw_data_parallel(input_file_dict, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
+        dataset, col_names = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
     load_end = time.time()
     load_execution_time = load_end - load_start
-    print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
+    print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
 
     assert isinstance(dataset, pd.DataFrame)
     return dataset, col_names
@@ -123,8 +127,11 @@ print("---Train and evaluate an lGI prediction model---")
 if verbose:
     print("Verbosity turned on.")
 
+num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
+seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
+
 if sequential:
-    print("Loading datafiles sequentially.")
+    print(f"Loading datafiles{seq_par_tag}.")
     print(f"Using data directory '{data_dir}', observations to load total limit is set to: {num_neighborhoods_to_load}.")
 else:
     print("Loading datafiles in parallel.")

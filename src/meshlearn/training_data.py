@@ -118,6 +118,13 @@ class TrainingData():
         from concurrent.futures import ThreadPoolExecutor
         from functools import partial
 
+        if not isinstance(datafiles, list):
+            raise ValueError(f"[par] datafiles must be a list of 2-tuples, but is not a list: {type(datafiles)}")
+        if len(datafiles) == 0:
+            raise ValueError(f"[par] datafiles must not be empty")
+        if not isinstance(datafiles[0], tuple):
+            raise ValueError(f"[par] datafiles must be a list of 2-tuples, it is a list but does not contain tuples: {type(datafiles[0])}.")
+
         if num_files_total is not None:
             if num_files_total < len(datafiles):
                 keys_to_extract = list(datafiles)[0:num_files_total]
@@ -140,7 +147,7 @@ class TrainingData():
 
         Parameters
         ----------
-        datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
+        datafiles: list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
         neighborhood_radius: radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
         num_samples_total: positive integer, the total number of samples (neighborhoods) to return from the mesh files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
         exactly: bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
@@ -159,10 +166,21 @@ class TrainingData():
         if max_num_neighbors is None:
             max_num_neighbors = self.num_neighbors
 
-        if not isinstance(datafiles, dict):
-            raise ValueError("datafiles must be a dict")
+        if isinstance(datafiles, tuple):  # We come from the parallel wrapper 'neighborhoods_from_raw_data_parallel', and received a single tuple from the full list.
+            if len(datafiles) == 2:
+                datafiles_tmp = list()
+                datafiles_tmp.append(datafiles)
+                datafiles = datafiles_tmp   # We wrap this into a list (with 1 element) because the sequential function works with a list.
+                print(f"[seq] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
+            else:
+                raise ValueError(f"[seq] Received tuple (assuming parallel mode) with length {len(datafiles)}, but required is length 2.")
+
+        if not isinstance(datafiles, list):
+            raise ValueError(f"[seq] datafiles must be a list of 2-tuples, but is not a list: {type(datafiles)}")
         if len(datafiles) == 0:
-            raise ValueError("datafiles must not be empty")
+            raise ValueError(f"[seq] datafiles must not be empty")
+        if not isinstance(datafiles[0], tuple):
+            raise ValueError(f"[seq] datafiles must be a list of 2-tuples, it is a list but does not contain tuples: {type(datafiles[0])}.")
 
         num_samples_loaded = 0
         do_break = False
@@ -171,7 +189,8 @@ class TrainingData():
         num_files_loaded = 0
         if verbose:
                 print(f"[load] Loading data.")
-        for mesh_file_name, descriptor_file_name in datafiles.items():
+        for filepair in datafiles:
+            mesh_file_name, descriptor_file_name = filepair
             if do_break:
                 break
 
@@ -182,7 +201,7 @@ class TrainingData():
             if verbose:
                 print(f"[load] * Loading mesh file '{mesh_file_name}' and descriptor file '{descriptor_file_name}'.")
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
-            self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+            self.mesh = None
 
             num_verts_total = vert_coords.shape[0]
 
@@ -197,10 +216,10 @@ class TrainingData():
                 query_vert_coords = query_vert_coords[query_vert_indices, :]
 
             if self.distance_measure == "Euclidean":
-                self.kdtree = KDTree(vert_coords)
+                self.kdtree = None
                 if verbose:
                     print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose)
+                neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=neighborhood_radius, mesh=tm.Trimesh(vertices=vert_coords, faces=faces), max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose)
 
                 num_files_loaded += 1
 

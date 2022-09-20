@@ -42,7 +42,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         raise ValueError("Expected np.ndarray as 'query_vert_indices' input.")
     if not query_vert_coords.shape[1] == 3:
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
-    assert np.array(pvd_data).size == (mesh.vertices.size / 3), f"Expected {mesh.vertices.size / 3} per-vertex data values for mesh with {mesh.vertices.size / 3} verts, but got {np.array(pvd_data).size} pvd values."
+    mesh_num_verts = int(mesh.vertices.size / 3)
+    assert np.array(pvd_data).size == mesh_num_verts, f"Expected {mesh_num_verts} per-vertex data values for mesh with {mesh_num_verts} verts, but got {np.array(pvd_data).size} pvd values."
 
     num_query_verts = query_vert_coords.shape[0]
     if query_vert_indices is None:

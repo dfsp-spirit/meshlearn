@@ -8,7 +8,7 @@
 #    exit 1
 #fi
 
-datetag=$(date '+%Y-%m-%d_%H-%M-%S')
-logfile="log_meshlearn_lgi_${datetag}.txt"
-python ./src/meshlearn/clients/meshlearn_lgi.py -v | tee "${logile}" && echo "Log written to '${logfile}'."
+#datetag=$(date '+%Y-%m-%d_%H-%M-%S')
+#logfile="log_meshlearn_lgi_${datetag}.txt"
+python ./src/meshlearn/clients/meshlearn_lgi.py -v
 

@@ -31,7 +31,7 @@ from sklearn import metrics
 from sys import getsizeof
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False):
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8):
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
     discover_end = time.time()
@@ -44,10 +44,16 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     if verbose:
         print(f"Discovered {len(input_file_dict)} valid pairs of input mesh and descriptor files.")
 
-        if num_neighborhoods_to_load is None:
-            print(f"Will load all data from the {len(input_file_dict)} files.")
+        if sequential:
+            if num_neighborhoods_to_load is None:
+                print(f"Will load all data from the {len(input_file_dict)} files.")
+            else:
+                print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
         else:
-            print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_file_dict)} files.")
+            if num_files_to_load is None:
+                print(f"Will load data from all {len(input_file_dict)} files.")
+            else:
+                print(f"Will load data from {num_files_to_load} input files.")
 
         if num_samples_per_file is None:
             print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
@@ -57,7 +63,10 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
 
     load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-    dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+    if sequential:
+        dataset, col_names = tdl.neighborhoods_from_raw_data_seq(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+    else:
+        dataset, col_names = tdl.neighborhoods_from_raw_data_parallel(input_file_dict, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
     load_end = time.time()
     load_execution_time = load_end - load_start
     print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
@@ -81,8 +90,10 @@ parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default=default_data_dir)
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
-parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir.", default="500000")
+parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="500000")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="30000")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="0")
+parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 args = parser.parse_args()
 
 # Post-process the settings from cmd line args (change defaults above if needed)
@@ -91,23 +102,36 @@ mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge 
 mesh_neighborhood_radius = int(args.neigh_radius)
 num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
 num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
+num_files_to_load = None if int(args.load_files) == 0 else int(args.load_files)
+sequential = args.sequential
+verbose = args.verbose
+num_cores = 8  # Number of cores for loading data in parallel, ignored if sequential is True.
 
 # Other Settings, not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True
 add_desc_neigh_size = True
-do_pickle_data = False
+
+do_pickle_data = True
+dataset_pickle_file = "meshlearn_dset.pkl"  # Only relevant if do_pickle_data is True
 
 # Model-specific settings
 rf_num_estimators = 50   # For regression problems, take one third of the number of features as a starting point.
 
 
 print("---Train and evaluate an lGI prediction model---")
-args.verbose = True
-if args.verbose:
+
+if verbose:
     print("Verbosity turned on.")
 
-print(f"Using data directory '{data_dir}', observations to load limit is set to: {num_neighborhoods_to_load}.")
+if sequential:
+    print("Loading datafiles sequentially.")
+    print(f"Using data directory '{data_dir}', observations to load total limit is set to: {num_neighborhoods_to_load}.")
+else:
+    print("Loading datafiles in parallel.")
+    print(f"Using data directory '{data_dir}', number of files to load limit is set to: {num_files_to_load}.")
+
 print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
+
 
 print("Descriptor settings:")
 if add_desc_vertex_index:
@@ -119,8 +143,8 @@ if add_desc_neigh_size:
 else:
     print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
 
-if num_neighborhoods_to_load is not None:
-    if args.verbose:
+if num_neighborhoods_to_load is not None and sequential:
+    if verbose:
         # Estimate total dataset size in RAM early to prevent crashing later, if possible.
         ds_estimated_num_values_per_neighborhood = 6 * mesh_neighborhood_count + 1
         ds_estimated_num_neighborhoods = num_neighborhoods_to_load
@@ -136,17 +160,23 @@ if num_neighborhoods_to_load is not None:
             print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
 
 
-
-dataset_pickle_file = "meshlearn_dset.pkl"
 if do_pickle_data and os.path.isfile(dataset_pickle_file):
     print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings! Delete file or set 'do_pickle_data'to False to prevent.")
+    unpickle_start = time.time()
     dataset = pd.read_pickle(dataset_pickle_file)
     col_names = dataset.columns
+    unpickle_end = time.time()
+    pickle_load_time = unpickle_end - unpickle_start
+    print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took  {timedelta(seconds=pickle_load_time)}.")
 else:
-    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=args.verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores)
     if do_pickle_data:
+        pickle_start = time.time()
         dataset.to_pickle(dataset_pickle_file)
-        print(f"INFO: Saving dataset to pickle file '{dataset_pickle_file}' to load next run.")
+        pickle_end = time.time()
+        pickle_save_time = pickle_end - pickle_start
+        print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}', ready to load next run. It took  {timedelta(seconds=pickle_save_time)}.")
+
 
 print(f"Obtained dataset of size {int(psutil.virtual_memory().available / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} features.")
 print("Separating observations and labels...")

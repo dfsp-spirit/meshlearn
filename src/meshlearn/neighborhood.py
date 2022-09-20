@@ -13,7 +13,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
             num_per_vertex_features += 3
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False, verbose=True):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -61,15 +61,17 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     ## So we need to fix the lengths to max_num_neighbors.
     neigh_lengths = [len(neigh) for neigh in neighbor_indices]
     min_neigh_size = np.min(neigh_lengths)
-    max_neigh_size = np.max(neigh_lengths)
-    mean_neigh_size = np.mean(neigh_lengths)
-    median_neigh_size = np.median(neigh_lengths)
 
 
     if max_num_neighbors == 0 or max_num_neighbors is None:
         max_num_neighbors = min_neigh_size # set to minimum to avoid NANs
         print(f"[neig]   - Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
-    print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
+
+    if verbose:
+        max_neigh_size = np.max(neigh_lengths)
+        mean_neigh_size = np.mean(neigh_lengths)
+        median_neigh_size = np.median(neigh_lengths)
+        print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
 
     ## Filter neighborhoods which are too small.
     kept_vertex_indices_rel = np.where([len(neigh) >= max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords, but that may not be all vertices in the mesh.
@@ -77,7 +79,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert kept_vertex_indices_rel.ndim == 1
     kept_vertex_indices_mesh = query_vert_indices[kept_vertex_indices_rel]
     neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
-    print(f"[neig]   - Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
+    if verbose:
+        print(f"[neig]   - Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
 
     num_query_verts_after_filtering = len(neighbor_indices_filtered)
     assert len(kept_vertex_indices_rel) == len(kept_vertex_indices_mesh)
@@ -95,7 +98,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
     # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood
-    print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns (the last 1 of them is the label) per observation.")
+    if verbose:
+        print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns (the last 1 of them is the label) per observation.")
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.zeros((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float)
@@ -145,11 +149,13 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         #print(f"Adding pvd value at row {central_vert_rel_idx}, column {col_idx}, value is from mesh vertex idx {central_vert_idx_mesh}.")
         neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
 
-    #neighborhoods_size_bytes = getsizeof(neighborhoods)
-    #print(f"Neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
+    #if verbose:
+    #    neighborhoods_size_bytes = getsizeof(neighborhoods)
+    #    print(f"Neighborhood size in RAM is about {neighborhoods_size_bytes} bytes, or {neighborhoods_size_bytes / 1024. / 1024.} MB.")
 
     assert neighborhoods.shape[0] == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods, but found {neighborhoods.shape[0]}."
     assert neighborhoods.shape[1] == len(col_names)
+
     return neighborhoods, col_names, kept_vertex_indices_mesh
 
 

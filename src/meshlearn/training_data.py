@@ -107,6 +107,17 @@ class TrainingData():
     #             yield (X, y)
 
 
+    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8):
+        """
+        Parallel version of `neighborhoods_from_raw_data`.
+        """
+        from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+        from functools import partial
+        with ThreadPoolExecutor(num_cores) as pool:
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data, self=self, neighborhood_radius=neighborhood_radius, num_samples_total=num_samples_total, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+            df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
+        return df
+
 
     def neighborhoods_from_raw_data(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
@@ -177,7 +188,7 @@ class TrainingData():
                 self.kdtree = KDTree(vert_coords)
                 if verbose:
                     print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+                neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, self.kdtree, neighborhood_radius=neighborhood_radius, mesh=self.mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose)
 
                 num_files_loaded += 1
 

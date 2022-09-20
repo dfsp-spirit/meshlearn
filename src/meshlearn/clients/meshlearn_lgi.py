@@ -31,7 +31,7 @@ from sklearn import metrics
 from sys import getsizeof
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None):
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False):
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
     discover_end = time.time()
@@ -57,7 +57,7 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
 
     load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-    dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file)
+    dataset, col_names = tdl.neighborhoods_from_raw_data(input_file_dict, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
     load_end = time.time()
     load_execution_time = load_end - load_start
     print(f"=== Loading data files done, it took: {timedelta(seconds=load_execution_time)} ===")
@@ -66,14 +66,6 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     return dataset, col_names
 
 
-def get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_fields=[]):
-    """
-    Compute number of features, i.e., length of an observation or number of columns in a data row (without the final label column).
-    """
-    num_per_vertex_features = 3  # For x,y,z coords
-    if with_normals:
-        num_per_vertex_features += 3
-    return neigh_count * num_per_vertex_features + len(extra_fields)
 
 """
 Train and evaluate an lGI prediction model.
@@ -100,7 +92,9 @@ mesh_neighborhood_radius = int(args.neigh_radius)
 num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
 num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
 
-# Other Settings, not exposed on cmd line
+# Other Settings, not exposed on cmd line. Change here if needed.
+add_desc_vertex_index = True
+add_desc_neigh_size = True
 do_pickle_data = False
 
 # Model-specific settings
@@ -114,6 +108,16 @@ if args.verbose:
 
 print(f"Using data directory '{data_dir}', observations to load limit is set to: {num_neighborhoods_to_load}.")
 print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
+
+print("Descriptor settings:")
+if add_desc_vertex_index:
+    print(f" - Adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
+else:
+    print(f" - Not adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
+if add_desc_neigh_size:
+    print(f" - Adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
+else:
+    print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
 
 if num_neighborhoods_to_load is not None:
     if args.verbose:
@@ -139,7 +143,7 @@ if do_pickle_data and os.path.isfile(dataset_pickle_file):
     dataset = pd.read_pickle(dataset_pickle_file)
     col_names = dataset.columns
 else:
-    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=args.verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file)
+    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=args.verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
     if do_pickle_data:
         dataset.to_pickle(dataset_pickle_file)
         print(f"INFO: Saving dataset to pickle file '{dataset_pickle_file}' to load next run.")

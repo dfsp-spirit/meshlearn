@@ -95,8 +95,8 @@ parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Crea
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="500000")
-parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="5000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="8")
+parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="40")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
 args = parser.parse_args()
@@ -119,8 +119,13 @@ add_desc_neigh_size = True
 do_pickle_data = True
 dataset_pickle_file = "meshlearn_dset.pkl"  # Only relevant if do_pickle_data is True
 
+do_persist_trained_model = True
+model_save_file="model.pkl"
+
+do_plot_feature_importances = False
+
 # Model-specific settings
-rf_num_estimators = 50   # For regression problems, take one third of the number of features as a starting point.
+rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
 
 
 print("---Train and evaluate an lGI prediction model---")
@@ -169,13 +174,15 @@ if num_neighborhoods_to_load is not None and sequential:
 
 
 if do_pickle_data and os.path.isfile(dataset_pickle_file):
-    print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings! Delete file or set 'do_pickle_data'to False to prevent.")
+    print("======================================================================================================================================================")
+    print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings! Delete file or set 'do_pickle_data' to False to prevent.")
+    print("======================================================================================================================================================")
     unpickle_start = time.time()
     dataset = pd.read_pickle(dataset_pickle_file)
     col_names = dataset.columns
     unpickle_end = time.time()
     pickle_load_time = unpickle_end - unpickle_start
-    print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took  {timedelta(seconds=pickle_load_time)}.")
+    print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took {timedelta(seconds=pickle_load_time)}.")
 else:
     dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load)
     if do_pickle_data:
@@ -183,10 +190,10 @@ else:
         dataset.to_pickle(dataset_pickle_file)
         pickle_end = time.time()
         pickle_save_time = pickle_end - pickle_start
-        print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}', ready to load next run. It took  {timedelta(seconds=pickle_save_time)}.")
+        print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
 
 
-print(f"Obtained dataset of  {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1}features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+print(f"Obtained dataset of  {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 print("Separating observations and labels...")
 
 nc = len(dataset.columns)
@@ -251,8 +258,8 @@ num_to_report = int(min(10, len(feature_names)))
 print(f"Most important {num_to_report} features are: {feature_names[sorted_indices[-num_to_report:]]}")
 print(f"Least important {num_to_report} features are: {feature_names[sorted_indices[0:num_to_report]]}")
 
-do_plot = False
-if do_plot:
+
+if do_plot_feature_importances:
     std = np.std([tree.feature_importances_ for tree in regressor.estimators_], axis=0)
     forest_importances = pd.Series(importances, index=feature_names)
     import matplotlib.pyplot as plt
@@ -262,4 +269,17 @@ if do_plot:
     ax.set_ylabel("Mean decrease in impurity")
     fig.tight_layout()
 
+
+if do_persist_trained_model:
+    import pickle
+    # save the model to disk
+    pickle_model_start = time.time()
+    pickle.dump(regressor, open(model_save_file, 'wb'))
+    pickle_model_end = time.time()
+    pickle_model_save_time = pickle_model_end - pickle_model_start
+    print(f"INFO: Saved trained model to pickle file '{model_save_file}', ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
+
+    ## Some time later...
+    #loaded_model = pickle.load(open(model_save_file, 'rb'))
+    #result = loaded_model.score(X_test, Y_test)
 

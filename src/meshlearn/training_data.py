@@ -99,7 +99,7 @@ class TrainingData():
         with ThreadPoolExecutor(num_cores) as pool:
             neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
-        return df, df.columns
+        return df, df.columns, datafiles
 
 
     def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False):
@@ -153,6 +153,7 @@ class TrainingData():
         full_data = None
 
         num_files_loaded = 0
+        datafiles_loaded = []
         if verbose:
                 print(f"[load] Loading data.")
         for filepair in datafiles:
@@ -167,7 +168,8 @@ class TrainingData():
             if verbose:
                 print(f"[load] * Loading mesh file '{mesh_file_name}' and descriptor file '{descriptor_file_name}'.")
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
-            self.mesh = None
+            datafiles_loaded.append(filepair)
+            self.mesh = None  # Cannot use self.mesh due to required thread-safety.
 
             num_verts_total = vert_coords.shape[0]
 
@@ -182,7 +184,7 @@ class TrainingData():
                 query_vert_coords = query_vert_coords[query_vert_indices, :]
 
 
-            self.kdtree = None
+            self.kdtree = None # Cannot use self.kdtree due to required thread-safety.
             if verbose:
                 print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
             neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=neighborhood_radius, mesh=tm.Trimesh(vertices=vert_coords, faces=faces), max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose)
@@ -232,7 +234,7 @@ class TrainingData():
         if is_parallel_wrapped:
             return full_data
         else:
-            return full_data, col_names
+            return full_data, col_names, datafiles_loaded
 
 
 
@@ -366,14 +368,23 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
     """
+    if cortex_label:
+        raise ValueError("Parameter 'cortex_label' must be False: not implemented yet.")
     data_settings = locals() # Capute passed parameters as dict.
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
-    data_settings['mesh_files'] = mesh_files
-    data_settings['desc_files'] = desc_files
-    data_settings['cortex_files'] = cortex_files
-    data_settings['val_subjects'] = val_subjects
-    data_settings['miss_subjects'] = miss_subjects
+
+    ## These are not of great interest, as the files listed here were not necessarily loaded.
+    ## Still, this can be interesting to see which subjects are missing data files.
+    ## See 'datafiles_loaded' below, which is more relevant.
+    log_available_data = False
+    if log_available_data:
+        data_settings['datadir_available_mesh_files'] = mesh_files        # contains all mesh files of subjects (subject hemispheres, to be precise) which had all required files.
+        data_settings['datadir_available_desc_files'] = desc_files        # contains all descriptor files of subjects (subject hemispheres, to be precise) which had all required files.
+        data_settings['datadir_available_cortex_files'] = cortex_files    # if 'cortex_label' is True, contains all cortex.label files of subjects (subject hemispheres, to be precise) which had all required files.
+        data_settings['datadir_available_val_subjects'] = val_subjects    # Subjects that had all requested files. Their files show up in mesh_files, desc_files (and cortex_files if requested).
+        data_settings['datadir_available_miss_subjects'] = miss_subjects  # Subjects that are missing one or more of the requested files. They were ignored, and none of their files show up in mesh_files, desc_files (and cortex_files if requested).
+
     discover_end = time.time()
     discover_execution_time = discover_end - discover_start
     print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
@@ -408,12 +419,14 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
     if sequential:
-        dataset, col_names = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
     else:
-        dataset, col_names = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
     load_end = time.time()
     load_execution_time = load_end - load_start
     print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
+
+    data_settings['datafiles_loaded'] = datafiles_loaded
 
     assert isinstance(dataset, pd.DataFrame)
     return dataset, col_names, data_settings

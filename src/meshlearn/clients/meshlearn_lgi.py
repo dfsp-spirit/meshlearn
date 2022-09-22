@@ -72,7 +72,7 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
 
     # Evaluate feature importance
-    importances = None
+    importances = regressor.feature_importances_
     return regressor, model_info, importances
 
 
@@ -91,7 +91,7 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="8")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="40")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
 args = parser.parse_args()
@@ -124,7 +124,10 @@ num_cores_fit = 8
 
 ### Model-specific settings
 rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
-lightgbm_num_estimators = 48 * 3
+lightgbm_num_estimators = 48
+
+
+####################################### End of settings. #########################################
 
 print("---Train and evaluate an lGI prediction model---")
 

@@ -124,7 +124,7 @@ num_cores_fit = 8
 
 ### Model-specific settings
 rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
-
+lightgbm_num_estimators = 48 * 3
 
 print("---Train and evaluate an lGI prediction model---")
 
@@ -201,8 +201,8 @@ fit_start = time.time()
 #print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
 #regressor, model_info, importances = fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
 
-print(f"Fitting with LightGBM Regressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
-regressor, model_info, importances = fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
+print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
+regressor, model_info, importances = fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
 
 ## Assess feature importance (if possible)
 if importances is not None: # Some regressors do not support it.

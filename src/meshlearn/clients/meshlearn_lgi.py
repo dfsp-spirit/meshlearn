@@ -2,7 +2,6 @@
 import json
 import numpy as np
 import argparse
-import pandas as pd
 import time
 from datetime import timedelta
 from sys import getsizeof
@@ -16,8 +15,65 @@ from meshlearn.training_data import get_dataset_pickle
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
+
+
+def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs': 8}):
+    from sklearn.ensemble import RandomForestRegressor
+    regressor = RandomForestRegressor(**model_settings)
+    # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
+    # Currently needs to be manually adjusted when changing model!
+    model_info = {'model_type': 'sklearn.ensemble.RandomForestRegressor', 'model_settings' : model_settings }
+
+
+    regressor.fit(X_train, y_train)
+
+    fit_end = time.time()
+    fit_execution_time = fit_end - fit_start
+    fit_execution_time_readable = timedelta(seconds=fit_execution_time)
+    model_info['fit_time'] = str(fit_execution_time_readable)
+
+    print(f"===Fitting done, it took: {fit_execution_time_readable} ===")
+    print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
+
+    y_pred = regressor.predict(X_test)
+
+
+    print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
+    print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
+    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+
+    # Evaluate feature importance
+    importances = regressor.feature_importances_
+    return regressor, model_info, importances
+
+def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
+    from lightgbm import LGBMRegressor
+    regressor = LGBMRegressor()
+    # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
+    # Currently needs to be manually adjusted when changing model!
+    model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
+
+
+    regressor.fit(X_train, y_train)
+
+    fit_end = time.time()
+    fit_execution_time = fit_end - fit_start
+    fit_execution_time_readable = timedelta(seconds=fit_execution_time)
+    model_info['fit_time'] = str(fit_execution_time_readable)
+
+    print(f"===Fitting done, it took: {fit_execution_time_readable} ===")
+    print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
+
+    y_pred = regressor.predict(X_test)
+
+    print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
+    print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
+    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+
+    # Evaluate feature importance
+    importances = None
+    return regressor, model_info, importances
 
 
 """
@@ -35,24 +91,13 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="40")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="8")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
 args = parser.parse_args()
 
-# Post-process the settings from cmd line args (change defaults above if needed)
-# Data settings
-#data_dir = args.data_dir
-#mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn, and from which we take coords, normals, etc as features).
-#mesh_neighborhood_radius = int(args.neigh_radius)
-#num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
-#num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
-#num_files_to_load = None if int(args.load_files) == 0 else int(args.load_files)
-#sequential = args.sequential
-#verbose = args.verbose
-#num_cores = None if args.cores == "0" else int(args.cores)  # Number of cores for loading data in parallel, ignored if sequential is True.
 
-# Other data settings, not exposed on cmd line. Change here if needed.
+# Data settings not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation
 add_desc_neigh_size = True  # whether to add vertex neighborhood size (before pruning) as desriptor column to observation
 surface = 'pial' # The mesh to use.
@@ -67,7 +112,6 @@ data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' 
                         'mesh_neighborhood_count':int(args.neigh_count)}
 
 ### Other settings, not related to data loading. Adapt here if needed.
-
 do_pickle_data = True
 dataset_pickle_file = "meshlearn_dset.pkl"  # Only relevant if do_pickle_data is True
 dataset_settings_file = "meshlearn_dset_settings.json" # Only relevant if do_pickle_data is True
@@ -75,8 +119,8 @@ dataset_settings_file = "meshlearn_dset_settings.json" # Only relevant if do_pic
 do_persist_trained_model = True
 model_save_file="model.pkl"
 model_settings_file="model_settings.json"
+num_cores_fit = 8
 
-do_plot_feature_importances = False
 
 ### Model-specific settings
 rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
@@ -151,67 +195,37 @@ X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
 
+
+
 fit_start = time.time()
-print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators. (Started at {time.ctime()}.)")
+#print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
+#regressor, model_info, importances = fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
 
+print(f"Fitting with LightGBM Regressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
+regressor, model_info, importances = fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
 
-regressor = RandomForestRegressor(n_estimators=rf_num_estimators, random_state=0, n_jobs=-1)
-# The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
-# Currently needs to be manually adjusted when changing model!
-model_info = {'model_type': 'RandomForestRegressor', 'num_trees': rf_num_estimators }
+## Assess feature importance (if possible)
+if importances is not None: # Some regressors do not support it.
+    feature_names = np.array(col_names[:-1])
+    assert len(feature_names) == len(importances)
 
+    print(f"=== Evaluating Feature importance ===")
+    print(f"Feature names       : {feature_names}")
+    print(f"Feature importances : {importances}")
 
-regressor.fit(X_train, y_train)
+    max_importance = np.max(importances)
+    min_importance = np.min(importances)
+    mean_importance = np.mean(importances)
 
-fit_end = time.time()
-fit_execution_time = fit_end - fit_start
-fit_execution_time_readable = timedelta(seconds=fit_execution_time)
-model_info['fit_time'] = str(fit_execution_time_readable)
+    print(f"Max feature importance is {max_importance}, min is {min_importance}, mean is {mean_importance}.")
+    max_important_idx = np.argmax(importances)
+    min_important_idx = np.argmin(importances)
+    print(f"Most important feature is {feature_names[max_important_idx]}, min important one is {feature_names[min_important_idx]}.")
 
-print(f"===Fitting done, it took: {fit_execution_time_readable} ===")
-print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
-
-y_pred = regressor.predict(X_test)
-
-
-print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
-print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
-print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
-
-# Evaluate feature importance
-importances = regressor.feature_importances_
-
-feature_names = np.array(col_names[:-1])
-assert len(feature_names) == len(importances)
-
-print(f"=== Evaluating Feature importance ===")
-print(f"Feature names       : {feature_names}")
-print(f"Feature importances : {importances}")
-
-max_importance = np.max(importances)
-min_importance = np.min(importances)
-mean_importance = np.mean(importances)
-
-print(f"Max feature importance is {max_importance}, min is {min_importance}, mean is {mean_importance}.")
-max_important_idx = np.argmax(importances)
-min_important_idx = np.argmin(importances)
-print(f"Most important feature is {feature_names[max_important_idx]}, min important one is {feature_names[min_important_idx]}.")
-
-sorted_indices = np.argsort(importances)
-num_to_report = int(min(10, len(feature_names)))
-print(f"Most important {num_to_report} features are: {feature_names[sorted_indices[-num_to_report:]]}")
-print(f"Least important {num_to_report} features are: {feature_names[sorted_indices[0:num_to_report]]}")
-
-
-if do_plot_feature_importances:
-    std = np.std([tree.feature_importances_ for tree in regressor.estimators_], axis=0)
-    forest_importances = pd.Series(importances, index=feature_names)
-    import matplotlib.pyplot as plt
-    fig, ax = plt.subplots()
-    forest_importances.plot.bar(yerr=std, ax=ax)
-    ax.set_title("Feature importances using MDI")
-    ax.set_ylabel("Mean decrease in impurity")
-    fig.tight_layout()
+    sorted_indices = np.argsort(importances)
+    num_to_report = int(min(10, len(feature_names)))
+    print(f"Most important {num_to_report} features are: {feature_names[sorted_indices[-num_to_report:]]}")
+    print(f"Least important {num_to_report} features are: {feature_names[sorted_indices[0:num_to_report]]}")
 
 
 if do_persist_trained_model:

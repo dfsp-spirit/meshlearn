@@ -13,8 +13,9 @@ from meshlearn import neighborhoods_euclid_around_points
 from warnings import warn
 import os.path
 import glob
-
+import time
 import psutil
+from datetime import timedelta
 from sys import getsizeof
 
 def load_piallgi_morph_data(subjects_dir, subjects_list):
@@ -359,6 +360,62 @@ def get_valid_mesh_desc_lgi_file_pairs(dc_data_dir, verbose=True):
             print("Found {num_valid_file_pairs} valid pairs of mesh file with matching descriptor file.".format(num_valid_file_pairs=num_valid_file_pairs))
         return valid_mesh_files, valid_desc_files
 
+
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300):
+    """
+    Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
+    """
+    data_settings = locals() # Capute passed parameters as dict.
+    discover_start = time.time()
+    mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
+    data_settings['mesh_files'] = mesh_files
+    data_settings['desc_files'] = desc_files
+    data_settings['cortex_files'] = cortex_files
+    data_settings['val_subjects'] = val_subjects
+    data_settings['miss_subjects'] = miss_subjects
+    discover_end = time.time()
+    discover_execution_time = discover_end - discover_start
+    print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
+
+    ### Decide which files are used as training, validation and test data. ###
+    #input_file_dict = dict(zip(mesh_files, desc_files))  # Dict with mesh_file as key, desc_file as value.
+    input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
+
+    num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
+    seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
+
+    if verbose:
+        print(f"Discovered {len(input_filepair_list)} valid pairs of input mesh and descriptor files.")
+
+        if sequential:
+            if num_neighborhoods_to_load is None:
+                print(f"Will load all data from the {len(input_filepair_list)} files{seq_par_tag}.")
+            else:
+                print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_filepair_list)} files.")
+        else:
+            if num_files_to_load is None:
+                print(f"Will load data from all {len(input_filepair_list)} files{seq_par_tag}.")
+            else:
+                print(f"Will load data from {num_files_to_load} input files.")
+
+        if num_samples_per_file is None:
+            print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
+        else:
+            print(f"Will load at most {num_samples_per_file} vertex neighborhoods per mesh file.")
+
+
+    load_start = time.time()
+    tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
+    if sequential:
+        dataset, col_names = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
+    else:
+        dataset, col_names = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
+    load_end = time.time()
+    load_execution_time = load_end - load_start
+    print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
+
+    assert isinstance(dataset, pd.DataFrame)
+    return dataset, col_names, data_settings
 
 
 

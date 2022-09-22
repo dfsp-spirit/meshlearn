@@ -1,26 +1,22 @@
 #!/usr/bin/env python
 from __future__ import print_function
 from genericpath import isfile
-import sys
 import os
 import json
 import numpy as np
-import tensorflow as tf
 import argparse
 import pandas as pd
-from tensorflow.keras import layers
-from tensorflow.keras import Sequential
 import time
 from datetime import timedelta
 import psutil
 
-from sklearnex import patch_sklearn
+from sklearnex import patch_sklearn   # use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
 patch_sklearn()
 
 
 from sklearn.model_selection import train_test_split
 from meshlearn.tfdata import VertexPropertyDataset
-from meshlearn.training_data import TrainingData, get_valid_mesh_desc_lgi_file_pairs, get_valid_mesh_desc_file_pairs_reconall
+from meshlearn.training_data import TrainingData, get_dataset
 
 # To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
 # PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
@@ -32,58 +28,6 @@ from sklearn import metrics
 from sys import getsizeof
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8, num_files_to_load=None):
-    data_settings = locals() # Capute passed parameters as dict.
-    discover_start = time.time()
-    mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
-    data_settings['mesh_files'] = mesh_files
-    data_settings['desc_files'] = desc_files
-    data_settings['cortex_files'] = cortex_files
-    data_settings['val_subjects'] = val_subjects
-    data_settings['miss_subjects'] = miss_subjects
-    discover_end = time.time()
-    discover_execution_time = discover_end - discover_start
-    print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
-
-    ### Decide which files are used as training, validation and test data. ###
-    #input_file_dict = dict(zip(mesh_files, desc_files))  # Dict with mesh_file as key, desc_file as value.
-    input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
-
-    num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
-    seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
-
-    if verbose:
-        print(f"Discovered {len(input_filepair_list)} valid pairs of input mesh and descriptor files.")
-
-        if sequential:
-            if num_neighborhoods_to_load is None:
-                print(f"Will load all data from the {len(input_filepair_list)} files{seq_par_tag}.")
-            else:
-                print(f"Will load {num_neighborhoods_to_load} samples in total from the {len(input_filepair_list)} files.")
-        else:
-            if num_files_to_load is None:
-                print(f"Will load data from all {len(input_filepair_list)} files{seq_par_tag}.")
-            else:
-                print(f"Will load data from {num_files_to_load} input files.")
-
-        if num_samples_per_file is None:
-            print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
-        else:
-            print(f"Will load at most {num_samples_per_file} vertex neighborhoods per mesh file.")
-
-
-    load_start = time.time()
-    tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
-    if sequential:
-        dataset, col_names = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size)
-    else:
-        dataset, col_names = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores)
-    load_end = time.time()
-    load_execution_time = load_end - load_start
-    print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
-
-    assert isinstance(dataset, pd.DataFrame)
-    return dataset, col_names, data_settings
 
 
 
@@ -199,7 +143,7 @@ if do_pickle_data and os.path.isfile(dataset_pickle_file):
         data_settings = None
         print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
 else:
-    dataset, col_names, data_settings = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load)
+    dataset, col_names, data_settings = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load, mesh_neighborhood_radius=mesh_neighborhood_radius, mesh_neighborhood_count=mesh_neighborhood_count)
     if do_pickle_data:
         pickle_start = time.time()
         # Save the settings as a JSON file.
@@ -239,17 +183,19 @@ print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators. 
 
 
 regressor = RandomForestRegressor(n_estimators=rf_num_estimators, random_state=0, n_jobs=-1)
-# The 'model_settings' are used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
+# The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
 # Currently needs to be manually adjusted when changing model!
-model_settings = {'model_type': 'RandomForestRegressor', 'num_trees': rf_num_estimators }
+model_info = {'model_type': 'RandomForestRegressor', 'num_trees': rf_num_estimators }
 
 
 regressor.fit(X_train, y_train)
 
 fit_end = time.time()
 fit_execution_time = fit_end - fit_start
+fit_execution_time_readable = timedelta(seconds=fit_execution_time)
+model_info['fit_time'] = str(fit_execution_time_readable)
 
-print(f"===Fitting done, it took: {timedelta(seconds=fit_execution_time)} ===")
+print(f"===Fitting done, it took: {fit_execution_time_readable} ===")
 print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
 
 y_pred = regressor.predict(X_test)
@@ -301,7 +247,7 @@ if do_persist_trained_model:
     pickle_model_start = time.time()
     pickle.dump(regressor, open(model_save_file, 'wb'))
     # Save the model settings as a JSON file.
-    model_and_data_settings = { 'data_settings' : data_settings, 'model_settings' : model_settings }
+    model_and_data_settings = { 'data_settings' : data_settings, 'model_settings' : model_info }
     with open(model_settings_file, 'w') as fp:
         json.dump(model_and_data_settings, fp, sort_keys=True, indent=4)
 

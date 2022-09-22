@@ -237,7 +237,7 @@ if do_persist_trained_model:
     pickle_model_start = time.time()
     pickle.dump(regressor, open(model_save_file, 'wb'))
     # Save the model settings as a JSON file.
-    model_and_data_settings = { 'data_settings' : data_settings, 'model_settings' : model_info }
+    model_and_data_settings = { 'data_settings' : data_settings, 'model_info' : model_info }
     with open(model_settings_file, 'w') as fp:
         json.dump(model_and_data_settings, fp, sort_keys=True, indent=4)
 

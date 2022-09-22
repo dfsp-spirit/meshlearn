@@ -196,10 +196,11 @@ else:
     dataset, col_names, data_settings = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load)
     if do_pickle_data:
         pickle_start = time.time()
-        dataset.to_pickle(dataset_pickle_file)
-        # Also save the settings as a JSON file.
+        # Save the settings as a JSON file.
         with open(dataset_settings_file, 'w') as fp:
             json.dump(data_settings, fp, sort_keys=True, indent=4)
+        # Save the dataset itself as a pkl file.
+        dataset.to_pickle(dataset_pickle_file)
         pickle_end = time.time()
         pickle_save_time = pickle_end - pickle_start
         print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")

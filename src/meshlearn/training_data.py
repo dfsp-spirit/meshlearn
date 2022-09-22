@@ -32,27 +32,21 @@ def load_surfaces(subjects_dir, subjects_list, surf="pial"):
 
 class TrainingData():
 
-    def __init__(self, distance_measure = "Euclidean", neighborhood_radius=20.0, neighborhood_k=2, num_neighbors=10, allow_nan=False):
+    def __init__(self, neighborhood_radius, num_neighbors, allow_nan=False):
         """
         Parameters
         ----------
         datafiles: dict str,str of mesh_file_name : pvd_file_name
-        num_files: the number of file pairs to use (from the number available in datafiles). Set to None to use all.
-        distance_measure: one of "Euclidean" or "graph"
-        neighborhood_radius: only used with distance_measure = Euclidean. The ball radius for kdtree ball queries, defining the neighborhood.
-        neighborhood_k: only used with distance_measure = graph. The k for the k-neighborhood in the mesh, i.e., the hop distance along edges in the graph that defines the neighborhood.
-        num_neighbors: int, used with both distance_measures: the number of neighbors to actually use per vertex (keeps only num_neighbors per neighborhood), to fix the dimension of the descriptor. Each vertex must have at least this many neighbors for this to work, unless allow_nan is True.
+        neighborhood_radius: The ball radius for kdtree ball queries, defining the neighborhood.
+        num_neighbors: int, the number of neighbors to actually use per vertex (keeps only num_neighbors per neighborhood), to fix the dimension of the descriptor. Each vertex must have at least this many neighbors for this to work, unless allow_nan is True.
         allow_nan: boolean, whether to continue in case a neighborhood is smaller than num_neighbors. If this is True and the situation occurs, np.nan values will be added as neighbor coordinates. If this is False and the situation occurs, an error is raised. Whether or not allowing nans makes sense depends on the machine learning method used downstream. Many methods cannot handle nan values.
         """
-        self.distance_measure = distance_measure
         self.neighborhood_radius = neighborhood_radius
-        self.neighborhood_k = neighborhood_k
         self.num_neighbors = num_neighbors
         self.allow_nan = allow_nan
 
         self.kdtree = None
         self.mesh = None
-        self.distance_measure = distance_measure
 
     @staticmethod
     def data_from_files(mesh_file_name, descriptor_file_name):
@@ -74,37 +68,6 @@ class TrainingData():
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         pvd_data = fsio.read_morph_data(descriptor_file_name)
         return (vert_coords, faces, pvd_data)
-
-    # def gen_data(self, datafiles, neighborhood_radius=25):
-    #     """Generator for training data from files. Allows sample-wise loading of very large data sets.
-    #     Use this or `load_data`, depending on whether or not you want everything in memory at once
-    #     Parameters
-    #     ----------
-    #     datafiles: dict str, str of mesh file names and corresponding per-vertex data file names. Must be FreeSurfer surf files and curv files.
-    #     Yields
-    #     ------
-    #     X 2d nx3 float np.ndarray of neighborhood coordinates, each row contains the x,y,z coords of a single vertex. The n rows form the neighborhood around the source vertex.
-    #     y scalar float, the per-vertex data value for the source vertex.
-    #     """
-    #     # TODO: this is not done yet
-    #     for mesh_file_name, descriptor_file_name in datafiles.items():
-    #         if not os.path.exists(mesh_file_name) and os.path.exists(descriptor_file_name):
-    #             warn("Skipping non-existant file pair '{mf}' and '{df}'.".format(mf=mesh_file_name, df=descriptor_file_name))
-    #             continue
-    #         vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
-    #         self.mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
-    #         if self.distance_measure == "Euclidean":
-    #             self.kdtree = KDTree(vert_coords)
-    #             neighborhoods = neighborhoods_euclid_around_points(vert_coords, self.kdtree, neighborhood_radius=neighborhood_radius)
-    #         elif self.distance_measure == "graph":
-    #             neighborhoods = mesh_k_neighborhoods(self.mesh, k=self.neighborhood_k)
-    #             neighborhoods_centered_coords = mesh_neighborhoods_coords(neighborhoods, self.mesh, num_neighbors_max=self.num_neighbors)
-    #         else:
-    #             raise ValueError("Invalid distance_measure {dm}, must be one of 'graph' or 'Euclidean'.".format(dm=self.distance_measure))
-    #         for vertex_idx in range(vert_coords.shape[0]):
-    #             X =  neighborhoods_centered_coords[vertex_idx]
-    #             y = pvd_data[vertex_idx]
-    #             yield (X, y)
 
 
     def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None):
@@ -216,32 +179,28 @@ class TrainingData():
                 query_vert_indices = randomstate.choice(num_verts_total, num_samples_per_file, replace=False, shuffle=False)
                 query_vert_coords = query_vert_coords[query_vert_indices, :]
 
-            if self.distance_measure == "Euclidean":
-                self.kdtree = None
-                if verbose:
-                    print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
-                neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=neighborhood_radius, mesh=tm.Trimesh(vertices=vert_coords, faces=faces), max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose)
 
-                num_files_loaded += 1
+            self.kdtree = None
+            if verbose:
+                print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
+            neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=neighborhood_radius, mesh=tm.Trimesh(vertices=vert_coords, faces=faces), max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose)
 
-                neighborhoods_size_bytes = getsizeof(neighborhoods)
-                if verbose:
-                    print(f"[load]  - Current {neighborhoods.shape[0]} neighborhoods (from file #{num_files_loaded}) size in RAM is about {int(neighborhoods_size_bytes / 1024. / 1024.)} MB.")
+            num_files_loaded += 1
 
-                if full_data is None:
-                    full_data = neighborhoods
-                else:
-                    full_data = np.concatenate((full_data, neighborhoods,), axis=0)
-                    full_data_size_bytes = getsizeof(full_data)
-                    full_data_size_MB = int(full_data_size_bytes / 1024. / 1024.)
-                    if verbose:
-                        print(f"[load]  - Currently after {num_files_loaded} files, {full_data.shape[0]} neighborhoods loaded, and full_data size in RAM is about {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM still available.")
+            neighborhoods_size_bytes = getsizeof(neighborhoods)
+            if verbose:
+                print(f"[load]  - Current {neighborhoods.shape[0]} neighborhoods (from file #{num_files_loaded}) size in RAM is about {int(neighborhoods_size_bytes / 1024. / 1024.)} MB.")
 
-                num_samples_loaded += neighborhoods.shape[0]
+            if full_data is None:
+                full_data = neighborhoods
             else:
-                raise ValueError("Invalid distance_measure {dm}, must be 'Euclidean'.".format(dm=self.distance_measure))
+                full_data = np.concatenate((full_data, neighborhoods,), axis=0)
+                full_data_size_bytes = getsizeof(full_data)
+                full_data_size_MB = int(full_data_size_bytes / 1024. / 1024.)
+                if verbose:
+                    print(f"[load]  - Currently after {num_files_loaded} files, {full_data.shape[0]} neighborhoods loaded, and full_data size in RAM is about {full_data_size_MB} MB ({int(full_data_size_MB / num_files_loaded)} MB per file on avg). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM still available.")
 
-
+            num_samples_loaded += neighborhoods.shape[0]
 
             if num_samples_total is not None:
                 if num_samples_loaded >= num_samples_total:

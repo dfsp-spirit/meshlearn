@@ -3,6 +3,7 @@ from __future__ import print_function
 from genericpath import isfile
 import sys
 import os
+import json
 import numpy as np
 import tensorflow as tf
 import argparse
@@ -32,6 +33,7 @@ from sys import getsizeof
 
 
 def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8, num_files_to_load=None):
+    data_settings = locals() # Capute passed parameters as dict.
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
     discover_end = time.time()
@@ -76,7 +78,7 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
 
     assert isinstance(dataset, pd.DataFrame)
-    return dataset, col_names
+    return dataset, col_names, data_settings
 
 
 
@@ -90,7 +92,6 @@ default_data_dir = "/media/spirit/science/data/abide"
 # Parse command line arguments
 parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
 parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-#parser.add_argument('-d', '--data-flat-dir', help="The flat data directory. Use deepcopy_testdata.py script to create.", default="")
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default=default_data_dir)
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
@@ -118,6 +119,7 @@ add_desc_neigh_size = True
 
 do_pickle_data = True
 dataset_pickle_file = "meshlearn_dset.pkl"  # Only relevant if do_pickle_data is True
+dataset_settings_file = "meshlearn_dset_settings.json" # Only relevant if do_pickle_data is True
 
 do_persist_trained_model = True
 model_save_file="model.pkl"
@@ -183,14 +185,24 @@ if do_pickle_data and os.path.isfile(dataset_pickle_file):
     unpickle_end = time.time()
     pickle_load_time = unpickle_end - unpickle_start
     print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took {timedelta(seconds=pickle_load_time)}.")
+    try:
+        with open(dataset_settings_file, 'r') as fp:
+            data_settings = json.load(fp)
+            print(f"INFO: Loaded settings used to create dataset from file '{dataset_settings_file}'.")
+    except Exception as ex:
+        data_settings = None
+        print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
 else:
-    dataset, col_names = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load)
+    dataset, col_names, data_settings = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load)
     if do_pickle_data:
         pickle_start = time.time()
         dataset.to_pickle(dataset_pickle_file)
+        # Also save the settings as a JSON file.
+        with open(dataset_settings_file, 'w') as fp:
+            json.dump(data_settings, fp, sort_keys=True, indent=4)
         pickle_end = time.time()
         pickle_save_time = pickle_end - pickle_start
-        print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
+        print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
 
 
 print(f"Obtained dataset of  {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
@@ -279,7 +291,7 @@ if do_persist_trained_model:
     pickle_model_save_time = pickle_model_end - pickle_model_start
     print(f"INFO: Saved trained model to pickle file '{model_save_file}', ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
 
-    ## Some time later...
+    ## Some time later, load 'model.pkl'
     #loaded_model = pickle.load(open(model_save_file, 'rb'))
     #result = loaded_model.score(X_test, Y_test)
 

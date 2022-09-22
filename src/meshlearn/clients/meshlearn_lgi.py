@@ -36,6 +36,11 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     data_settings = locals() # Capute passed parameters as dict.
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
+    data_settings['mesh_files'] = mesh_files
+    data_settings['desc_files'] = desc_files
+    data_settings['cortex_files'] = cortex_files
+    data_settings['val_subjects'] = val_subjects
+    data_settings['miss_subjects'] = miss_subjects
     discover_end = time.time()
     discover_execution_time = discover_end - discover_start
     print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
@@ -123,6 +128,7 @@ dataset_settings_file = "meshlearn_dset_settings.json" # Only relevant if do_pic
 
 do_persist_trained_model = True
 model_save_file="model.pkl"
+model_settings_file="model_settings.json"
 
 do_plot_feature_importances = False
 
@@ -221,7 +227,7 @@ print(f"Created training data set with shape {X_train.shape} and testing data se
 print(f"The label arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
 
 
-print("Scaling...")
+print(f"Scaling... (Started at {time.ctime()}.)")
 
 sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
@@ -231,7 +237,13 @@ X_test = sc.transform(X_test)
 fit_start = time.time()
 print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators. (Started at {time.ctime()}.)")
 
+
 regressor = RandomForestRegressor(n_estimators=rf_num_estimators, random_state=0, n_jobs=-1)
+# The 'model_settings' are used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
+# Currently needs to be manually adjusted when changing model!
+model_settings = {'model_type': 'RandomForestRegressor', 'num_trees': rf_num_estimators }
+
+
 regressor.fit(X_train, y_train)
 
 fit_end = time.time()
@@ -288,6 +300,12 @@ if do_persist_trained_model:
     # save the model to disk
     pickle_model_start = time.time()
     pickle.dump(regressor, open(model_save_file, 'wb'))
+    # Save the model settings as a JSON file.
+    model_and_data_settings = { 'data_settings' : data_settings, 'model_settings' : model_settings }
+    with open(model_settings_file, 'w') as fp:
+        json.dump(model_and_data_settings, fp, sort_keys=True, indent=4)
+
+
     pickle_model_end = time.time()
     pickle_model_save_time = pickle_model_end - pickle_model_start
     print(f"INFO: Saved trained model to pickle file '{model_save_file}', ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")

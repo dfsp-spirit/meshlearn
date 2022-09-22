@@ -43,6 +43,12 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
     print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
     print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
 
+    y_train_predicted = regressor.predict(X_train)
+    print('For comparison and overfitting estimation only:')
+    print(' - Mean Absolute Error on training data (do not use for model evaluation!):', metrics.mean_absolute_error(y_train, y_train_predicted))
+    print(' - Mean Squared Error on training data (do not use for model evaluation!):', metrics.mean_squared_error(y_train, y_train_predicted))
+    print(' - Root Mean Squared Error on training data (do not use for model evaluation!):', np.sqrt(metrics.mean_squared_error(y_train, y_train_predicted)))
+
     # Evaluate feature importance
     importances = regressor.feature_importances_
     return regressor, model_info, importances
@@ -67,9 +73,16 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
 
     y_pred = regressor.predict(X_test)
 
-    print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
-    print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
-    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+    print('Mean Absolute Error on test data:', metrics.mean_absolute_error(y_test, y_pred))
+    print('Mean Squared Error on test data:', metrics.mean_squared_error(y_test, y_pred))
+    print('Root Mean Squared Error on test data:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
+    print('')
+
+    y_train_predicted = regressor.predict(X_train)
+    print('For comparison and overfitting estimation only:')
+    print(' - Mean Absolute Error on training data (do not use for model evaluation!):', metrics.mean_absolute_error(y_train, y_train_predicted))
+    print(' - Mean Squared Error on training data (do not use for model evaluation!):', metrics.mean_squared_error(y_train, y_train_predicted))
+    print(' - Root Mean Squared Error on training data (do not use for model evaluation!):', np.sqrt(metrics.mean_squared_error(y_train, y_train_predicted)))
 
     # Evaluate feature importance
     importances = regressor.feature_importances_

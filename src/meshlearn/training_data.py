@@ -136,7 +136,7 @@ class TrainingData():
                 datafiles_tmp = list()
                 datafiles_tmp.append(datafiles)
                 datafiles = datafiles_tmp   # We wrap this into a list (with 1 element) because the sequential function works with a list.
-                print(f"[seq] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
+                print(f"[seq, wrapped in parallel] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
                 is_parallel_wrapped = True
             else:
                 raise ValueError(f"[seq] Received tuple (assuming parallel mode) with length {len(datafiles)}, but required is length 2.")

@@ -1,32 +1,23 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import json
 import numpy as np
 import argparse
 import pandas as pd
 import time
 from datetime import timedelta
+from sys import getsizeof
 import psutil
 
-from sklearnex import patch_sklearn   # use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
-patch_sklearn()
+from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
+patch_sklearn()                       # Do this BEFORE loading sklearn.
 
 
-from sklearn.model_selection import train_test_split
-from meshlearn.tfdata import VertexPropertyDataset
-from meshlearn.training_data import TrainingData, get_dataset_pickle
-
-# To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
-# PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
+from meshlearn.training_data import get_dataset_pickle
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
-from sys import getsizeof
-
-
-
 
 
 """
@@ -42,7 +33,7 @@ parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default=default_data_dir)
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
-parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="500000")
+parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
 parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="40")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")

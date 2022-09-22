@@ -62,10 +62,10 @@ args = parser.parse_args()
 #num_cores = None if args.cores == "0" else int(args.cores)  # Number of cores for loading data in parallel, ignored if sequential is True.
 
 # Other data settings, not exposed on cmd line. Change here if needed.
-add_desc_vertex_index = True
-add_desc_neigh_size = True
-surface = 'pial'
-descriptor = 'pial_lgi'
+add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation
+add_desc_neigh_size = True  # whether to add vertex neighborhood size (before pruning) as desriptor column to observation
+surface = 'pial' # The mesh to use.
+descriptor = 'pial_lgi' # The label descriptor, what you want to predict on the mesh.
 cortex_label = False # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
 
 # Construct data settings from command line and other data setting above.

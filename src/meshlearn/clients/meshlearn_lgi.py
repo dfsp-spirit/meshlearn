@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from genericpath import isfile
-import os
 import json
 import numpy as np
 import argparse
@@ -16,7 +14,7 @@ patch_sklearn()
 
 from sklearn.model_selection import train_test_split
 from meshlearn.tfdata import VertexPropertyDataset
-from meshlearn.training_data import TrainingData, get_dataset
+from meshlearn.training_data import TrainingData, get_dataset_pickle
 
 # To run this in dev mode (in virtual env, pip -e install of brainload active) from REPO_ROOT:
 # PYTHONPATH=./src/meshlearn python src/meshlearn/clients/meshlearn_lgi.py --verbose
@@ -52,19 +50,32 @@ parser.add_argument("-c", "--cores", help="Number of cores to use when loading i
 args = parser.parse_args()
 
 # Post-process the settings from cmd line args (change defaults above if needed)
-data_dir = args.data_dir
-mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn, and from which we take coords, normals, etc as features).
-mesh_neighborhood_radius = int(args.neigh_radius)
-num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
-num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
-num_files_to_load = None if int(args.load_files) == 0 else int(args.load_files)
-sequential = args.sequential
-verbose = args.verbose
-num_cores = None if args.cores == "0" else int(args.cores)  # Number of cores for loading data in parallel, ignored if sequential is True.
+# Data settings
+#data_dir = args.data_dir
+#mesh_neighborhood_count = int(args.neigh_count) # How many vertices in the edge neighborhood do we consider (the 'local' neighbors from which we learn, and from which we take coords, normals, etc as features).
+#mesh_neighborhood_radius = int(args.neigh_radius)
+#num_neighborhoods_to_load = None if int(args.load_max) == 0 else int(args.load_max)
+#num_samples_per_file = None if int(args.load_per_file) == 0 else int(args.load_per_file)
+#num_files_to_load = None if int(args.load_files) == 0 else int(args.load_files)
+#sequential = args.sequential
+#verbose = args.verbose
+#num_cores = None if args.cores == "0" else int(args.cores)  # Number of cores for loading data in parallel, ignored if sequential is True.
 
-# Other Settings, not exposed on cmd line. Change here if needed.
+# Other data settings, not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True
 add_desc_neigh_size = True
+surface = 'pial'
+descriptor = 'pial_lgi'
+cortex_label = False # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
+
+# Construct data settings from command line and other data setting above.
+data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' : descriptor, 'cortex_label': cortex_label, 'verbose': args.verbose,
+                        'num_neighborhoods_to_load':None if int(args.load_max) == 0 else int(args.load_max), 'num_samples_per_file': None if int(args.load_per_file) == 0 else int(args.load_per_file),
+                        'add_desc_vertex_index':add_desc_vertex_index, 'add_desc_neigh_size':add_desc_neigh_size, 'sequential':args.sequential,
+                        'num_cores':None if args.cores == "0" else int(args.cores), 'num_files_to_load':None if int(args.load_files) == 0 else int(args.load_files), 'mesh_neighborhood_radius':int(args.neigh_radius),
+                        'mesh_neighborhood_count':int(args.neigh_count)}
+
+### Other settings, not related to data loading. Adapt here if needed.
 
 do_pickle_data = True
 dataset_pickle_file = "meshlearn_dset.pkl"  # Only relevant if do_pickle_data is True
@@ -76,26 +87,26 @@ model_settings_file="model_settings.json"
 
 do_plot_feature_importances = False
 
-# Model-specific settings
+### Model-specific settings
 rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
 
 
 print("---Train and evaluate an lGI prediction model---")
 
-if verbose:
+if data_settings_in['verbose']:
     print("Verbosity turned on.")
 
-num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
-seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
+num_cores_tag = "all" if data_settings_in['num_cores'] is None or data_settings_in['num_cores'] == 0 else data_settings_in['num_cores']
+seq_par_tag = " sequentially " if data_settings_in['sequential'] else f" in parallel using {num_cores_tag} cores"
 
-if sequential:
+if data_settings_in['sequential']:
     print(f"Loading datafiles{seq_par_tag}.")
-    print(f"Using data directory '{data_dir}', observations to load total limit is set to: {num_neighborhoods_to_load}.")
+    print(f"Using data directory '{data_settings_in['data_dir']}', observations to load total limit is set to: {data_settings_in['num_neighborhoods_to_load']}.")
 else:
     print("Loading datafiles in parallel.")
-    print(f"Using data directory '{data_dir}', number of files to load limit is set to: {num_files_to_load}.")
+    print(f"Using data directory '{data_settings_in['data_dir']}', number of files to load limit is set to: {data_settings_in['num_files_to_load']}.")
 
-print(f"Using neighborhood radius {mesh_neighborhood_radius} and keeping {mesh_neighborhood_count} vertices per neighborhood.")
+print(f"Using neighborhood radius {data_settings_in['mesh_neighborhood_radius']} and keeping {data_settings_in['mesh_neighborhood_count']} vertices per neighborhood.")
 
 
 print("Descriptor settings:")
@@ -108,11 +119,11 @@ if add_desc_neigh_size:
 else:
     print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
 
-if num_neighborhoods_to_load is not None and sequential:
-    if verbose:
+if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
+    if data_settings_in['verbose']:
         # Estimate total dataset size in RAM early to prevent crashing later, if possible.
-        ds_estimated_num_values_per_neighborhood = 6 * mesh_neighborhood_count + 1
-        ds_estimated_num_neighborhoods = num_neighborhoods_to_load
+        ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1
+        ds_estimated_num_neighborhoods = data_settings_in['num_neighborhoods_to_load']
         # try to allocate, will err if too little RAM.
         mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
         print(f"RAM available is about {mem_avail_mb} MB")
@@ -125,36 +136,7 @@ if num_neighborhoods_to_load is not None and sequential:
             print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
 
 
-if do_pickle_data and os.path.isfile(dataset_pickle_file):
-    print("======================================================================================================================================================")
-    print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all settings! Delete file or set 'do_pickle_data' to False to prevent.")
-    print("======================================================================================================================================================")
-    unpickle_start = time.time()
-    dataset = pd.read_pickle(dataset_pickle_file)
-    col_names = dataset.columns
-    unpickle_end = time.time()
-    pickle_load_time = unpickle_end - unpickle_start
-    print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took {timedelta(seconds=pickle_load_time)}.")
-    try:
-        with open(dataset_settings_file, 'r') as fp:
-            data_settings = json.load(fp)
-            print(f"INFO: Loaded settings used to create dataset from file '{dataset_settings_file}'.")
-    except Exception as ex:
-        data_settings = None
-        print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
-else:
-    dataset, col_names, data_settings = get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=verbose, num_neighborhoods_to_load=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, sequential=sequential, num_cores=num_cores, num_files_to_load=num_files_to_load, mesh_neighborhood_radius=mesh_neighborhood_radius, mesh_neighborhood_count=mesh_neighborhood_count)
-    if do_pickle_data:
-        pickle_start = time.time()
-        # Save the settings as a JSON file.
-        with open(dataset_settings_file, 'w') as fp:
-            json.dump(data_settings, fp, sort_keys=True, indent=4)
-        # Save the dataset itself as a pkl file.
-        dataset.to_pickle(dataset_pickle_file)
-        pickle_end = time.time()
-        pickle_save_time = pickle_end - pickle_start
-        print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
-
+dataset, col_names, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file, dataset_settings_file)
 
 print(f"Obtained dataset of  {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 print("Separating observations and labels...")

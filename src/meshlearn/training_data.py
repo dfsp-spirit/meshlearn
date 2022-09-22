@@ -15,6 +15,7 @@ import os.path
 import glob
 import time
 import psutil
+import json
 from datetime import timedelta
 from sys import getsizeof
 
@@ -361,7 +362,7 @@ def get_valid_mesh_desc_lgi_file_pairs(dc_data_dir, verbose=True):
         return valid_mesh_files, valid_desc_files
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=True, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300):
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
     """
@@ -419,5 +420,42 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
 
 
 
+def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=None, dataset_settings_file=None):
+    """
+    Wrapper around get_dataset that additionally uses pickling if requested.
+    """
+    if do_pickle_data and (dataset_pickle_file is None or dataset_settings_file is None):
+        raise ValueError(f"If 'do_pickle_data' is 'True', a valid 'dataset_pickle_file' and 'dataset_settings_file' have to be supplied.")
+
+    if do_pickle_data and os.path.isfile(dataset_pickle_file):
+        print("=========================================================================================================================================================================")
+        print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all datset settings! Delete file or set 'do_pickle_data' to False to prevent.")
+        print("=========================================================================================================================================================================")
+        unpickle_start = time.time()
+        dataset = pd.read_pickle(dataset_pickle_file)
+        col_names = dataset.columns
+        unpickle_end = time.time()
+        pickle_load_time = unpickle_end - unpickle_start
+        print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took {timedelta(seconds=pickle_load_time)}.")
+        try:
+            with open(dataset_settings_file, 'r') as fp:
+                data_settings = json.load(fp)
+                print(f"INFO: Loaded settings used to create dataset from file '{dataset_settings_file}'.")
+        except Exception as ex:
+            data_settings = None
+            print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
+    else:
+        dataset, col_names, data_settings = get_dataset(**data_settings_in)
+        if do_pickle_data:
+            pickle_start = time.time()
+            # Save the settings as a JSON file.
+            with open(dataset_settings_file, 'w') as fp:
+                json.dump(data_settings, fp, sort_keys=True, indent=4)
+            # Save the dataset itself as a pkl file.
+            dataset.to_pickle(dataset_pickle_file)
+            pickle_end = time.time()
+            pickle_save_time = pickle_end - pickle_start
+            print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
+    return dataset, col_names, data_settings
 
 

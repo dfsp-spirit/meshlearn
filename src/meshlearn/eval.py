@@ -27,18 +27,18 @@ def eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_tr
     print(f' - Root Mean Squared Error: {rmse_test}')
     if not 'evaluation' in model_info:
         model_info['evaluation'] = dict()
-    model_info['evaluation']['mae_test'] = mae_test
-    model_info['evaluation']['mse_test'] = mse_test
-    model_info['evaluation']['rmse_test'] = rmse_test
+    model_info['evaluation']['mae_test'] = mae_test.item()
+    model_info['evaluation']['mse_test'] = mse_test.item()
+    model_info['evaluation']['rmse_test'] = rmse_test.item()
 
     print('Performance on training data (for underfitting/overfitting estimation only)')
     y_train_pred = model.predict(X_train) # Fits on training data the model has already seen!
     mae_train = metrics.mean_absolute_error(y_train, y_train_pred)
     mse_train = metrics.mean_squared_error(y_train, y_train_pred)
     rmse_train = np.sqrt(metrics.mean_squared_error(y_train, y_train_pred))
-    model_info['evaluation']['mae_train'] = mae_train
-    model_info['evaluation']['mse_train'] = mse_train
-    model_info['evaluation']['rmse_train'] = rmse_train
+    model_info['evaluation']['mae_train'] = mae_train.item()
+    model_info['evaluation']['mse_train'] = mse_train.item()
+    model_info['evaluation']['rmse_train'] = rmse_train.item()
     print(f' - Mean Absolute Error on training data (Do not use for model evaluation!)     : {mae_train}')
     print(f' - Mean Squared Error on training data (Do not use for model evaluation!)      : {mse_train}')
     print(f' - Root Mean Squared Error on training data (Do not use for model evaluation!) : {rmse_train}')
@@ -69,10 +69,10 @@ def report_feature_importances(importances, feature_names, model_info=None):
         if not 'feature_importances' in model_info:
             model_info['feature_importances'] = dict()
 
-        model_info['feature_importances']['max_importance_score'] = max_importance
-        model_info['feature_importances']['min_importance_score'] = min_importance
-        model_info['feature_importances']['mean_importance_score'] = mean_importance
-        model_info['feature_importances']['median_importance_score'] = median_importance
+        model_info['feature_importances']['max_importance_score'] = max_importance.item() # Cannot serialize np.float
+        model_info['feature_importances']['min_importance_score'] = min_importance.item()
+        model_info['feature_importances']['mean_importance_score'] = mean_importance.item()
+        model_info['feature_importances']['median_importance_score'] = median_importance.item()
 
         sorted_indices = np.argsort(importances)
         num_to_report = int(min(10, len(feature_names)))
@@ -84,10 +84,10 @@ def report_feature_importances(importances, feature_names, model_info=None):
         print(f" * Their importances are: {most_important_features_importances}")
         print(f"The {num_to_report} least important {num_to_report} features are: {least_important_features_names}")
         print(f" * Their importances are: {least_important_features_importances}")
-        model_info['feature_importances']['most_important_features_names'] = most_important_features_names
-        model_info['feature_importances']['most_important_features_importances'] = most_important_features_importances
-        model_info['feature_importances']['least_important_features_names'] = least_important_features_names
-        model_info['feature_importances']['least_important_features_importances'] = least_important_features_importances
+        model_info['feature_importances']['most_important_features_names'] = most_important_features_names.tolist() # Cannot serialize np.ndarry to JSON.
+        model_info['feature_importances']['most_important_features_importances'] = most_important_features_importances.tolist()
+        model_info['feature_importances']['least_important_features_names'] = least_important_features_names.tolist()
+        model_info['feature_importances']['least_important_features_importances'] = least_important_features_importances.tolist()
     else:
         print(f"Cannot evaluate feature importance for model, None supplied.")
     return model_info

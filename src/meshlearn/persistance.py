@@ -7,6 +7,7 @@ Model persistence functions.
 import pickle
 import time
 import json
+import numpy as np
 from datetime import timedelta
 
 def save_model(model, model_and_data_info, model_save_file, model_settings_file):
@@ -24,6 +25,15 @@ def save_model(model, model_and_data_info, model_save_file, model_settings_file)
             raise ValueError(f"Parameter 'model_and_data_info' must be a dict or None.")
         if not model_settings_file.endswith('.json'):
             print(f"WARNING: Given model metadata JSON file filename '{model_settings_file}' does not have '.json' file extension.")
+
+        def check_keys(md):
+            for k in md:
+                if isinstance(md[k], dict):
+                    check_keys(md[k])
+                if isinstance(md[k], (np.ndarray, np.number)):
+                    print(f"[save_model]: WARNING 'model_and_data_info' entry '{k}' is of type '{type(md[k])}' that cannot be serialized.")
+        check_keys(model_and_data_info)
+
         try:
             with open(model_settings_file, 'w') as fp:
                 json.dump(model_and_data_info, fp, sort_keys=True, indent=4)

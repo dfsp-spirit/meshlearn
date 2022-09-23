@@ -13,7 +13,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
             num_per_vertex_features += 3
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False, verbose=True, center_coords=False):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False, verbose=True):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -128,10 +128,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         col_end_idx = col_start_idx+(max_num_neighbors*3)
         #print(f"Add coords for {len(neigh_indices)} neighbors into col positions {col_start_idx} to {col_end_idx} (num columns is {neighborhood_col_num_values}).")
 
-        if center_coords:
-            neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices] - mesh.vertices[central_vert_idx_mesh]) # Add vertex coords relative to central vertex
-        else:
-            neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices]) # Add absolute vertex coords
+        neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices]) # Add absolute vertex coords
 
         col_start_idx = col_end_idx
         col_end_idx = col_start_idx+(max_num_neighbors*3)

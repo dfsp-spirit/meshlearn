@@ -12,10 +12,11 @@ patch_sklearn()                       # Do this BEFORE loading sklearn.
 
 
 from meshlearn.training_data import get_dataset_pickle
+from meshlearn.eval import eval_model_train_test_split, report_feature_importances
+from meshlearn.persistance import save_model, load_model
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn import metrics
 
 
 def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs': 8}):
@@ -25,7 +26,7 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
     # Currently needs to be manually adjusted when changing model!
     model_info = {'model_type': 'sklearn.ensemble.RandomForestRegressor', 'model_settings' : model_settings }
 
-
+    fit_start = time.time()
     regressor.fit(X_train, y_train)
 
     fit_end = time.time()
@@ -33,25 +34,7 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
     fit_execution_time_readable = timedelta(seconds=fit_execution_time)
     model_info['fit_time'] = str(fit_execution_time_readable)
 
-    print(f"===Fitting done, it took: {fit_execution_time_readable} ===")
-    print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
-
-    y_pred = regressor.predict(X_test)
-
-
-    print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, y_pred))
-    print('Mean Squared Error:', metrics.mean_squared_error(y_test, y_pred))
-    print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
-
-    y_train_predicted = regressor.predict(X_train)
-    print('For comparison and overfitting estimation only:')
-    print(' - Mean Absolute Error on training data (do not use for model evaluation!):', metrics.mean_absolute_error(y_train, y_train_predicted))
-    print(' - Mean Squared Error on training data (do not use for model evaluation!):', metrics.mean_squared_error(y_train, y_train_predicted))
-    print(' - Root Mean Squared Error on training data (do not use for model evaluation!):', np.sqrt(metrics.mean_squared_error(y_train, y_train_predicted)))
-
-    # Evaluate feature importance
-    importances = regressor.feature_importances_
-    return regressor, model_info, importances
+    return regressor, model_info
 
 def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
     from lightgbm import LGBMRegressor
@@ -61,6 +44,7 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
 
 
+    fit_start = time.time()
     regressor.fit(X_train, y_train)
 
     fit_end = time.time()
@@ -68,25 +52,7 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
     fit_execution_time_readable = timedelta(seconds=fit_execution_time)
     model_info['fit_time'] = str(fit_execution_time_readable)
 
-    print(f"===Fitting done, it took: {fit_execution_time_readable} ===")
-    print(f"Using trained model to predict for test data set with shape {X_test.shape}.")
-
-    y_pred = regressor.predict(X_test)
-
-    print('Mean Absolute Error on test data:', metrics.mean_absolute_error(y_test, y_pred))
-    print('Mean Squared Error on test data:', metrics.mean_squared_error(y_test, y_pred))
-    print('Root Mean Squared Error on test data:', np.sqrt(metrics.mean_squared_error(y_test, y_pred)))
-    print('')
-
-    y_train_predicted = regressor.predict(X_train)
-    print('For comparison and overfitting estimation only:')
-    print(' - Mean Absolute Error on training data (do not use for model evaluation!):', metrics.mean_absolute_error(y_train, y_train_predicted))
-    print(' - Mean Squared Error on training data (do not use for model evaluation!):', metrics.mean_squared_error(y_train, y_train_predicted))
-    print(' - Root Mean Squared Error on training data (do not use for model evaluation!):', np.sqrt(metrics.mean_squared_error(y_train, y_train_predicted)))
-
-    # Evaluate feature importance
-    importances = regressor.feature_importances_
-    return regressor, model_info, importances
+    return regressor, model_info
 
 
 """
@@ -134,8 +100,8 @@ model_save_file="model.pkl"
 model_settings_file="model_settings.json"
 num_cores_fit = 8
 
-
-### Model-specific settings
+# Model settings
+model_type = "lightgbm"
 rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
 lightgbm_num_estimators = 48
 
@@ -187,12 +153,15 @@ if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_i
             print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
 
 
-dataset, col_names, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file, dataset_settings_file)
+dataset, _, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file, dataset_settings_file)
 
 print(f"Obtained dataset of  {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
-print("Separating observations and labels...")
 
 nc = len(dataset.columns)
+feature_names = np.array(dataset.columns[:-1]) # We require that the label is in the last column of the dataset.
+label_name = dataset.columns[-1]
+print(f"Separating observations into {len(feature_names)} features and target column '{label_name}'...")
+
 X = dataset.iloc[:, 0:(nc-1)].values
 y = dataset.iloc[:, (nc-1)].values
 
@@ -212,54 +181,30 @@ X_test = sc.transform(X_test)
 
 
 
+if model_type == "sklearnrf":
+    print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
+    model_settings_sklearnrf = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
+    model, model_info = fit_regression_model_sklearnrf(X_train, y_train, model_settings = model_settings_sklearnrf)
+elif model_type == "lightgbm":
+    print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
+    model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
+    model, model_info = fit_regression_model_lightgbm(X_train, y_train, model_settings=model_settings_lightgbm)
+else:
+    raise ValueError(f"Invalid model type '{model_type}'.")
 
-fit_start = time.time()
-#print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
-#regressor, model_info, importances = fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
 
-print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
-regressor, model_info, importances = fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit})
+model_info = eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_train)
 
 ## Assess feature importance (if possible)
-if importances is not None: # Some regressors do not support it.
-    feature_names = np.array(col_names[:-1])
-    assert len(feature_names) == len(importances)
-
-    print(f"=== Evaluating Feature importance ===")
-    print(f"Feature names       : {feature_names}")
-    print(f"Feature importances : {importances}")
-
-    max_importance = np.max(importances)
-    min_importance = np.min(importances)
-    mean_importance = np.mean(importances)
-
-    print(f"Max feature importance is {max_importance}, min is {min_importance}, mean is {mean_importance}.")
-    max_important_idx = np.argmax(importances)
-    min_important_idx = np.argmin(importances)
-    print(f"Most important feature is {feature_names[max_important_idx]}, min important one is {feature_names[min_important_idx]}.")
-
-    sorted_indices = np.argsort(importances)
-    num_to_report = int(min(10, len(feature_names)))
-    print(f"Most important {num_to_report} features are: {feature_names[sorted_indices[-num_to_report:]]}")
-    print(f"Least important {num_to_report} features are: {feature_names[sorted_indices[0:num_to_report]]}")
+importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
+model_info = report_feature_importances(importances, feature_names, model_info)
 
 
+model_and_data_info = { 'data_settings' : data_settings, 'model_info' : model_info }
 if do_persist_trained_model:
-    import pickle
-    # save the model to disk
-    pickle_model_start = time.time()
-    pickle.dump(regressor, open(model_save_file, 'wb'))
-    # Save the model settings as a JSON file.
-    model_and_data_settings = { 'data_settings' : data_settings, 'model_info' : model_info }
-    with open(model_settings_file, 'w') as fp:
-        json.dump(model_and_data_settings, fp, sort_keys=True, indent=4)
+    save_model(model, model_and_data_info, model_save_file, model_settings_file)
 
-
-    pickle_model_end = time.time()
-    pickle_model_save_time = pickle_model_end - pickle_model_start
-    print(f"INFO: Saved trained model to pickle file '{model_save_file}', ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
-
-    ## Some time later, load 'model.pkl'
-    #loaded_model = pickle.load(open(model_save_file, 'rb'))
-    #result = loaded_model.score(X_test, Y_test)
+    ## Some time later, load the model.
+    #model, model_and_data_info = load_model(model_save_file, model_settings_file)
+    #result = model.score(X_test, Y_test)
 

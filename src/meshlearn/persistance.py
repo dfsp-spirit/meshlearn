@@ -24,8 +24,11 @@ def save_model(model, model_and_data_info, model_save_file, model_settings_file)
             raise ValueError(f"Parameter 'model_and_data_info' must be a dict or None.")
         if not model_settings_file.endswith('.json'):
             print(f"WARNING: Given model metadata JSON file filename '{model_settings_file}' does not have '.json' file extension.")
-        with open(model_settings_file, 'w') as fp:
-            json.dump(model_and_data_info, fp, sort_keys=True, indent=4)
+        try:
+            with open(model_settings_file, 'w') as fp:
+                json.dump(model_and_data_info, fp, sort_keys=True, indent=4)
+        except Exception as ex:
+            print(f"NOTICE: Could not save model_and_data_info to file '{model_settings_file}': {str(ex)}.")
 
     pickle_model_end = time.time()
     pickle_model_save_time = pickle_model_end - pickle_model_start

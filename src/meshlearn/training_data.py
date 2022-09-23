@@ -420,6 +420,7 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
             print(f"Will filter (remove) all datasets smaller than {neigh_size_tag}.")
         else:
             print(f"NOTICE: Will fill the respective missing columns of neighborhoods smaller than {neigh_size_tag} with NAN values. You will have to handle NAN values before training!")
+            print(f"NOTICE: Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
 
 
     load_start = time.time()

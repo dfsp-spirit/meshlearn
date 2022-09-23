@@ -1,6 +1,6 @@
 #!/usr/bin/env python
-import json
 import numpy as np
+import pandas as pd
 import argparse
 import time
 from datetime import timedelta
@@ -70,7 +70,7 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="40")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="4")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
 args = parser.parse_args()
@@ -157,7 +157,20 @@ if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_i
 
 dataset, _, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file, dataset_settings_file)
 
-print(f"Obtained dataset of  {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+
+### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
+row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
+if row_indices_with_nan_values.size > 0:
+    print(f"WARNING: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
+    print(f"WARNING: You will have to replace these for most models. Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
+    dataset.fillna(0, inplace=True) # TODO: replace with something better? Like col mean?
+    print(f"Filling NAN values in {row_indices_with_nan_values.size} columns with 0.")
+    row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
+    print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling.")
+else:
+    print(f"Dataset contains no NAN values.")
+
 
 nc = len(dataset.columns)
 feature_names = np.array(dataset.columns[:-1]) # We require that the label is in the last column of the dataset.

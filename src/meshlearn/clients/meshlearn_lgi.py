@@ -82,13 +82,14 @@ add_desc_neigh_size = True  # whether to add vertex neighborhood size (before pr
 surface = 'pial' # The mesh to use.
 descriptor = 'pial_lgi' # The label descriptor, what you want to predict on the mesh.
 cortex_label = False # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
+filter_smaller_neighborhoods = False # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
 
 # Construct data settings from command line and other data setting above.
 data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' : descriptor, 'cortex_label': cortex_label, 'verbose': args.verbose,
                         'num_neighborhoods_to_load':None if int(args.load_max) == 0 else int(args.load_max), 'num_samples_per_file': None if int(args.load_per_file) == 0 else int(args.load_per_file),
                         'add_desc_vertex_index':add_desc_vertex_index, 'add_desc_neigh_size':add_desc_neigh_size, 'sequential':args.sequential,
                         'num_cores':None if args.cores == "0" else int(args.cores), 'num_files_to_load':None if int(args.load_files) == 0 else int(args.load_files), 'mesh_neighborhood_radius':int(args.neigh_radius),
-                        'mesh_neighborhood_count':int(args.neigh_count)}
+                        'mesh_neighborhood_count':int(args.neigh_count), 'filter_smaller_neighborhoods': filter_smaller_neighborhoods}
 
 ### Other settings, not related to data loading. Adapt here if needed.
 do_pickle_data = True

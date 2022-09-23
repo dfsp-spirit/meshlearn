@@ -13,7 +13,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
             num_per_vertex_features += 3
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False, verbose=True):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False, verbose=True, filter_smaller_neighborhoods=False):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -74,22 +74,39 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         median_neigh_size = np.median(neigh_lengths)
         print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
 
-    ## Filter neighborhoods which are too small.
-    kept_vertex_indices_rel = np.where([len(neigh) >= max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords, but that may not be all vertices in the mesh.
-    assert isinstance(kept_vertex_indices_rel, np.ndarray)
-    assert kept_vertex_indices_rel.ndim == 1
-    kept_vertex_indices_mesh = query_vert_indices[kept_vertex_indices_rel]
-    neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
-    if verbose:
-        print(f"[neig]   - Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
+    too_small_action = "filter" if filter_smaller_neighborhoods else "fill"
 
-    num_query_verts_after_filtering = len(neighbor_indices_filtered)
-    assert len(kept_vertex_indices_rel) == len(kept_vertex_indices_mesh)
-    assert num_query_verts_after_filtering == len(kept_vertex_indices_rel), f"Expected {len(kept_vertex_indices_rel)} neighborhoods to be left after size filtering (relative indices), but found {num_query_verts_after_filtering}."
-    assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods to be left after size filtering (absolute/mesh indices), but found {num_query_verts_after_filtering}."
+    if too_small_action == "filter":
+        ## Filter neighborhoods which are too small.
+        kept_vertex_indices_rel = np.where([len(neigh) >= max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords, but that may not be all vertices in the mesh.
+        assert isinstance(kept_vertex_indices_rel, np.ndarray)
+        assert kept_vertex_indices_rel.ndim == 1
+        kept_vertex_indices_mesh = query_vert_indices[kept_vertex_indices_rel]
+        neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices if len(neigh) >= max_num_neighbors]
+        if verbose:
+            print(f"[neig]   - Filtered neighborhoods, {len(neighbor_indices_filtered)} of {len(neighbor_indices)} left after removing all smaller than {max_num_neighbors} verts")
 
-    neighbor_indices = neighbor_indices_filtered
-    neigh_lengths_filtered = np.array(neigh_lengths)[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
+        num_query_verts_after_filtering = len(neighbor_indices_filtered)
+        assert len(kept_vertex_indices_rel) == len(kept_vertex_indices_mesh)
+        assert num_query_verts_after_filtering == len(kept_vertex_indices_rel), f"Expected {len(kept_vertex_indices_rel)} neighborhoods to be left after size filtering (relative indices), but found {num_query_verts_after_filtering}."
+        assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods to be left after size filtering (absolute/mesh indices), but found {num_query_verts_after_filtering}."
+
+        neighbor_indices = neighbor_indices_filtered
+        neigh_lengths_filtered = np.array(neigh_lengths)[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
+    elif too_small_action == "fill":
+        num_query_verts_after_filtering = len(neighbor_indices)
+        kept_vertex_indices_rel = np.arange(len(neighbor_indices)) # We kept all of them.
+        kept_vertex_indices_mesh = query_vert_indices # No changes
+        neigh_lengths_filtered = np.array(neigh_lengths) # We did not filter anything, really.
+        if verbose:
+            vertex_indices_to_fill_rel = np.where([len(neigh) < max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords.
+            print(f"[neig]   - Filled neighborhood vertex coords and normals with 'np.nan' for the {vertex_indices_to_fill_rel.size} neighborhoods smaller than {max_num_neighbors} verts.")
+
+        # We do not need to do anything special to fill with NANs: later, we create a matrix of NAN values,
+        # and the places which are not filled stay NAN.
+
+    else:
+        raise ValueError(f"Invalid 'too_small_action' to apply to neighborhoods smaller than {max_num_neighbors} vertices.")
 
     extra_fields = []
     if add_desc_vertex_index:
@@ -103,7 +120,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns (the last 1 of them is the label) per observation.")
 
     ## Full matrix for all neighborhoods
-    neighborhoods = np.zeros((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float)
+    neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float)
+    neighborhoods[:] = np.nan
 
     col_names = []
     for n_idx in range(max_num_neighbors):
@@ -124,14 +142,15 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
         central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
         col_start_idx = 0
+        this_vertex_num_neighbors = neigh_lengths_filtered[central_vert_rel_idx] # We need to know this for each vertex so we only fill the correct length in case (and leave the rest at np.nan) for neighborhoods smaller than 'max_num_neighbors'.
 
-        col_end_idx = col_start_idx+(max_num_neighbors*3)
+        col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
         #print(f"Add coords for {len(neigh_indices)} neighbors into col positions {col_start_idx} to {col_end_idx} (num columns is {neighborhood_col_num_values}).")
 
         neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices]) # Add absolute vertex coords
 
         col_start_idx = col_end_idx
-        col_end_idx = col_start_idx+(max_num_neighbors*3)
+        col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
         #print(f"Add normals for {max_num_neighbors} neighbors into col positions {col_start_idx} to {col_end_idx}")
 
         neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals

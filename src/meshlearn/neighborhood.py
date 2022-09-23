@@ -92,12 +92,16 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods to be left after size filtering (absolute/mesh indices), but found {num_query_verts_after_filtering}."
 
         neighbor_indices = neighbor_indices_filtered
-        neigh_lengths_filtered = np.array(neigh_lengths)[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
+        neigh_lengths_full_filtered_row_subset = np.array(neigh_lengths)[kept_vertex_indices_rel]  # These are the full lengths (before limiting to max_num_neighbors), but only for the subset of vertices that were kept.
+        neigh_lengths_nonnan_after_filtering = [len(neigh) for neigh in neighbor_indices_filtered] # These are all identical (their length is 'max_num_neighbors') in the 'filter' case.
     elif too_small_action == "fill":
+        neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices] # Do not filter them, but restrict all rows to length 'max_num_neighbors'.
+        neighbor_indices = neighbor_indices_filtered
         num_query_verts_after_filtering = len(neighbor_indices)
         kept_vertex_indices_rel = np.arange(len(neighbor_indices)) # We kept all of them.
         kept_vertex_indices_mesh = query_vert_indices # No changes
-        neigh_lengths_filtered = np.array(neigh_lengths) # We did not filter anything, really.
+        neigh_lengths_full_filtered_row_subset = np.array(neigh_lengths) # These are the full lengths (before limiting to max_num_neighbors). We did not filter anything, really.
+        neigh_lengths_nonnan_after_filtering = [min(len(neigh), max_num_neighbors) for neigh in neighbor_indices]
         if verbose:
             vertex_indices_to_fill_rel = np.where([len(neigh) < max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords.
             print(f"[neig]   - Filled neighborhood vertex coords and normals with 'np.nan' for the {vertex_indices_to_fill_rel.size} neighborhoods smaller than {max_num_neighbors} verts.")
@@ -121,6 +125,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float)
+    #print(f"Created neighborhoods NAN matrix with shape: {neighborhoods.shape}")
     neighborhoods[:] = np.nan
 
     col_names = []
@@ -142,11 +147,12 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
         central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
         col_start_idx = 0
-        this_vertex_num_neighbors = neigh_lengths_filtered[central_vert_rel_idx] # We need to know this for each vertex so we only fill the correct length in case (and leave the rest at np.nan) for neighborhoods smaller than 'max_num_neighbors'.
+        this_vertex_num_neighbors = neigh_lengths_nonnan_after_filtering[central_vert_rel_idx] # We need to know this for each vertex so we only fill the correct length in case (and leave the rest at np.nan) for neighborhoods smaller than 'max_num_neighbors'.
 
         col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
         #print(f"Add coords for {len(neigh_indices)} neighbors into col positions {col_start_idx} to {col_end_idx} (num columns is {neighborhood_col_num_values}).")
 
+        #print(f"At rel vertex {central_vert_rel_idx} (mesh {central_vert_idx_mesh}: filling  row columns {col_start_idx} to {col_end_idx} ({col_end_idx - col_start_idx} entries) with {np.ravel(mesh.vertices[neigh_vert_indices]).size} numbers")
         neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices]) # Add absolute vertex coords
 
         col_start_idx = col_end_idx
@@ -164,7 +170,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
         if add_desc_neigh_size:
             #print(f"Add neighborhood size at col position {col_idx}")
-            neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_filtered[central_vert_rel_idx]   # Add index of central vertex
+            neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_full_filtered_row_subset[central_vert_rel_idx]   # Add index of central vertex
             col_idx += 1
 
         #print(f"Adding pvd value at row {central_vert_rel_idx}, column {col_idx}, value is from mesh vertex idx {central_vert_idx_mesh}.")

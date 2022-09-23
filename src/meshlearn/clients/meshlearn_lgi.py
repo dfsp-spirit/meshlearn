@@ -79,10 +79,12 @@ args = parser.parse_args()
 # Data settings not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation
 add_desc_neigh_size = True  # whether to add vertex neighborhood size (before pruning) as desriptor column to observation
-surface = 'pial' # The mesh to use.
-descriptor = 'pial_lgi' # The label descriptor, what you want to predict on the mesh.
-cortex_label = False # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
-filter_smaller_neighborhoods = False # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
+surface = 'pial'  # The mesh to use.
+descriptor = 'pial_lgi'  # The label descriptor, what you want to predict on the mesh.
+cortex_label = False  # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
+filter_smaller_neighborhoods = False  # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
+
+args.sequential = True # TODO: remove this! dbg
 
 # Construct data settings from command line and other data setting above.
 data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' : descriptor, 'cortex_label': cortex_label, 'verbose': args.verbose,

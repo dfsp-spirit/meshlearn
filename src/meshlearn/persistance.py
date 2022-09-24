@@ -7,6 +7,7 @@ Model persistence functions.
 import pickle
 import time
 import json
+import os
 import numpy as np
 from datetime import timedelta
 
@@ -42,13 +43,16 @@ def save_model(model, model_and_data_info, model_save_file, model_settings_file)
 
     pickle_model_end = time.time()
     pickle_model_save_time = pickle_model_end - pickle_model_start
-    print(f"INFO: Saved trained model to pickle file '{model_save_file}', ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
+    pickle_file_size_mb = int(os.path.getsize(model_save_file) / 1024. / 1024.)
+    print(f"INFO: Saved trained model to pickle file '{model_save_file}' ({pickle_file_size_mb} MB), ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
 
 
 def load_model(model_save_file, model_settings_file):
     """Load a pickled model and, if available, JSON metadata from files."""
     if not model_save_file.endswith('.pkl'):
             print(f"WARNING: Given model filename '{model_save_file}' does not have '.pkl' file extension.")
+    pickle_file_size_mb = int(os.path.getsize(model_save_file) / 1024. / 1024.)
+    print(f"Loading model from {pickle_file_size_mb} MB file '{model_save_file}'.")
     model = pickle.load(open(model_save_file, 'rb'))
     model_and_data_info = None
     if model_settings_file is not None:

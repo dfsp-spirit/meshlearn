@@ -66,11 +66,11 @@ default_data_dir = "/media/spirit/science/data/abide"
 parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
 parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
 parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default=default_data_dir)
-parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="300")
+parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="500")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="4")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="24")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
 args = parser.parse_args()
@@ -94,12 +94,12 @@ data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' 
 
 ### Other settings, not related to data loading. Adapt here if needed.
 do_pickle_data = True
-dataset_pickle_file = "meshlearn_dset.pkl"  # Only relevant if do_pickle_data is True
-dataset_settings_file = "meshlearn_dset_settings.json" # Only relevant if do_pickle_data is True
+dataset_pickle_file = "ml_dataset.pkl"  # Only relevant if do_pickle_data is True
+dataset_settings_file = "ml_dataset.json" # Only relevant if do_pickle_data is True
 
 do_persist_trained_model = True
-model_save_file="model.pkl"
-model_settings_file="model_settings.json"
+model_save_file="ml_model.pkl"
+model_settings_file="ml_model.json"
 num_cores_fit = 8
 
 # Model settings

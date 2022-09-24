@@ -3,12 +3,13 @@ import numpy as np
 import pandas as pd
 import argparse
 import time
+import os
 from datetime import timedelta
 from sys import getsizeof
 import psutil
 
-from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
-patch_sklearn()                       # Do this BEFORE loading sklearn.
+#from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
+#patch_sklearn()                       # Do this BEFORE loading sklearn.
 
 
 from meshlearn.training_data import get_dataset_pickle
@@ -70,7 +71,7 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="72")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="48")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="8")
 args = parser.parse_args()
@@ -168,14 +169,14 @@ print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, contai
 ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
 row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
 if row_indices_with_nan_values.size > 0:
-    print(f"WARNING: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
-    print(f"WARNING: You will have to replace these for most models. Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
-    dataset.fillna(0, inplace=True) # TODO: replace with something better? Like col mean?
+    print(f"NOTICE: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
+    print(f"NOTICE: You will have to replace these for most models. Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
+    dataset = dataset.fillna(0, inplace=False) # TODO: replace with something better? Like col mean?
     print(f"Filling NAN values in {row_indices_with_nan_values.size} columns with 0.")
     row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
-    print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling.")
+    print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 else:
-    print(f"Dataset contains no NAN values.")
+    print(f"Dataset contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 
 
 nc = len(dataset.columns)
@@ -186,15 +187,20 @@ print(f"Separating observations into {len(feature_names)} features and target co
 X = dataset.iloc[:, 0:(nc-1)].values
 y = dataset.iloc[:, (nc-1)].values
 
-print("Splitting data into train and test sets...")
+dataset = None
+
+print(f"Splitting data into train and test sets... ({int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
 
-print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}.")
+X = None # Free RAM.
+y = None
+
+print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 print(f"The label arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
 
 
-print(f"Scaling... (Started at {time.ctime()}.)")
+print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
 sc = StandardScaler()
 X_train = sc.fit_transform(X_train)

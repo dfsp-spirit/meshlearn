@@ -450,8 +450,9 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
         raise ValueError(f"If 'do_pickle_data' is 'True', a valid 'dataset_pickle_file' and 'dataset_settings_file' have to be supplied.")
 
     if do_pickle_data and os.path.isfile(dataset_pickle_file):
+        pickle_file_size_mb = os.path.getsize(dataset_pickle_file) / 1024. / 1024.
         print("=========================================================================================================================================================================")
-        print(f"WARNING: Unpickling pre-saved dataframe from pickle file '{dataset_pickle_file}', ignoring all datset settings! Delete file or set 'do_pickle_data' to False to prevent.")
+        print(f"WARNING: Unpickling pre-saved dataframe from {pickle_file_size_mb} MB pickle file '{dataset_pickle_file}', ignoring all datset settings! Delete file or set 'do_pickle_data' to False to prevent.")
         print("=========================================================================================================================================================================")
         unpickle_start = time.time()
         dataset = pd.read_pickle(dataset_pickle_file)
@@ -477,7 +478,8 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
             dataset.to_pickle(dataset_pickle_file)
             pickle_end = time.time()
             pickle_save_time = pickle_end - pickle_start
-            print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
+            pickle_file_size_mb = os.path.getsize(dataset_pickle_file) / 1024. / 1024.
+            print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' ({pickle_file_size_mb} MB) and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
     return dataset, col_names, data_settings
 
 

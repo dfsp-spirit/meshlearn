@@ -70,9 +70,9 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="24")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="72")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
-parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="0")
+parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="8")
 args = parser.parse_args()
 
 
@@ -138,14 +138,20 @@ if add_desc_neigh_size:
 else:
     print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
 
-if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
-    if data_settings_in['verbose']:
+if data_settings_in['verbose']:
+    mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
+    print(f"RAM available is about {mem_avail_mb} MB.")
+    can_estimate = False
+    ds_estimated_num_neighborhoods = None
+    ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1
+    if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
         # Estimate total dataset size in RAM early to prevent crashing later, if possible.
-        ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1
         ds_estimated_num_neighborhoods = data_settings_in['num_neighborhoods_to_load']
+    if data_settings_in['num_samples_per_file'] is not None and data_settings_in['num_files_to_load'] is not None and not data_settings_in['sequential']:
+        ds_estimated_num_neighborhoods = data_settings_in['num_samples_per_file'] * data_settings_in['num_files_to_load']
+        can_estimate = True
+    if can_estimate:
         # try to allocate, will err if too little RAM.
-        mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
-        print(f"RAM available is about {mem_avail_mb} MB")
         ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
         ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
         ds_dummy = None

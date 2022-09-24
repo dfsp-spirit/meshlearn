@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """
 Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory.
 """

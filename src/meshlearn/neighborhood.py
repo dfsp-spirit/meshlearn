@@ -1,4 +1,6 @@
 
+# -*- coding: utf-8 -*-
+
 import numpy as np
 import trimesh as tm
 

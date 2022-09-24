@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 # Functions for loading data as a Tensorflow Dataset
 
 # see the official TF data docs for an example with simulated data

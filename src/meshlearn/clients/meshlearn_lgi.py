@@ -39,7 +39,7 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
 
 def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
     from lightgbm import LGBMRegressor
-    regressor = LGBMRegressor()
+    regressor = LGBMRegressor(**model_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
     # Currently needs to be manually adjusted when changing model!
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }

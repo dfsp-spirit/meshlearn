@@ -11,6 +11,5 @@ Meshlearn high-level API functions.
 __all__ = []
 
 from .neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
-from .tfdata import VertexPropertyDataset
 from .training_data import TrainingData
 

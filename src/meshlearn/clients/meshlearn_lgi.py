@@ -55,10 +55,10 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
     return regressor, model_info
 
 
-def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=True):
+def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=1):
 
     # Credits: was based https://www.kaggle.com/code/mlisovyi/lightgbm-hyperparameter-optimisation-lb-0-761
-    print(f'Performing hyperparameter optimization for lightgbm Model using {num_iterations} random search iterations using {num_cores} cores.')
+    print(f'Performing hyperparameter optimization for lightgbm Model using {num_iterations} random search iterations and {inner_cv_k}-fold inner cross validation ({num_iterations * inner_cv_k} fits total) using {num_cores} cores.')
 
     model_info = {'model_type': 'lightgbm.LGBMRegressor'}
 
@@ -76,7 +76,8 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_i
                     "callbacks" : [
                                     lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995),
                                     lightgbm.early_stopping(stopping_rounds=20, verbose = verbose),
-                                  ]
+                                  ],
+                    "force_col_wise": True
                  }
 
     param_test = { 'num_leaves': sp_randint(6, 50),
@@ -92,7 +93,7 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_i
 
     # Note: n_estimators is set to a "large value". The actual number of trees build will depend on early stopping and
     # the large value 5000 defines only the absolute maximum, that will not be reached in practice.
-    model_param_search = lightgbm.LGBMRegressor(max_depth=-1, random_state=random_state, verbose=False, metric='None', n_jobs=num_cores, n_estimators=5000)
+    model_param_search = lightgbm.LGBMRegressor(max_depth=-1, random_state=random_state, verbose=verbose, metric='None', n_jobs=num_cores, n_estimators=5000)
     random_search = RandomizedSearchCV(
         estimator=model_param_search,
         param_distributions=param_test,
@@ -283,7 +284,7 @@ if model_type == "sklearnrf":
 elif model_type == "lightgbm":
     print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
     if do_hyperparam_opt:
-        model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 100, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error")
+        model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=1)
     else:
         model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
         model, model_info = fit_regression_model_lightgbm(X_train, y_train, model_settings=model_settings_lightgbm)

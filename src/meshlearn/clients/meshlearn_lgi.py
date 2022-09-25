@@ -7,7 +7,7 @@ import os
 from datetime import timedelta
 from sys import getsizeof
 import psutil
-
+import lightgbm
 #from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
 #patch_sklearn()                       # Do this BEFORE loading sklearn.
 
@@ -38,8 +38,7 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
     return regressor, model_info
 
 def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
-    from lightgbm import LGBMRegressor
-    regressor = LGBMRegressor(**model_settings)
+    regressor = lightgbm.LGBMRegressor(**model_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
     # Currently needs to be manually adjusted when changing model!
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
@@ -54,6 +53,68 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
     model_info['fit_time'] = str(fit_execution_time_readable)
 
     return regressor, model_info
+
+
+def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=True):
+
+    # Credits: was based https://www.kaggle.com/code/mlisovyi/lightgbm-hyperparameter-optimisation-lb-0-761
+    print(f'Performing hyperparameter optimization for lightgbm Model using {num_iterations} random search iterations using {num_cores} cores.')
+
+    model_info = {'model_type': 'lightgbm.LGBMRegressor'}
+
+    from scipy.stats import randint as sp_randint
+    from scipy.stats import uniform as sp_uniform
+
+    def learning_rate_010_decay_power_0995(current_iter):
+        """Function for learning rate decay."""
+        base_learning_rate = 0.1
+        lr = base_learning_rate  * np.power(.995, current_iter)
+        return lr if lr > 1e-3 else 1e-3
+
+    fit_params = { "eval_metric" : eval_metric,
+                    "eval_set" : [(X_eval, y_eval)],
+                    "callbacks" : [
+                                    lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995),
+                                    lightgbm.early_stopping(stopping_rounds=20, verbose = verbose),
+                                  ]
+                 }
+
+    param_test = { 'num_leaves': sp_randint(6, 50),
+                   'min_child_samples': sp_randint(100, 500),
+                   'min_child_weight': [1e-5, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4],
+                   'subsample': sp_uniform(loc=0.2, scale=0.8),
+                   'colsample_bytree': sp_uniform(loc=0.4, scale=0.6),
+                   'reg_alpha': [0, 1e-1, 1, 2, 5, 7, 10, 50, 100],
+                   'reg_lambda': [0, 1e-1, 1, 5, 10, 20, 50, 100] }
+
+
+    from sklearn.model_selection import RandomizedSearchCV
+
+    # Note: n_estimators is set to a "large value". The actual number of trees build will depend on early stopping and
+    # the large value 5000 defines only the absolute maximum, that will not be reached in practice.
+    model_param_search = lightgbm.LGBMRegressor(max_depth=-1, random_state=random_state, verbose=False, metric='None', n_jobs=num_cores, n_estimators=5000)
+    random_search = RandomizedSearchCV(
+        estimator=model_param_search,
+        param_distributions=param_test,
+        n_iter=num_iterations,
+        scoring=eval_metric,
+        cv=inner_cv_k,
+        refit=True,
+        random_state=random_state,
+        verbose=verbose)
+
+    random_search.fit(X_train, y_train, **fit_params)
+    opt_params = random_search.best_params_
+    print(f'Best score reached: {random_search.best_score_} with params: {opt_params}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.')
+
+    print(f'Fitting final model...')
+    model = lightgbm.LGBMClassifier(**model_param_search.get_params())
+    #set optimal parameters
+    model.set_params(**opt_params)
+    model.fit(X_train, y_train, **fit_params, callbacks=[lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995)])
+    model_info['model_params'] =  opt_params
+    model_info['fit_params'] =  fit_params
+    return model, model_info
 
 
 """
@@ -111,6 +172,8 @@ lightgbm_num_estimators = 48
 
 ####################################### End of settings. #########################################
 
+will_load_dataset_from_pickle_file = do_pickle_data and os.path.isfile(dataset_pickle_file)
+
 print("---Train and evaluate an lGI prediction model---")
 
 if data_settings_in['verbose']:
@@ -119,47 +182,47 @@ if data_settings_in['verbose']:
 num_cores_tag = "all" if data_settings_in['num_cores'] is None or data_settings_in['num_cores'] == 0 else data_settings_in['num_cores']
 seq_par_tag = " sequentially " if data_settings_in['sequential'] else f" in parallel using {num_cores_tag} cores"
 
-if data_settings_in['sequential']:
-    print(f"Loading datafiles{seq_par_tag}.")
-    print(f"Using data directory '{data_settings_in['data_dir']}', observations to load total limit is set to: {data_settings_in['num_neighborhoods_to_load']}.")
-else:
-    print("Loading datafiles in parallel.")
-    print(f"Using data directory '{data_settings_in['data_dir']}', number of files to load limit is set to: {data_settings_in['num_files_to_load']}.")
+if not will_load_dataset_from_pickle_file:
+    if data_settings_in['sequential']:
+        print(f"Loading datafiles{seq_par_tag}.")
+        print(f"Using data directory '{data_settings_in['data_dir']}', observations to load total limit is set to: {data_settings_in['num_neighborhoods_to_load']}.")
+    else:
+        print("Loading datafiles in parallel.")
+        print(f"Using data directory '{data_settings_in['data_dir']}', number of files to load limit is set to: {data_settings_in['num_files_to_load']}.")
 
-print(f"Using neighborhood radius {data_settings_in['mesh_neighborhood_radius']} and keeping {data_settings_in['mesh_neighborhood_count']} vertices per neighborhood.")
+    print(f"Using neighborhood radius {data_settings_in['mesh_neighborhood_radius']} and keeping {data_settings_in['mesh_neighborhood_count']} vertices per neighborhood.")
 
+    print("Descriptor settings:")
+    if add_desc_vertex_index:
+        print(f" - Adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
+    else:
+        print(f" - Not adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
+    if add_desc_neigh_size:
+        print(f" - Adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
+    else:
+        print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
 
-print("Descriptor settings:")
-if add_desc_vertex_index:
-    print(f" - Adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
-else:
-    print(f" - Not adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
-if add_desc_neigh_size:
-    print(f" - Adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
-else:
-    print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
-
-if data_settings_in['verbose']:
-    mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
-    print(f"RAM available is about {mem_avail_mb} MB.")
-    can_estimate = False
-    ds_estimated_num_neighborhoods = None
-    ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1
-    if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
-        # Estimate total dataset size in RAM early to prevent crashing later, if possible.
-        ds_estimated_num_neighborhoods = data_settings_in['num_neighborhoods_to_load']
-    if data_settings_in['num_samples_per_file'] is not None and data_settings_in['num_files_to_load'] is not None and not data_settings_in['sequential']:
-        ds_estimated_num_neighborhoods = data_settings_in['num_samples_per_file'] * data_settings_in['num_files_to_load']
-        can_estimate = True
-    if can_estimate:
-        # try to allocate, will err if too little RAM.
-        ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
-        ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
-        ds_dummy = None
-        ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
-        print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
-        if ds_estimated_full_data_size_MB * 2.0 >= mem_avail_mb:
-            print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
+    if data_settings_in['verbose']:
+        mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
+        print(f"RAM available is about {mem_avail_mb} MB.")
+        can_estimate = False
+        ds_estimated_num_neighborhoods = None
+        ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1
+        if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
+            # Estimate total dataset size in RAM early to prevent crashing later, if possible.
+            ds_estimated_num_neighborhoods = data_settings_in['num_neighborhoods_to_load']
+        if data_settings_in['num_samples_per_file'] is not None and data_settings_in['num_files_to_load'] is not None and not data_settings_in['sequential']:
+            ds_estimated_num_neighborhoods = data_settings_in['num_samples_per_file'] * data_settings_in['num_files_to_load']
+            can_estimate = True
+        if can_estimate:
+            # try to allocate, will err if too little RAM.
+            ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
+            ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
+            ds_dummy = None
+            ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
+            print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
+            if ds_estimated_full_data_size_MB * 2.0 >= mem_avail_mb:
+                print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
 
 
 dataset, _, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file, dataset_settings_file)
@@ -196,6 +259,11 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 X = None # Free RAM.
 y = None
 
+do_hyperparam_opt = True
+if do_hyperparam_opt:
+    X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
+    print(f"Created validation data set with shape {X_eval.shape}.")
+
 print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 print(f"The label arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
 
@@ -214,8 +282,11 @@ if model_type == "sklearnrf":
     model, model_info = fit_regression_model_sklearnrf(X_train, y_train, model_settings = model_settings_sklearnrf)
 elif model_type == "lightgbm":
     print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
-    model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
-    model, model_info = fit_regression_model_lightgbm(X_train, y_train, model_settings=model_settings_lightgbm)
+    if do_hyperparam_opt:
+        model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 100, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error")
+    else:
+        model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
+        model, model_info = fit_regression_model_lightgbm(X_train, y_train, model_settings=model_settings_lightgbm)
 else:
     raise ValueError(f"Invalid model type '{model_type}'.")
 

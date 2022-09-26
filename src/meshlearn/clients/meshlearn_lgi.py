@@ -50,7 +50,7 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings
     # These were computed using `hyperparameter_optimization_lightgbm`.
 
     fit_start = time.time()
-    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)], **opt_fit_settings)
+    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)]) #, **opt_fit_settings)
 
     fit_end = time.time()
     fit_execution_time = fit_end - fit_start
@@ -143,7 +143,7 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="48")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="16")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="8")
 args = parser.parse_args()
@@ -185,6 +185,7 @@ num_cores_fit = 8
 
 # Model settings
 lightgbm_num_estimators = 48
+do_hyperparam_opt = False
 
 
 ####################################### End of settings. #########################################
@@ -195,6 +196,10 @@ print("---Train and evaluate an lGI prediction model---")
 
 if data_settings_in['verbose']:
     print("Verbosity turned on.")
+    if add_desc_brain_bbox:
+        print(f"Will add brain bounding box coords as extra descriptor columns.")
+    else:
+        print(f"Will NOT add brain bounding box coords as extra descriptor columns.")
     if do_pickle_data:
         print(f"Using dataset_tag '{dataset_tag}' and model_tag '{model_tag}' for filenames when loading/saving data and model.")
 
@@ -297,8 +302,6 @@ sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
-
-do_hyperparam_opt = True
 
 print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
 if do_hyperparam_opt:

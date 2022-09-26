@@ -22,7 +22,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
-def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs': 8}):
+def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs': 8}):
     """This is extremely slow compared to the lightgbm vesion (60 times slower) and should not be used anymore."""
     from sklearn.ensemble import RandomForestRegressor
     regressor = RandomForestRegressor(**model_settings)
@@ -47,6 +47,8 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings
     # Currently needs to be manually adjusted when changing model!
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
 
+    # These were computed using `hyperparameter_optimization_lightgbm`.
+    opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0, 'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}
 
     fit_start = time.time()
     regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)])
@@ -59,7 +61,7 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings
     return regressor, model_info
 
 
-def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=1):
+def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2):
     """Perform hypermarameter optimization via random parameter search.
 
     This takes (num_iterations x inner_cv_k) times longer than fitting a single model. Run this once, hard-code the obtained
@@ -100,7 +102,7 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_ite
 
     # Note: n_estimators is set to a "large value". The actual number of trees build will depend on early stopping and
     # the large value 5000 defines only the absolute maximum, that will not be reached in practice.
-    model_param_search = lightgbm.LGBMRegressor(random_state=random_state, verbose=verbose, n_jobs=num_cores, n_estimators=100)
+    model_param_search = lightgbm.LGBMRegressor(random_state=random_state, verbose=verbose_lightgbm, n_jobs=num_cores, n_estimators=100)
     random_search = RandomizedSearchCV(
         estimator=model_param_search,
         param_distributions=param_test,
@@ -109,7 +111,7 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_ite
         cv=inner_cv_k,
         refit=True,
         random_state=random_state,
-        verbose=verbose)
+        verbose=verbose_random_search)
 
     print(f"[hyperparam_opt] Running random search with fit_params: '{fit_params}'")
 
@@ -157,6 +159,7 @@ cortex_label = False  # Whether to load FreeSurfer 'cortex.label' files and filt
 filter_smaller_neighborhoods = False  # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
 load_per_file_force_exactly = True # Whether to load exactly the requested number of entries per file, even if the file contains more (and more where thus read when reading it).
 add_desc_brain_bbox = True
+random_state = 42
 
 # Construct data settings from command line and other data setting above.
 data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' : descriptor, 'cortex_label': cortex_label, 'verbose': args.verbose,
@@ -271,13 +274,13 @@ dataset = None
 
 print(f"Splitting data into train and test sets... ({int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=random_state)
 
 X = None # Free RAM.
 y = None
 
 
-X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
+X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=0.2, random_state=random_state)
 print(f"Created validation data set with shape {X_eval.shape}.")
 
 print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
@@ -295,9 +298,9 @@ do_hyperparam_opt = True
 
 print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
 if do_hyperparam_opt:
-    model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose=1)
+    model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=random_state, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2)
 else:
-    model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
+    model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':random_state, 'n_jobs':num_cores_fit}
     model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm)
 
 lightgbm.plot_metric(model)

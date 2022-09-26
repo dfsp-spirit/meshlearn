@@ -46,7 +46,7 @@ def eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_tr
     return model_info
 
 
-def report_feature_importances(importances, feature_names, model_info=None):
+def report_feature_importances(importances, feature_names, model_info=None, num_to_report=20):
     if model_info is None:
         model_info = dict()
     if importances is not None: # Some models do not support it.
@@ -75,7 +75,7 @@ def report_feature_importances(importances, feature_names, model_info=None):
         model_info['feature_importances']['median_importance_score'] = median_importance.item()
 
         sorted_indices = np.argsort(importances)
-        num_to_report = int(min(10, len(feature_names)))
+        num_to_report = int(min(num_to_report, len(feature_names)))
         most_important_features_names = feature_names[sorted_indices[-num_to_report:]]
         most_important_features_importances = importances[sorted_indices[-num_to_report:]]
         least_important_features_names = feature_names[sorted_indices[0:num_to_report]]

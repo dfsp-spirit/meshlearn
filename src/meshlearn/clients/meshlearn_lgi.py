@@ -40,7 +40,7 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
 
     return regressor, model_info
 
-def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
+def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs':8}, opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0, 'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}):
     """Fit a lightgbm model with hard-coded parameters. Pass params obtained via `hyperparameter_optimization_lightgbm` in an earlier run."""
     regressor = lightgbm.LGBMRegressor(**model_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
@@ -48,10 +48,9 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
 
     # These were computed using `hyperparameter_optimization_lightgbm`.
-    opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0, 'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}
 
     fit_start = time.time()
-    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)])
+    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)], **opt_fit_settings)
 
     fit_end = time.time()
     fit_execution_time = fit_end - fit_start
@@ -173,7 +172,7 @@ do_pickle_data = True
 
 # Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
 # Allows switching between pickled datasets quickly.
-dataset_tag = ""  #"_tiny"
+dataset_tag = "_full"  #"_tiny"
 model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
@@ -249,12 +248,17 @@ dataset, _, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data,
 
 print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 
+# Shuffle the entire dataset, to prevent the model from training only on (consecutive) vertices from some of the meshes in the set of input files.
+print(f"Shuffling the rows (row order) of the dataframe.")
+dataset = dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
+
 ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
+# WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets.
 row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
 if row_indices_with_nan_values.size > 0:
     print(f"NOTICE: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
     print(f"NOTICE: You will have to replace these for most models. Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
-    dataset = dataset.fillna(0, inplace=False) # TODO: replace with something better? Like col mean?
+    dataset = dataset.fillna(0, inplace=False) # TODO: replace with something better? Like col mean? But if you do that, do NOT do it here, on the entire dataset! In that case, it has to be done separately on the test, train and eval datasets.
     print(f"Filling NAN values in {row_indices_with_nan_values.size} columns with 0.")
     row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
     print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")

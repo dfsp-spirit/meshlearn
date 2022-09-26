@@ -15,7 +15,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
             num_per_vertex_features += 3
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=False, add_desc_neigh_size=False, verbose=True, filter_smaller_neighborhoods=False):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, extra_columns = {}):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -119,6 +119,9 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         extra_fields.append("vertex_index")
     if add_desc_neigh_size:
         extra_fields.append("neigh_size")
+    for ec_key in extra_columns.keys():
+        extra_fields.append(ec_key)
+        assert np.array(extra_columns[ec_key]).size == mesh_num_verts, f"Expected {mesh_num_verts} per-vertex data values in extra_column '{ec_key}' for mesh with {mesh_num_verts} verts, but found {np.array(extra_columns[ec_key]).size} pvd values."
 
     neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
     # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood
@@ -141,6 +144,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         col_names.append("svidx") # 'svidx' for source vertex index (in mesh)
     if add_desc_neigh_size:
         col_names.append("nsize") # 'nsize' for neighborhood size
+    for ec_key in extra_columns.keys():
+        col_names.append(ec_key)
     col_names.append("label")
 
     assert mesh.vertices.ndim == 2
@@ -172,7 +177,11 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
         if add_desc_neigh_size:
             #print(f"Add neighborhood size at col position {col_idx}")
-            neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_full_filtered_row_subset[central_vert_rel_idx]   # Add index of central vertex
+            neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_full_filtered_row_subset[central_vert_rel_idx]   # Add neighborhood size
+            col_idx += 1
+
+        for ec_key in extra_columns.keys():
+            neighborhoods[central_vert_rel_idx, col_idx] = extra_columns[ec_key][central_vert_rel_idx]   # Add extra_column pvd-value for the vertex.
             col_idx += 1
 
         #print(f"Adding pvd value at row {central_vert_rel_idx}, column {col_idx}, value is from mesh vertex idx {central_vert_idx_mesh}.")

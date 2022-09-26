@@ -11,6 +11,8 @@ import lightgbm
 #from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
 #patch_sklearn()                       # Do this BEFORE loading sklearn.
 
+import matplotlib.pyplot as plt
+plt.ion()
 
 from meshlearn.training_data import get_dataset_pickle
 from meshlearn.eval import eval_model_train_test_split, report_feature_importances
@@ -21,6 +23,7 @@ from sklearn.preprocessing import StandardScaler
 
 
 def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs': 8}):
+    """This is extremely slow compared to the lightgbm vesion (60 times slower) and should not be used anymore."""
     from sklearn.ensemble import RandomForestRegressor
     regressor = RandomForestRegressor(**model_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
@@ -37,7 +40,8 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
 
     return regressor, model_info
 
-def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
+def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings = {'n_estimators':50, 'random_state':0, 'n_jobs':8}):
+    """Fit a lightgbm model with hard-coded parameters. Pass params obtained via `hyperparameter_optimization_lightgbm` in an earlier run."""
     regressor = lightgbm.LGBMRegressor(**model_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
     # Currently needs to be manually adjusted when changing model!
@@ -45,7 +49,7 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
 
 
     fit_start = time.time()
-    regressor.fit(X_train, y_train)
+    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)])
 
     fit_end = time.time()
     fit_execution_time = fit_end - fit_start
@@ -55,7 +59,11 @@ def fit_regression_model_lightgbm(X_train, y_train, model_settings = {'n_estimat
     return regressor, model_info
 
 
-def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=1):
+def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=1):
+    """Perform hypermarameter optimization via random parameter search.
+
+    This takes (num_iterations x inner_cv_k) times longer than fitting a single model. Run this once, hard-code the obtained
+    parameters, and from then on run `fit_regression_model_lightgbm` with these parameters instead."""
 
     # Credits: was based https://www.kaggle.com/code/mlisovyi/lightgbm-hyperparameter-optimisation-lb-0-761
     print(f'Performing hyperparameter optimization for lightgbm Model using {num_iterations} random search iterations and {inner_cv_k}-fold inner cross validation ({num_iterations * inner_cv_k} fits total) using {num_cores} cores.')
@@ -66,21 +74,20 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_i
     from scipy.stats import uniform as sp_uniform
 
     def learning_rate_010_decay_power_0995(current_iter):
-        """Function for learning rate decay."""
+        """Callback function for learning rate decay."""
         base_learning_rate = 0.1
         lr = base_learning_rate  * np.power(.995, current_iter)
         return lr if lr > 1e-3 else 1e-3
 
     fit_params = { "eval_metric" : eval_metric,
-                    "eval_set" : [(X_eval, y_eval)],
-                    "callbacks" : [
-                                    lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995),
-                                    lightgbm.early_stopping(stopping_rounds=20, verbose = verbose),
-                                  ],
-                    "force_col_wise": True
+                    "eval_set" : [(X_val, y_val)],
+                    #"callbacks" : [
+                    #                lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995),
+                    #                lightgbm.early_stopping(stopping_rounds=20, verbose = verbose),
+                    #              ]
                  }
 
-    param_test = { 'num_leaves': sp_randint(6, 50),
+    param_test = { 'num_leaves': sp_randint(30, 100),
                    'min_child_samples': sp_randint(100, 500),
                    'min_child_weight': [1e-5, 1e-3, 1e-2, 1e-1, 1, 1e1, 1e2, 1e3, 1e4],
                    'subsample': sp_uniform(loc=0.2, scale=0.8),
@@ -93,7 +100,7 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_i
 
     # Note: n_estimators is set to a "large value". The actual number of trees build will depend on early stopping and
     # the large value 5000 defines only the absolute maximum, that will not be reached in practice.
-    model_param_search = lightgbm.LGBMRegressor(max_depth=-1, random_state=random_state, verbose=verbose, metric='None', n_jobs=num_cores, n_estimators=5000)
+    model_param_search = lightgbm.LGBMRegressor(random_state=random_state, verbose=verbose, n_jobs=num_cores, n_estimators=100)
     random_search = RandomizedSearchCV(
         estimator=model_param_search,
         param_distributions=param_test,
@@ -104,15 +111,17 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_i
         random_state=random_state,
         verbose=verbose)
 
+    print(f"[hyperparam_opt] Running random search with fit_params: '{fit_params}'")
+
     random_search.fit(X_train, y_train, **fit_params)
     opt_params = random_search.best_params_
     print(f'Best score reached: {random_search.best_score_} with params: {opt_params}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.')
 
     print(f'Fitting final model...')
-    model = lightgbm.LGBMClassifier(**model_param_search.get_params())
+    model = lightgbm.LGBMRegressor(**model_param_search.get_params())
     #set optimal parameters
     model.set_params(**opt_params)
-    model.fit(X_train, y_train, **fit_params, callbacks=[lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995)])
+    model.fit(X_train, y_train, **fit_params)
     model_info['model_params'] =  opt_params
     model_info['fit_params'] =  fit_params
     return model, model_info
@@ -146,28 +155,33 @@ surface = 'pial'  # The mesh to use.
 descriptor = 'pial_lgi'  # The label descriptor, what you want to predict on the mesh.
 cortex_label = False  # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
 filter_smaller_neighborhoods = False  # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
-
+load_per_file_force_exactly = True # Whether to load exactly the requested number of entries per file, even if the file contains more (and more where thus read when reading it).
+add_desc_brain_bbox = True
 
 # Construct data settings from command line and other data setting above.
 data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' : descriptor, 'cortex_label': cortex_label, 'verbose': args.verbose,
                         'num_neighborhoods_to_load':None if int(args.load_max) == 0 else int(args.load_max), 'num_samples_per_file': None if int(args.load_per_file) == 0 else int(args.load_per_file),
                         'add_desc_vertex_index':add_desc_vertex_index, 'add_desc_neigh_size':add_desc_neigh_size, 'sequential':args.sequential,
                         'num_cores':None if args.cores == "0" else int(args.cores), 'num_files_to_load':None if int(args.load_files) == 0 else int(args.load_files), 'mesh_neighborhood_radius':int(args.neigh_radius),
-                        'mesh_neighborhood_count':int(args.neigh_count), 'filter_smaller_neighborhoods': filter_smaller_neighborhoods}
+                        'mesh_neighborhood_count':int(args.neigh_count), 'filter_smaller_neighborhoods': filter_smaller_neighborhoods, 'exactly': load_per_file_force_exactly, 'add_desc_brain_bbox': add_desc_brain_bbox}
 
 ### Other settings, not related to data loading. Adapt here if needed.
 do_pickle_data = True
-dataset_pickle_file = "ml_dataset.pkl"  # Only relevant if do_pickle_data is True
-dataset_settings_file = "ml_dataset.json" # Only relevant if do_pickle_data is True
+
+# Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
+# Allows switching between pickled datasets quickly.
+dataset_tag = ""  #"_tiny"
+model_tag = dataset_tag
+
+dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
+dataset_settings_file = f"ml{dataset_tag}_dataset.json" # Only relevant if do_pickle_data is True
 
 do_persist_trained_model = True
-model_save_file="ml_model.pkl"
-model_settings_file="ml_model.json"
+model_save_file=f"ml{model_tag}_model.pkl"
+model_settings_file="ml{model_tag}_model.json"
 num_cores_fit = 8
 
 # Model settings
-model_type = "lightgbm"
-rf_num_estimators = 48   # For regression problems, take one third of the number of features as a starting point. Also keep your number of cores in mind.
 lightgbm_num_estimators = 48
 
 
@@ -179,6 +193,8 @@ print("---Train and evaluate an lGI prediction model---")
 
 if data_settings_in['verbose']:
     print("Verbosity turned on.")
+    if do_pickle_data:
+        print(f"Using dataset_tag '{dataset_tag}' and model_tag '{model_tag}' for filenames when loading/saving data and model.")
 
 num_cores_tag = "all" if data_settings_in['num_cores'] is None or data_settings_in['num_cores'] == 0 else data_settings_in['num_cores']
 seq_par_tag = " sequentially " if data_settings_in['sequential'] else f" in parallel using {num_cores_tag} cores"
@@ -260,10 +276,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 X = None # Free RAM.
 y = None
 
-do_hyperparam_opt = True
-if do_hyperparam_opt:
-    X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
-    print(f"Created validation data set with shape {X_eval.shape}.")
+
+X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=0.2, random_state=0)
+print(f"Created validation data set with shape {X_eval.shape}.")
 
 print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 print(f"The label arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
@@ -276,21 +291,16 @@ X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
 
 
+do_hyperparam_opt = True
 
-if model_type == "sklearnrf":
-    print(f"Fitting with RandomForestRegressor with {rf_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
-    model_settings_sklearnrf = {'n_estimators':rf_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
-    model, model_info = fit_regression_model_sklearnrf(X_train, y_train, model_settings = model_settings_sklearnrf)
-elif model_type == "lightgbm":
-    print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
-    if do_hyperparam_opt:
-        model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=None, eval_metric="neg_mean_absolute_error", verbose=1)
-    else:
-        model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
-        model, model_info = fit_regression_model_lightgbm(X_train, y_train, model_settings=model_settings_lightgbm)
+print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
+if do_hyperparam_opt:
+    model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose=1)
 else:
-    raise ValueError(f"Invalid model type '{model_type}'.")
+    model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':0, 'n_jobs':num_cores_fit}
+    model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm)
 
+lightgbm.plot_metric(model)
 
 model_info = eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_train)
 

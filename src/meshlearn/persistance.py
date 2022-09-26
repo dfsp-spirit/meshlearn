@@ -27,12 +27,19 @@ def save_model(model, model_and_data_info, model_save_file, model_settings_file)
         if not model_settings_file.endswith('.json'):
             print(f"WARNING: Given model metadata JSON file filename '{model_settings_file}' does not have '.json' file extension.")
 
-        def check_keys(md):
+        def check_keys(md, current_name="<root>", try_to_fix=True):
             for k in md:
                 if isinstance(md[k], dict):
-                    check_keys(md[k])
+                    check_keys(md[k], current_name=f"{current_name}/{k}", try_to_fix=try_to_fix)
                 if isinstance(md[k], (np.ndarray, np.number)):
-                    print(f"[save_model]: WARNING 'model_and_data_info' entry '{k}' is of type '{type(md[k])}' that cannot be serialized.")
+                    print(f"[save_model]: WARNING 'model_and_data_info' entry '{k}' ({current_name}) is of type '{type(md[k])}' that cannot be serialized.")
+                    if isinstance(md[k], np.number):
+                        if try_to_fix:
+                            try:
+                                md[k] = md[k].item()
+                            except Exception as ex:
+                                print(f"NOTICE: Could not auto-fix entry '{k}' ({current_name}) of type '{type(md[k])}': {str(ex)}.")
+
         check_keys(model_and_data_info)
 
         try:

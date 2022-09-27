@@ -145,7 +145,7 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="16")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="8")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="8")
 args = parser.parse_args()
@@ -174,7 +174,7 @@ do_pickle_data = True
 
 # Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
 # Allows switching between pickled datasets quickly.
-dataset_tag = "_full"  #"_tiny"
+dataset_tag = ""  #"_tiny"
 model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
@@ -182,7 +182,7 @@ dataset_settings_file = f"ml{dataset_tag}_dataset.json" # Only relevant if do_pi
 
 do_persist_trained_model = True
 model_save_file=f"ml{model_tag}_model.pkl"
-model_settings_file="ml{model_tag}_model.json"
+model_settings_file=f"ml{model_tag}_model.json"
 num_cores_fit = 8
 
 # Model settings

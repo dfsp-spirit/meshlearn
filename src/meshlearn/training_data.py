@@ -200,12 +200,24 @@ class TrainingData():
                     extra_columns['subject'] = np.array([subject] * num_verts_total)
                     extra_columns['hemi'] = np.array([hemi] * num_verts_total)
 
+            mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+
+            add_local_mesh_descriptors = True  # TODO: expose as setting
+            if add_local_mesh_descriptors:
+                curv_radius = 5.0
+                from trimesh.curvature import discrete_gaussian_curvature_measure, discrete_mean_curvature_measure
+                gauss_curv = discrete_gaussian_curvature_measure(mesh, mesh.vertices, curv_radius)
+                extra_columns['gauss_curv'] = gauss_curv
+                mean_curv = discrete_mean_curvature_measure(mesh, mesh.vertices, curv_radius)
+                extra_columns['mean_curv'] = mean_curv
+
+
 
             self.kdtree = None # Cannot use self.kdtree due to required thread-safety.
             if verbose:
                 print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
 
-            neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=neighborhood_radius, mesh=tm.Trimesh(vertices=vert_coords, faces=faces), max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose, filter_smaller_neighborhoods=filter_smaller_neighborhoods, extra_columns=extra_columns)
+            neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=neighborhood_radius, mesh=mesh, max_num_neighbors=max_num_neighbors, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose, filter_smaller_neighborhoods=filter_smaller_neighborhoods, extra_columns=extra_columns)
 
             num_files_loaded += 1
 

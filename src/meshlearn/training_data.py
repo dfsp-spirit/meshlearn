@@ -195,7 +195,10 @@ class TrainingData():
 
             if add_subject_and_hemi_columns:
                 if subject is None or hemi is None:
-                    raise ValueError("Cannot add subject and hemi columns, required data not supplied in 'datafiles' tuples.")
+                    raise ValueError("Parameter 'add_subject_and_hemi_columns' is True, but cannot add subject and hemi columns, required data not supplied in 'datafiles' tuples.")
+                else:
+                    extra_columns['subject'] = np.array([subject] * num_verts_total)
+                    extra_columns['hemi'] = np.array([hemi] * num_verts_total)
 
 
             self.kdtree = None # Cannot use self.kdtree due to required thread-safety.

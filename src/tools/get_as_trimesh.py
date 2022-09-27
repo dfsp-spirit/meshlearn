@@ -28,6 +28,9 @@ h = 0.5 * (pv1 + pv2) # mean curvature
 
 # See https://github.com/dfsp-spirit/fsbrain/blob/master/R/curvature.R for an implementation of many descriptors.
 
+# The libigl tutorial here also has some ideas for global descriptors in Chapter 6, mesh stats: https://libigl.github.io/libigl-python-bindings/tut-chapter0/
+# It is highly recommended in any case.
+
 do_plot = True
 if do_plot:
     from meshplot import plot

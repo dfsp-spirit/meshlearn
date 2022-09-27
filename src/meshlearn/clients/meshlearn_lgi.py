@@ -174,7 +174,7 @@ do_pickle_data = True
 
 # Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
 # Allows switching between pickled datasets quickly.
-dataset_tag = ""  #"_tiny"
+dataset_tag = "_tiny"
 model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True

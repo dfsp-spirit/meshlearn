@@ -179,6 +179,10 @@ class TrainingData():
                 query_vert_indices = randomstate.choice(num_verts_total, num_samples_per_file, replace=False, shuffle=False)
                 query_vert_coords = query_vert_coords[query_vert_indices, :]
 
+            mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+
+            compute_extra_columns_time_start = time.time()
+
             extra_columns = {}
             # Add extreme coords of the brain (min and max for each axis), as a proxy for total brain size.
             if add_desc_brain_bbox:
@@ -198,8 +202,6 @@ class TrainingData():
                 else:
                     extra_columns['subject'] = np.array([subject] * num_verts_total)
                     extra_columns['hemi'] = np.array([hemi] * num_verts_total)
-
-            mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
 
             add_local_mesh_descriptors = True  # TODO: expose as function parameter
             add_global_mesh_descriptors = True  # TODO: expose as function parameter
@@ -227,6 +229,10 @@ class TrainingData():
                 extra_columns['mean_edge_len'] = ones * np.float32(np.mean(mesh.edges_unique_length))  # Mean edge length
                 extra_columns['volume'] = ones * mesh.volume  # Mesh volume
                 extra_columns['num_faces'] = ones * faces.shape[0]  # Number of faces
+
+            compute_extra_columns_time_end = time.time()
+            compute_extra_columns_execution_time = compute_extra_columns_time_end - compute_extra_columns_time_start
+            print(f"[load] Adding {len(extra_columns)} extra descriptor columns for current file done, it took: {timedelta(seconds=compute_extra_columns_execution_time)}.")
 
 
             self.kdtree = None # Cannot use self.kdtree due to required thread-safety.

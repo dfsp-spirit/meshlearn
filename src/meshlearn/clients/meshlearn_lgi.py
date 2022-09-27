@@ -43,6 +43,7 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
 def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs':8}, opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0, 'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}):
     """Fit a lightgbm model with hard-coded parameters. Pass params obtained via `hyperparameter_optimization_lightgbm` in an earlier run."""
     regressor = lightgbm.LGBMRegressor(**model_settings)
+    regressor.set_params(**opt_fit_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
     # Currently needs to be manually adjusted when changing model!
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
@@ -50,7 +51,7 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings
     # These were computed using `hyperparameter_optimization_lightgbm`.
 
     fit_start = time.time()
-    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)]) #, **opt_fit_settings)
+    regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)], eval_names=["validation set", "training set"])
 
     fit_end = time.time()
     fit_execution_time = fit_end - fit_start
@@ -82,6 +83,7 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_ite
 
     fit_params = { "eval_metric" : eval_metric,
                     "eval_set" : [(X_val, y_val)],
+                    "eval_names" : ["validation set"]
                     #"callbacks" : [
                     #                lightgbm.reset_parameter(learning_rate=learning_rate_010_decay_power_0995),
                     #                lightgbm.early_stopping(stopping_rounds=20, verbose = verbose),

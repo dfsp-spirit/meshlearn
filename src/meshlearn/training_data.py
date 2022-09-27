@@ -163,6 +163,7 @@ class TrainingData():
             if verbose:
                 print(f"[load] * Loading mesh file '{mesh_file_name}' and descriptor file '{descriptor_file_name}'.")
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
+            assert faces.ndim == 2
             datafiles_loaded.append(filepair)
             self.mesh = None  # Cannot use self.mesh due to required thread-safety.
 
@@ -178,20 +179,18 @@ class TrainingData():
                 query_vert_indices = randomstate.choice(num_verts_total, num_samples_per_file, replace=False, shuffle=False)
                 query_vert_coords = query_vert_coords[query_vert_indices, :]
 
+            extra_columns = {}
             # Add extreme coords of the brain (min and max for each axis), as a proxy for total brain size.
             if add_desc_brain_bbox:
                 assert vert_coords.ndim == 2
                 assert vert_coords.shape[1] == 3
                 ones = np.ones((num_verts_total), dtype=np.float32)
-                extra_columns = {'xmin': ones * np.min(vert_coords[:, 0]),
-                                 'xmax': ones * np.max(vert_coords[:, 0]),
-                                 'ymin': ones * np.min(vert_coords[:, 1]),
-                                 'ymax': ones * np.max(vert_coords[:, 1]),
-                                 'zmin': ones * np.min(vert_coords[:, 2]),
-                                 'zmax': ones * np.max(vert_coords[:, 2]),
-                                }
-            else:
-                extra_columns = {}
+                extra_columns['xmin'] = ones * np.min(vert_coords[:, 0])
+                extra_columns['xmax'] = ones * np.max(vert_coords[:, 0])
+                extra_columns['ymin'] = ones * np.min(vert_coords[:, 1])
+                extra_columns['ymax'] = ones * np.max(vert_coords[:, 1])
+                extra_columns['zmin'] = ones * np.min(vert_coords[:, 2])
+                extra_columns['zmax'] = ones * np.max(vert_coords[:, 2])
 
             if add_subject_and_hemi_columns:
                 if subject is None or hemi is None:
@@ -202,7 +201,9 @@ class TrainingData():
 
             mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
 
-            add_local_mesh_descriptors = True  # TODO: expose as setting
+            add_local_mesh_descriptors = True  # TODO: expose as function parameter
+            add_global_mesh_descriptors = True  # TODO: expose as function parameter
+
             if add_local_mesh_descriptors:
                 curv_radius = 5.0
                 from trimesh.curvature import discrete_gaussian_curvature_measure, discrete_mean_curvature_measure
@@ -211,6 +212,21 @@ class TrainingData():
                 mean_curv = discrete_mean_curvature_measure(mesh, mesh.vertices, curv_radius)
                 extra_columns['mean_curv'] = mean_curv
 
+            if add_global_mesh_descriptors:
+                x_extend = np.max(vert_coords[:, 0]) - np.min(vert_coords[:, 0])
+                y_extend = np.max(vert_coords[:, 1]) - np.min(vert_coords[:, 1])
+                z_extend = np.max(vert_coords[:, 2]) - np.min(vert_coords[:, 2])
+                bb_vol= x_extend * y_extend * z_extend
+                ones = np.ones((num_verts_total), dtype=np.float32)
+                extra_columns['aabb_vol'] = ones * bb_vol  # Enclosed volume (volume of aabb, the axis-aligned bounding box)
+                extra_columns['area'] = ones * mesh.area  # Mesh area
+                extra_columns['ctr_mass_x'] = ones * mesh.center_mass[0]  # Mesh center of mass, x coordinate.
+                extra_columns['ctr_mass_x'] = ones * mesh.center_mass[1]  # Mesh center of mass, y coordinate.
+                extra_columns['ctr_mass_x'] = ones * mesh.center_mass[2]  # Mesh center of mass, z coordinate.
+                extra_columns['num_edges'] = ones * mesh.edges.shape[0]  # Number of edges in the mesh
+                extra_columns['mean_edge_len'] = ones * np.float32(np.mean(mesh.edges_unique_length))  # Mean edge length
+                extra_columns['volume'] = ones * mesh.volume  # Mesh volume
+                extra_columns['num_faces'] = ones * faces.shape[0]  # Number of faces
 
 
             self.kdtree = None # Cannot use self.kdtree due to required thread-safety.

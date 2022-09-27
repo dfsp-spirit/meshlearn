@@ -62,7 +62,7 @@ class TrainingData():
         return (vert_coords, faces, pvd_data)
 
 
-    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True):
+    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
         """
         Parallel version of `neighborhoods_from_raw_data`.
 
@@ -87,12 +87,12 @@ class TrainingData():
                 datafiles = datafiles_subset
 
         with ThreadPoolExecutor(num_cores) as pool:
-            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox)
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
         return df, df.columns, datafiles
 
 
-    def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True):
+    def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
@@ -147,7 +147,12 @@ class TrainingData():
         if verbose:
                 print(f"[load] Loading data.")
         for filepair in datafiles:
-            mesh_file_name, descriptor_file_name = filepair
+            subject = None
+            hemi = None
+            if len(filepair) == 2:
+                mesh_file_name, descriptor_file_name = filepair
+            elif len(filepair) == 4:
+                mesh_file_name, descriptor_file_name, subject, hemi = filepair
             if do_break:
                 break
 
@@ -187,6 +192,10 @@ class TrainingData():
                                 }
             else:
                 extra_columns = {}
+
+            if add_subject_and_hemi_columns:
+                if subject is None or hemi is None:
+                    raise ValueError("Cannot add subject and hemi columns, required data not supplied in 'datafiles' tuples.")
 
 
             self.kdtree = None # Cannot use self.kdtree due to required thread-safety.
@@ -281,11 +290,12 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
         else:
             print(f"Not discovering cortex labels.")
 
-    valid_mesh_files = []
-    valid_desc_files = []
-    valid_labl_files = []
-    subjects_valid = []
-    subjects_missing_some_file = []
+    valid_mesh_files = []  # Mesh files (one per hemi)
+    valid_desc_files = []  # per-vertex descriptor files (one per hemi), like lGI
+    valid_labl_files = []  # cortex label files, if requested.
+    valid_files_hemi = []     # For each entry in the previous 3 lists, the hemisphere ('lh' or 'rh') to which the files belong.
+    subjects_valid = [] # For each entry in the previous 3 lists, the subject to which the files belong.
+    subjects_missing_some_file = [] # All subjects which were missing one or more of the requested files. No data from them gets returned.
 
     for subject in subjects_list:
         sjd = os.path.join(recon_dir, subject)
@@ -301,6 +311,8 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                         valid_desc_files.append(desc_file)
                         valid_labl_files.append(labl_file)
                         subjects_valid.append(subject)
+                        valid_files_hemi.append(hemi)
+
                     else:
                         subjects_missing_some_file.append(subject)
                 else:
@@ -308,6 +320,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                         valid_mesh_files.append(surf_file)
                         valid_desc_files.append(desc_file)
                         subjects_valid.append(subject)
+                        valid_files_hemi.append(hemi)
                     else:
                         subjects_missing_some_file.append(subject)
 
@@ -316,7 +329,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
         if len(subjects_missing_some_file) > 0:
             print(f"The following {len(subjects_missing_some_file)} subjects where missing files: {', '.join(subjects_missing_some_file)}")
 
-    return valid_mesh_files, valid_desc_files, valid_labl_files, subjects_valid, subjects_missing_some_file
+    return valid_mesh_files, valid_desc_files, valid_labl_files, subjects_valid, valid_files_hemi, subjects_missing_some_file
 
 
 
@@ -370,7 +383,7 @@ def get_valid_mesh_desc_lgi_file_pairs(dc_data_dir, verbose=True):
         return valid_mesh_files, valid_desc_files
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True):
+def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
     """
@@ -378,7 +391,15 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
         raise ValueError("Parameter 'cortex_label' must be False: not implemented yet.")
     data_settings = locals() # Capute passed parameters as dict.
     discover_start = time.time()
-    mesh_files, desc_files, cortex_files, val_subjects, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
+    mesh_files, desc_files, cortex_files, files_subject, files_hemi, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
+
+    assert len(mesh_files) == len(desc_files)
+    assert len(mesh_files) == len(files_hemi)
+    if cortex_label:
+        assert len(cortex_files) == len(mesh_files)
+    else:
+        assert len(cortex_files) == 0
+    assert len(mesh_files) == len(files_subject)
 
     ## These are not of great interest, as the files listed here were not necessarily loaded.
     ## Still, this can be interesting to see which subjects are missing data files.
@@ -388,16 +409,18 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
         data_settings['datadir_available_mesh_files'] = mesh_files        # contains all mesh files of subjects (subject hemispheres, to be precise) which had all required files.
         data_settings['datadir_available_desc_files'] = desc_files        # contains all descriptor files of subjects (subject hemispheres, to be precise) which had all required files.
         data_settings['datadir_available_cortex_files'] = cortex_files    # if 'cortex_label' is True, contains all cortex.label files of subjects (subject hemispheres, to be precise) which had all required files.
-        data_settings['datadir_available_val_subjects'] = val_subjects    # Subjects that had all requested files. Their files show up in mesh_files, desc_files (and cortex_files if requested).
+        data_settings['datadir_available_files_subject'] = files_subject    # The subject for each of the returned files (in the order in which the files appear above).
+        data_settings['datadir_available_files_hemi'] = files_hemi    # The hemis ('lh' or 'rh') for each of the returned valid files.
         data_settings['datadir_available_miss_subjects'] = miss_subjects  # Subjects that are missing one or more of the requested files. They were ignored, and none of their files show up in mesh_files, desc_files (and cortex_files if requested).
 
     discover_end = time.time()
     discover_execution_time = discover_end - discover_start
     print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
 
-    ### Decide which files are used as training, validation and test data. ###
-    #input_file_dict = dict(zip(mesh_files, desc_files))  # Dict with mesh_file as key, desc_file as value.
-    input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
+    if add_subject_and_hemi_columns:
+        input_filepair_list = list(zip(mesh_files, desc_files, files_subject, files_hemi))  # List of 4-tuples, for each tuple first elem is mesh_file, 2nd is desc_file, 3rd is source subject, 4th is source hemi ('lh' or 'rh').
+    else:
+        input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
 
     num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
     seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
@@ -432,9 +455,9 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
     load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
     if sequential:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
     else:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
     load_end = time.time()
     load_execution_time = load_end - load_start
     print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")

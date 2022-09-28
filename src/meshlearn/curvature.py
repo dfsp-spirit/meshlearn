@@ -82,6 +82,7 @@ def shape_descriptor_names():
     return ['k1', 'k2', 'k_major', 'k_minor', 'mean_curvature', 'gaussian_curvature', 'intrinsic_curvature_index', 'negative_intrinsic_curvature_index', 'gaussian_l2_norm', 'absolute_intrinsic_curvature_index', 'mean_curvature_index', 'negative_mean_curvature_index' ,'mean_l2_norm', 'absolute_mean_curvature_index', 'folding_index', 'curvedness_index', 'shape_index', 'shape_type', 'area_fraction_of_intrinsic_curvature_index', 'area_fraction_of_negative_intrinsic_curvature_index', 'area_fraction_of_mean_curvature_index', 'area_fraction_of_negative_mean_curvature_index', 'sh2sh', 'sk2sk']
 
 class Curvature:
+    """Computation of various vertex-wise mesh vertex shape descriptors that are based on curvature."""
 
     def __init__(self, pc):
         """
@@ -105,8 +106,33 @@ class Curvature:
         self.k_major = pc['k_major']
         self.k_minor = pc['k_minor']
 
+    def compute(self, descriptors):
+        """Compute all descriptors listed in 'descriptors', return as pd.DataFrame.
+
+        Parameters
+        ----------
+        desciptors: list of str, see `available()` for the full list.
+
+        Examples
+        --------
+        c = Curvature(pc)
+        df = c.compute(["gaussian_curvature", "mean_curvature"])
+        """
+        if not isinstance(descriptors, list) or len(descriptors) == 0:
+            raise ValueError(f"Parameter 'descriptor' must contain list of descriptor names, see `available()` for available names.")
+        return compute_shape_descriptors(self.pc, descriptors)
+
     def compute_all(self):
+        """Compute all available descriptors, return as pd.DataFrame."""
         return compute_shape_descriptors(self.pc)
+
+    def available(self):
+        """
+        Get list of available descriptor names.
+
+        Can be used with `compute` function `descriptors` parameter.
+        """
+        return shape_descriptor_names()
 
     def gaussian_curvature(self):
         return self.k_major * self.k_minor

@@ -77,6 +77,22 @@ pip3 install -e .
 
 ### Running the development version
 
+
+##### Obtaining training data
+
+Obtaining training data is non-trivial, unless you have quite a bit of computational resources and experience with structural neuroimaging data.
+
+If both applies to you, the following should help you get the data:
+
+* Download a suitable, large collection of T1-weighted (and optionally T2-weighted) structural MRI scans from many healthy subjects. To avoid bias, only use controls in case its a clinical dataset. Make sure to include subjects from as many sites (different scanners) as possible, as well as a wide age range, different genders, etc.
+     - An option is to use all controls from the ABIDE dataset.
+     - The more sites and subjects, the better. We suggest at least 20 sites and 300 subjects.
+     - Consider excluding bad quality scans.
+* Pre-process all scans with FreeSurfer v6 (full recon-all pipeline). This takes about 12 - 18 hours per subject when done sequentially on a single core of a 2022 consumer desktop computer.
+     - When pre-processing is done, compute pial-lgi for all subjects.
+
+
+
 ##### Running model training
 
 Use one of the run scripts, like: `./run.sh`.

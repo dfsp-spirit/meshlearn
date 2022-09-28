@@ -77,7 +77,7 @@ def separate_pcs(pv1, pv2):
     return pc
 
 
-def shape_descriptor_names():
+def _shape_descriptor_names():
     """Get list of shape descriptor names."""
     return ['k1', 'k2', 'k_major', 'k_minor', 'mean_curvature', 'gaussian_curvature', 'intrinsic_curvature_index', 'negative_intrinsic_curvature_index', 'gaussian_l2_norm', 'absolute_intrinsic_curvature_index', 'mean_curvature_index', 'negative_mean_curvature_index' ,'mean_l2_norm', 'absolute_mean_curvature_index', 'folding_index', 'curvedness_index', 'shape_index', 'shape_type', 'area_fraction_of_intrinsic_curvature_index', 'area_fraction_of_negative_intrinsic_curvature_index', 'area_fraction_of_mean_curvature_index', 'area_fraction_of_negative_mean_curvature_index', 'sh2sh', 'sk2sk']
 
@@ -121,11 +121,11 @@ class Curvature:
         """
         if not isinstance(descriptors, list) or len(descriptors) == 0:
             raise ValueError(f"Parameter 'descriptor' must contain list of descriptor names, see `Curvature.available()` for available names.")
-        return compute_shape_descriptors(self.pc, descriptors, verbose=self.verbose)
+        return _compute_shape_descriptors(self.pc, descriptors, verbose=self.verbose)
 
     def compute_all(self):
         """Compute all available descriptors, return as pd.DataFrame."""
-        return compute_shape_descriptors(self.pc, verbose=self.verbose)
+        return _compute_shape_descriptors(self.pc, verbose=self.verbose)
 
     @staticmethod
     def available(include_not_implemented = False):
@@ -134,7 +134,7 @@ class Curvature:
 
         Can be used with `compute` function `descriptors` parameter.
         """
-        all = shape_descriptor_names()
+        all = _shape_descriptor_names()
         if include_not_implemented:
             return all
         implemented = list()
@@ -218,12 +218,12 @@ class Curvature:
 
 
 
-def compute_shape_descriptors(pc, descriptors=Curvature.available(), verbose=False):
+def _compute_shape_descriptors(pc, descriptors=Curvature.available(), verbose=False):
     """Return pandas.DataFrame with computes descriptors."""
     assert isinstance(descriptors, list), "Parameter 'descriptors' must be a list of strings, a subset of the one returned by `shape_descriptor_names`."
     assert isinstance(pc, dict), "Parameter 'pc' must be a dict, as returned by `separate_pcs`."
     for desc in descriptors:
-        if not desc in shape_descriptor_names():
+        if not desc in _shape_descriptor_names():
             raise ValueError(f"Entry '{desc}' in parameter 'descriptors' is invalid.")
 
     assert pc['k1'].size == pc['k2'].size

@@ -103,6 +103,7 @@ class Curvature:
                 vert_coords, faces = fsio.read_geometry(pc)
                 pv1, pv2 = compute_princial_curvature_for_mesh(vert_coords, faces)
                 pc = separate_pcs(pv1, pv2)
+        self.pc = pc
         self.k1 = pc['k1']
         self.k2 = pc['k2']
         self.k_major = pc['k_major']
@@ -110,6 +111,10 @@ class Curvature:
 
     def gaussian_curvature(self):
         return self.k_major * self.k_minor
+
+    def compute_all(self):
+        return compute_shape_descriptors(self.pc)
+
 
 def compute_shape_descriptors(pc, descriptors=shape_descriptor_names()):
     """Return pandas.DataFrame with computes descriptors."""

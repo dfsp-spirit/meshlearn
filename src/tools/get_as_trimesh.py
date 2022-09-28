@@ -46,7 +46,14 @@ h = 0.5 * (pv1 + pv2) # mean curvature
 # The libigl tutorial here also has some ideas for global descriptors in Chapter 6, mesh stats: https://libigl.github.io/libigl-python-bindings/tut-chapter0/
 # It is highly recommended in any case.
 
+print(f"Computing all with meshlearn.Curvature at: {time.ctime()}.")
+from meshlearn.curvature import Curvature
+c = Curvature(mesh_file)
+df = c.compute_all()
+
 print(f"All done at: {time.ctime()}.")
+
+
 
 do_plot = False
 if do_plot:

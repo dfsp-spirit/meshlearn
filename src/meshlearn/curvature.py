@@ -151,6 +151,18 @@ class Curvature:
     def shape_index(self):
         return (2.0 * np.pi) * np.arctan((self.k1 + self.k2) / (self.k2 - self.k1))
 
+    # see https://github.com/dfsp-spirit/fsbrain/blob/master/R/curvature.R for some more
+
+    def sh2sh(self):
+        mln = self.mean_l2_norm()
+        amci = self.absolute_mean_curvature_index()
+        return mln / amci
+
+    def sk2sk(self):
+        gln = self.gaussian_l2_norm()
+        aici = self.absolute_intrinsic_curvature_index()
+        return gln / aici
+
 
 
 

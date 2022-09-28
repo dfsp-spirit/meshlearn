@@ -10,7 +10,6 @@ function from the `igl` module, i.e., the libigl Python bindings.
 Use `conda install -y -c conda-forge igl` to install igl with conda.
 """
 
-from multiprocessing.sharedctypes import Value
 import numpy as np
 import pandas as pd
 

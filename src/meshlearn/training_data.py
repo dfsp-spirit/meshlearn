@@ -207,12 +207,12 @@ class TrainingData():
             add_global_mesh_descriptors = True  # TODO: expose as function parameter
 
             if add_local_mesh_descriptors:
-                curv_radius = 5.0
-                from trimesh.curvature import discrete_gaussian_curvature_measure, discrete_mean_curvature_measure
-                gauss_curv = discrete_gaussian_curvature_measure(mesh, mesh.vertices, curv_radius)
-                extra_columns['gauss_curv'] = gauss_curv
-                mean_curv = discrete_mean_curvature_measure(mesh, mesh.vertices, curv_radius)
-                extra_columns['mean_curv'] = mean_curv
+                from meshlearn.curvature import Curvature
+                c = Curvature(mesh_file_name)
+                descriptors_to_compute = ["gaussian_curvature", "mean_curvature", "shape_index", "curvedness_index"]
+                shape_desc = c.compute(descriptors_to_compute)
+                for desc in descriptors_to_compute:
+                    extra_columns[desc] = shape_desc[[desc]].to_numpy()
 
             if add_global_mesh_descriptors:
                 x_extend = np.max(vert_coords[:, 0]) - np.min(vert_coords[:, 0])

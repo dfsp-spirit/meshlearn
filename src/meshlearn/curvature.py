@@ -84,7 +84,7 @@ def shape_descriptor_names():
 class Curvature:
     """Computation of various vertex-wise mesh vertex shape descriptors that are based on curvature."""
 
-    def __init__(self, pc):
+    def __init__(self, pc, verbose=False):
         """
         Create new Curvature computation instance.
 
@@ -105,6 +105,7 @@ class Curvature:
         self.k2 = pc['k2']
         self.k_major = pc['k_major']
         self.k_minor = pc['k_minor']
+        self.verbose = verbose
 
     def compute(self, descriptors):
         """Compute all descriptors listed in 'descriptors', return as pd.DataFrame.
@@ -119,20 +120,29 @@ class Curvature:
         df = c.compute(["gaussian_curvature", "mean_curvature"])
         """
         if not isinstance(descriptors, list) or len(descriptors) == 0:
-            raise ValueError(f"Parameter 'descriptor' must contain list of descriptor names, see `available()` for available names.")
-        return compute_shape_descriptors(self.pc, descriptors)
+            raise ValueError(f"Parameter 'descriptor' must contain list of descriptor names, see `Curvature.available()` for available names.")
+        return compute_shape_descriptors(self.pc, descriptors, verbose=self.verbose)
 
     def compute_all(self):
         """Compute all available descriptors, return as pd.DataFrame."""
-        return compute_shape_descriptors(self.pc)
+        return compute_shape_descriptors(self.pc, verbose=self.verbose)
 
-    def available(self):
+    @staticmethod
+    def available(include_not_implemented = False):
         """
         Get list of available descriptor names.
 
         Can be used with `compute` function `descriptors` parameter.
         """
-        return shape_descriptor_names()
+        all = shape_descriptor_names()
+        if include_not_implemented:
+            return all
+        implemented = list()
+        for desc in all:
+            if hasattr(Curvature, desc):
+                implemented.append(desc)
+        return implemented
+
 
     def gaussian_curvature(self):
         return self.k_major * self.k_minor
@@ -177,7 +187,22 @@ class Curvature:
     def shape_index(self):
         return (2.0 * np.pi) * np.arctan((self.k1 + self.k2) / (self.k2 - self.k1))
 
-    # see https://github.com/dfsp-spirit/fsbrain/blob/master/R/curvature.R for some more
+    def shape_type(self):
+        shape_type = np.zeros((self.k2.size), dtype=np.float32) # Could be np.int32, but having all as float is more convenient for many use cases.
+        border1 = -1.0
+        border2 = -0.5
+        border3 = 0.0
+        border4 = 0.5
+        border5 = 1.0
+        shape_index = self.shape_index()
+        shape_type[np.where((shape_index >= border1) & (shape_index < border2))[0]] = 1
+        shape_type[np.where((shape_index >= border2) & (shape_index < border3))[0]] = 2
+        shape_type[np.where((shape_index >= border3) & (shape_index < border4))[0]] = 3
+        shape_type[np.where((shape_index >= border4) & (shape_index < border5))[0]] = 4
+        return shape_type
+
+    # see https://github.com/dfsp-spirit/fsbrain/blob/master/R/curvature.R for some more,
+    # the area fraction ones are not implemented here yet.
 
     def sh2sh(self):
         mln = self.mean_l2_norm()
@@ -193,7 +218,7 @@ class Curvature:
 
 
 
-def compute_shape_descriptors(pc, descriptors=shape_descriptor_names()):
+def compute_shape_descriptors(pc, descriptors=Curvature.available(), verbose=False):
     """Return pandas.DataFrame with computes descriptors."""
     assert isinstance(descriptors, list), "Parameter 'descriptors' must be a list of strings, a subset of the one returned by `shape_descriptor_names`."
     assert isinstance(pc, dict), "Parameter 'pc' must be a dict, as returned by `separate_pcs`."
@@ -212,11 +237,12 @@ def compute_shape_descriptors(pc, descriptors=shape_descriptor_names()):
             continue
 
         if hasattr(curv, desc):
-            print(f"Computing shape descriptor '{desc}' for all {pc['k1'].size} mesh vertices.")
+            if verbose:
+                print(f"Computing shape descriptor '{desc}' for all {pc['k1'].size} mesh vertices.")
             desc_func = getattr(curv, desc)
             df[desc] = desc_func()
         else:
-            print(f"Curvature method for '{desc}' not implemented, skipping.")
+            print(f"NOTICE: Curvature method for '{desc}' not implemented, skipping.")
     return df
 
 

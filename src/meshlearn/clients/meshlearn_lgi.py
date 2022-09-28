@@ -145,11 +145,12 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="8")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="48")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="8")
 args = parser.parse_args()
 
+args.verbose = True
 
 # Data settings not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation
@@ -174,7 +175,7 @@ do_pickle_data = True
 
 # Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
 # Allows switching between pickled datasets quickly.
-dataset_tag = "_tiny_2"
+dataset_tag = ""
 model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
@@ -186,8 +187,8 @@ model_settings_file=f"ml{model_tag}_model.json"
 num_cores_fit = 8
 
 # Model settings
-lightgbm_num_estimators = 48
-do_hyperparam_opt = False
+lightgbm_num_estimators = 144
+do_hyperparam_opt = False # Dramatically increases computational time (depends on hyperparm opt settings, but 60 times to 200 times is typical). Do this ONCE on a medium sized dataset, copy the obtained params and hard-code them in the source code of the fit function to re-use (and set this to FALSE then).
 
 
 ####################################### End of settings. #########################################
@@ -257,7 +258,10 @@ print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, contai
 
 # Shuffle the entire dataset, to prevent the model from training only on (consecutive) vertices from some of the meshes in the set of input files.
 print(f"Shuffling the rows (row order) of the dataframe.")
-dataset = dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
+#dataset = dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
+from sklearn.utils import shuffle # We use sklearn.utils.shuffle over pandas.DataFrame.sample, as that is buggy in my pandas version and allocates lots of memory (more than 2x size of MB in RAM), crashing this script for large datasets.
+dataset = shuffle(dataset)
+dataset.reset_index(inplace=True, drop=True)
 
 ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
 # WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets.

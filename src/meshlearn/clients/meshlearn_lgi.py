@@ -174,7 +174,7 @@ do_pickle_data = True
 
 # Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
 # Allows switching between pickled datasets quickly.
-dataset_tag = "_tiny"
+dataset_tag = "_tiny_2"
 model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
@@ -281,7 +281,7 @@ print(f"Separating observations into {len(feature_names)} features and target co
 X = dataset.iloc[:, 0:(nc-1)].values
 y = dataset.iloc[:, (nc-1)].values
 
-dataset = None
+dataset = None # Free RAM
 
 print(f"Splitting data into train and test sets... ({int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
@@ -303,6 +303,7 @@ print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().avai
 sc = StandardScaler()
 X_train = sc.fit_transform(X_train)
 X_test = sc.transform(X_test)
+X_eval = sc.transform(X_eval)
 
 
 print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
@@ -314,11 +315,11 @@ else:
 
 lightgbm.plot_metric(model)
 
-model_info = eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_train)
+model_info = eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_train, X_eval=X_eval, y_eval=y_eval)
 
 ## Assess feature importance (if possible)
 importances = model.feature_importances_ if hasattr(model, 'feature_importances_') else None
-model_info = report_feature_importances(importances, feature_names, model_info)
+model_info = report_feature_importances(importances, feature_names, model_info, num_to_report=30)
 
 
 model_and_data_info = { 'data_settings' : data_settings, 'model_info' : model_info }

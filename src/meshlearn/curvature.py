@@ -120,6 +120,38 @@ class Curvature:
     def negative_intrinsic_curvature_index(self):
         return np.minimum(self.gaussian_curvature(), 0.0)
 
+    def gaussian_l2_norm(self):
+        k = self.gaussian_curvature()
+        return k * k
+
+    def mean_l2_norm(self):
+        h = self.mean_curvature()
+        return h * h
+
+    def absolute_intrinsic_curvature_index(self):
+        return np.abs(self.gaussian_curvature())
+
+    def mean_curvature_index(self):
+        return np.maximum(self.mean_curvature(), 0.0)
+
+    def negative_mean_curvature_index(self):
+        return np.minimum(self.mean_curvature(), 0.0)
+
+    def absolute_mean_curvature_index(self):
+        return np.abs(self.mean_curvature())
+
+    def folding_index(self):
+        abs_k_maj = np.abs(self.k_major)
+        abs_k_min = np.abs(self.k_minor)
+        return abs_k_maj * (abs_k_maj - abs_k_min)
+
+    def curvedness_index(self):
+        return np.sqrt((self.k_major * self.k_major + self.k_minor * self.k_minor) / 2.0)
+
+    def shape_index(self):
+        return (2.0 * np.pi) * np.arctan((self.k1 + self.k2) / (self.k2 - self.k1))
+
+
 
 
 

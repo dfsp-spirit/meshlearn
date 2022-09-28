@@ -12,6 +12,8 @@ Use `conda install -y -c conda-forge igl` to install igl with conda.
 
 import numpy as np
 import pandas as pd
+import nibabel.freesurfer.io as fsio
+import os
 
 def compute_princial_curvature_for_mesh(vert_coords, faces):
     """
@@ -86,6 +88,21 @@ def shape_descriptor_names():
 class Curvature:
 
     def __init__(self, pc):
+        """
+        Create new Curvature computation instance.
+
+        Parameters
+        ----------
+        pc: dict or str. If a dict, must be the result of calling the `separate_pcs` function. If a string, it will be interpreted as the full path to a valid Freesurfer mesh file, like `lh.white`.
+
+        """
+        if isinstance(pc, str):
+            if not os.path.isfile(pc):
+                raise ValueError(f"Cannot read mesh file '{pc}'.")
+            else:
+                vert_coords, faces = fsio.read_geometry(pc)
+                pv1, pv2 = compute_princial_curvature_for_mesh(vert_coords, faces)
+                pc = separate_pcs(pv1, pv2)
         self.k1 = pc['k1']
         self.k2 = pc['k2']
         self.k_major = pc['k_major']

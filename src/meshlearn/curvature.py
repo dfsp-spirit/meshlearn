@@ -60,24 +60,20 @@ def separate_pcs(pv1, pv2):
     pc = dict()
     assert pv1.shape == pv2.shape, "Paramters 'pv1' and 'pv2' must be ndarrays of identical lengths."
 
-    pc['k1'] = pv1
-    idx_pv2_larger = np.where(pv2 >= pv1)[0]
-    pc['k1'][idx_pv2_larger] = pv2[idx_pv2_larger]
+    pc['k1'] = np.maximum(pv1, pv2)
 
-    pc['k2'] = pv1
-    idx_pv2_smaller = np.where(pv2 < pv1)[0]
-    pc['k2'][idx_pv2_smaller] = pv2[idx_pv2_smaller]
+    pc['k2'] = np.minimum(pv1, pv2)
 
     pv1_abs = np.abs(pv1)
     pv2_abs = np.abs(pv2)
 
     pc['k_major'] = pv1
     idx_abs_pv2_larger = np.where(pv2_abs >= pv1_abs)[0]
-    pc['k_major'][idx_abs_pv2_larger] = pv2[idx_pv2_larger]
+    pc['k_major'][idx_abs_pv2_larger] = pv2[idx_abs_pv2_larger]
 
     pc['k_minor'] = pv1
     idx_abs_pv2_smaller = np.where(pv2_abs < pv1_abs)[0]
-    pc['k_minor'][idx_abs_pv2_smaller] = pv2[idx_pv2_smaller]
+    pc['k_minor'][idx_abs_pv2_smaller] = pv2[idx_abs_pv2_smaller]
     return pc
 
 
@@ -109,11 +105,22 @@ class Curvature:
         self.k_major = pc['k_major']
         self.k_minor = pc['k_minor']
 
+    def compute_all(self):
+        return compute_shape_descriptors(self.pc)
+
     def gaussian_curvature(self):
         return self.k_major * self.k_minor
 
-    def compute_all(self):
-        return compute_shape_descriptors(self.pc)
+    def mean_curvature(self):
+        return (self.k_major + self.k_minor) / 2.0
+
+    def intrinsic_curvature_index(self):
+        return np.maximum(self.gaussian_curvature(), 0.0)
+
+    def negative_intrinsic_curvature_index(self):
+        return np.minimum(self.gaussian_curvature(), 0.0)
+
+
 
 
 def compute_shape_descriptors(pc, descriptors=shape_descriptor_names()):

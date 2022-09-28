@@ -49,7 +49,7 @@ If you want to run the neural network scripts that use tensorflow and you have a
 conda create -y --name meshlearn-gpu python=3.7
 conda activate meshlearn-gpu
 conda install -y tensorflow-gpu  # Or just 'tensorflow' if you don't have a suitable GPU.
-conda install -y pandas matplotlib ipython scitkit-learn psutil lightgbm
+conda install -y pandas matplotlib ipython scikit-learn psutil lightgbm
 conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, speedups for scikit-learn.
 conda install -y -c conda-forge trimesh igl
 ```

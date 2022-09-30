@@ -17,7 +17,7 @@ import tensorflow as tf
 import nibabel.freesurfer.io as fsio
 import trimesh as tm
 from scipy.spatial import KDTree
-from meshlearn.neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
+from meshlearn.data.neighborhood import neighborhoods_euclid_around_points, mesh_k_neighborhoods, mesh_neighborhoods_coords
 
 class VertexPropertyDataset(tf.data.Dataset):
 

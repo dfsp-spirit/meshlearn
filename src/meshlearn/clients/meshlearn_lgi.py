@@ -14,9 +14,9 @@ import lightgbm
 import matplotlib.pyplot as plt
 plt.ion()
 
-from meshlearn.training_data import get_dataset_pickle
-from meshlearn.eval import eval_model_train_test_split, report_feature_importances
-from meshlearn.persistance import save_model, load_model
+from meshlearn.data.training_data import get_dataset_pickle
+from meshlearn.model.eval import eval_model_train_test_split, report_feature_importances
+from meshlearn.model.persistance import save_model, load_model
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -180,6 +180,7 @@ model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
 dataset_settings_file = f"ml{dataset_tag}_dataset.json" # Only relevant if do_pickle_data is True
+training_plot_image = f"ml{dataset_tag}_training.png"  # Image to save training history.
 
 do_persist_trained_model = True
 model_save_file=f"ml{model_tag}_model.pkl"
@@ -187,7 +188,7 @@ model_settings_file=f"ml{model_tag}_model.json"
 num_cores_fit = 8
 
 # Model settings
-lightgbm_num_estimators = 144
+lightgbm_num_estimators = 144 * 3
 do_hyperparam_opt = False # Dramatically increases computational time (depends on hyperparm opt settings, but 60 times to 200 times is typical). Do this ONCE on a medium sized dataset, copy the obtained params and hard-code them in the source code of the fit function to re-use (and set this to FALSE then).
 
 
@@ -317,7 +318,8 @@ else:
     model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':random_state, 'n_jobs':num_cores_fit}
     model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm)
 
-lightgbm.plot_metric(model)
+ax = lightgbm.plot_metric(model)
+plt.savefig(training_plot_image)
 
 model_info = eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_train, X_eval=X_eval, y_eval=y_eval)
 

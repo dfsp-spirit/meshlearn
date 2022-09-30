@@ -11,7 +11,7 @@ import brainload.nitools as nit
 import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree
-from meshlearn import neighborhoods_euclid_around_points
+from meshlearn.data.neighborhood import neighborhoods_euclid_around_points
 from warnings import warn
 import os.path
 import glob
@@ -207,7 +207,7 @@ class TrainingData():
             add_global_mesh_descriptors = True  # TODO: expose as function parameter
 
             if add_local_mesh_descriptors:
-                from meshlearn.curvature import Curvature
+                from meshlearn.data.curvature import Curvature
                 c = Curvature(mesh_file_name)
                 descriptors_to_compute = ["gaussian_curvature", "mean_curvature", "shape_index", "curvedness_index"]
                 shape_desc = c.compute(descriptors_to_compute)

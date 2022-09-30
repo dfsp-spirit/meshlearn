@@ -40,15 +40,18 @@ def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estima
 
     return regressor, model_info
 
-def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs':8}, opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0, 'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}):
-    """Fit a lightgbm model with hard-coded parameters. Pass params obtained via `hyperparameter_optimization_lightgbm` in an earlier run."""
+def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val,
+                                  model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs':8},
+                                  opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0,
+                                                      'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688} ):
+    """Fit a lightgbm model with hard-coded parameters. Pass params obtained via `hyperparameter_optimization_lightgbm` in an earlier run as `opt_fit_settings`."""
     regressor = lightgbm.LGBMRegressor(**model_settings)
+
+    # The `opt_fit_settings` were computed using `hyperparameter_optimization_lightgbm`.
     regressor.set_params(**opt_fit_settings)
     # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
     # Currently needs to be manually adjusted when changing model!
     model_info = {'model_type': 'lightgbm.LGBMRegressor', 'model_settings' : model_settings }
-
-    # These were computed using `hyperparameter_optimization_lightgbm`.
 
     fit_start = time.time()
     regressor.fit(X_train, y_train, eval_set=[(X_val, y_val), (X_train, y_train)], eval_names=["validation set", "training set"])
@@ -61,7 +64,7 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val, model_settings
     return regressor, model_info
 
 
-def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2):
+def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, hpt_num_estimators=100, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2):
     """Perform hypermarameter optimization via random parameter search.
 
     This takes (num_iterations x inner_cv_k) times longer than fitting a single model. Run this once, hard-code the obtained
@@ -103,14 +106,14 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_ite
 
     # Note: n_estimators is set to a "large value". The actual number of trees build will depend on early stopping and
     # the large value 5000 defines only the absolute maximum, that will not be reached in practice.
-    model_param_search = lightgbm.LGBMRegressor(random_state=random_state, verbose=verbose_lightgbm, n_jobs=num_cores, n_estimators=100)
+    model_param_search = lightgbm.LGBMRegressor(random_state=random_state, verbose=verbose_lightgbm, n_jobs=num_cores, n_estimators=hpt_num_estimators)
     random_search = RandomizedSearchCV(
         estimator=model_param_search,
         param_distributions=param_test,
         n_iter=num_iterations,
         scoring=eval_metric,
         cv=inner_cv_k,
-        refit=True,
+        refit=False,
         random_state=random_state,
         verbose=verbose_random_search)
 
@@ -180,7 +183,7 @@ model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
 dataset_settings_file = f"ml{dataset_tag}_dataset.json" # Only relevant if do_pickle_data is True
-training_plot_image = f"ml{dataset_tag}_training.png"  # Image to save training history.
+training_history_image_filename = f"ml{dataset_tag}_training.png"  # Image to save training history.
 
 do_persist_trained_model = True
 model_save_file=f"ml{model_tag}_model.pkl"
@@ -188,9 +191,15 @@ model_settings_file=f"ml{model_tag}_model.json"
 num_cores_fit = 8
 
 # Model settings
-lightgbm_num_estimators = 144 * 3
-do_hyperparam_opt = False # Dramatically increases computational time (depends on hyperparm opt settings, but 60 times to 200 times is typical). Do this ONCE on a medium sized dataset, copy the obtained params and hard-code them in the source code of the fit function to re-use (and set this to FALSE then).
+lightgbm_num_estimators = 144 * 3  # The number of estimators (trees) to use during final model fitting.
+do_hyperparam_opt = False  # Dramatically increases computational time (depends on hyperparm opt settings, but 60 times to 200 times is typical). Do this ONCE on a medium sized dataset, copy the obtained params and hard-code them in the source code of the fit function to re-use (and set this to FALSE then).
+hyper_tune_num_iter = 20   # Number of search iterations for hyperparam tuning. Only used when do_hyperparam_opt=True.
+hyper_tune_inner_cv_k = 3  # The k for k-fold cross-validation during hyperparam tuning. Only used when do_hyperparam_opt=True.
+hpt_num_estimators = 100   # The number of estimators (trees) to use during hyperparam tuning, equivalent to `lightgbm_num_estimators`. Only used when do_hyperparam_opt=True
 
+# Obtained from hyperparam optimization run, hard-coded here.
+opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0,
+                                                      'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}
 
 ####################################### End of settings. #########################################
 
@@ -200,10 +209,11 @@ print("---Train and evaluate an lGI prediction model---")
 
 if data_settings_in['verbose']:
     print("Verbosity turned on.")
-    if add_desc_brain_bbox:
-        print(f"Will add brain bounding box coords as extra descriptor columns.")
+    if do_hyperparam_opt:
+        print(f"Will perform hyperparameter tuning with {hyper_tune_num_iter} iterations and {hyper_tune_inner_cv_k}-fold cross-validation ({hyper_tune_num_iter * hyper_tune_inner_cv_k} runs). ")
     else:
-        print(f"Will NOT add brain bounding box coords as extra descriptor columns.")
+        print(f"Will NOT perform hyperparameter tuning, using hard-coded opt_fit_settings: '{opt_fit_settings}'.")
+    print(f"Will use {lightgbm_num_estimators} estimators to fit (final) model with {num_cores_fit} cores.")
     if do_pickle_data:
         print(f"Using dataset_tag '{dataset_tag}' and model_tag '{model_tag}' for filenames when loading/saving data and model.")
 
@@ -211,6 +221,11 @@ num_cores_tag = "all" if data_settings_in['num_cores'] is None or data_settings_
 seq_par_tag = " sequentially " if data_settings_in['sequential'] else f" in parallel using {num_cores_tag} cores"
 
 if not will_load_dataset_from_pickle_file:
+    if add_desc_brain_bbox:
+        print(f"Will add brain bounding box coords as extra descriptor columns.")
+    else:
+        print(f"Will NOT add brain bounding box coords as extra descriptor columns.")
+
     if data_settings_in['sequential']:
         print(f"Loading datafiles{seq_par_tag}.")
         print(f"Using data directory '{data_settings_in['data_dir']}', observations to load total limit is set to: {data_settings_in['num_neighborhoods_to_load']}.")
@@ -313,13 +328,16 @@ X_eval = sc.transform(X_eval)
 
 print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")
 if do_hyperparam_opt:
-    model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations = 20, inner_cv_k=3, num_cores=8, random_state=random_state, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2)
+    model, model_info = hyperparameter_optimization_lightgbm(X_train, y_train, X_eval, y_eval, num_iterations=hyper_tune_num_iter, inner_cv_k=hyper_tune_inner_cv_k, hpt_num_estimators=hpt_num_estimators, num_cores=num_cores_fit, random_state=random_state, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2)
 else:
     model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':random_state, 'n_jobs':num_cores_fit}
-    model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm)
+    model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm, opt_fit_settings=opt_fit_settings)
 
 ax = lightgbm.plot_metric(model)
-plt.savefig(training_plot_image)
+try:
+    plt.savefig(training_history_image_filename)
+except Exception as ex:
+    print(f"Could not save training history plot to file '{training_history_image_filename}': {str(ex)}")
 
 model_info = eval_model_train_test_split(model, model_info, X_test, y_test, X_train, y_train, X_eval=X_eval, y_eval=y_eval)
 

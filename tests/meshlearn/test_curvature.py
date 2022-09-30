@@ -1,8 +1,6 @@
 import pytest
 import meshlearn as ml
-import meshlearn.tfdata as tfd
 import nibabel.freesurfer.io as fsio
-import trimesh
 import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,10 +21,4 @@ def mesh_data(test_file_pair):
     (mesh_file_name, descriptor_file_name) = test_file_pair
     vert_coords, faces = fsio.read_geometry(mesh_file_name)
     return vert_coords, faces
-
-
-def test_k_neighborhood(mesh_data):
-    (vert_coords, faces) = mesh_data
-    tmesh = trimesh.Trimesh(vertices=vert_coords, faces=faces, process=False)
-    assert 1 == 1
 

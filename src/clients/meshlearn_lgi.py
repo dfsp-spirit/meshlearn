@@ -8,8 +8,9 @@ from datetime import timedelta
 from sys import getsizeof
 import psutil
 import lightgbm
-#from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
-#patch_sklearn()                       # Do this BEFORE loading sklearn.
+
+from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
+patch_sklearn()                       # Do this BEFORE loading sklearn.
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -278,6 +279,8 @@ print(f"Shuffling the rows (row order) of the dataframe.")
 from sklearn.utils import shuffle # We use sklearn.utils.shuffle over pandas.DataFrame.sample, as that is buggy in my pandas version and allocates lots of memory (more than 2x size of MB in RAM), crashing this script for large datasets.
 dataset = shuffle(dataset)
 dataset.reset_index(inplace=True, drop=True)
+
+exit()
 
 ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
 # WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets.

@@ -126,7 +126,8 @@ class TrainingData():
                 datafiles_tmp = list()
                 datafiles_tmp.append(datafiles)
                 datafiles = datafiles_tmp   # We wrap this into a list (with 1 element) because the sequential function works with a list.
-                print(f"[seq, wrapped in parallel] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
+                if verbose:
+                    print(f"[seq, wrapped in parallel] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
                 is_parallel_wrapped = True
             else:
                 raise ValueError(f"[seq] Received tuple (assuming parallel mode) with length {len(datafiles)}, but required is length 2.")
@@ -232,7 +233,8 @@ class TrainingData():
 
             compute_extra_columns_time_end = time.time()
             compute_extra_columns_execution_time = compute_extra_columns_time_end - compute_extra_columns_time_start
-            print(f"[load] Adding {len(extra_columns)} extra descriptor columns for current file done, it took: {timedelta(seconds=compute_extra_columns_execution_time)}.")
+            if verbose:
+                print(f"[load] Adding {len(extra_columns)} extra descriptor columns for current file done, it took: {timedelta(seconds=compute_extra_columns_execution_time)}.")
 
 
             self.kdtree = None # Cannot use self.kdtree due to required thread-safety.
@@ -304,6 +306,10 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     subjects_list list of str, use only if no subjects_file is given.
     hemis list of str, containing one or more of 'lh', 'rh'
     cortex_label bool, whether to also require label/<hemi>.cortex.label files.
+
+    See also
+    --------
+    get_valid_mesh_desc_lgi_file_pairs_flat_dir: similar function that works with a flattened input dir. Prefer this recon-all version.
     """
     if not os.path.isdir(recon_dir):
         raise ValueError(f"The data directory '{recon_dir}' does not exist or cannot be accessed")
@@ -372,15 +378,18 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
 
 
-def get_valid_mesh_desc_lgi_file_pairs(dc_data_dir, verbose=True):
+def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
         """
-        Discover valid pairs of mesh and descriptor files in datadir created with `deepcopy_testdata.py` script.
+        Discover valid pairs of mesh and descriptor files in datadir created with `deepcopy_testdata.py`  script and the `--not-so-deep` option.
 
         WARNING: Note that `dc_data_dir` is NOT a standard FreeSurfer directory structure, but a flat directory with
-                renamed files (including subject to make them unique in the dir). Use the mentioned script `deepcopy_testdata.py` to
+                renamed files (including subject to make them unique in the dir). Use the mentioned script `deepcopy_testdata.py` with the
+                `--not-so-deep` command line option to
                 turn a FreeSUrfer recon-all output dir into such a flat dir.
 
-        TODO: We should maybe rewrite this function to just work directly on a recon-all output dir.
+        See also
+        --------
+        get_valid_mesh_desc_file_pairs_reconall: similar function that works with a standard recon-all output dir. Prefer that.
 
         Returns
         -------
@@ -420,7 +429,7 @@ def get_valid_mesh_desc_lgi_file_pairs(dc_data_dir, verbose=True):
         return valid_mesh_files, valid_desc_files
 
 
-def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
+def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
     """
@@ -452,7 +461,8 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
 
     discover_end = time.time()
     discover_execution_time = discover_end - discover_start
-    print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
+    if verbose:
+        print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
 
     if add_subject_and_hemi_columns:
         input_filepair_list = list(zip(mesh_files, desc_files, files_subject, files_hemi))  # List of 4-tuples, for each tuple first elem is mesh_file, 2nd is desc_file, 3rd is source subject, 4th is source hemi ('lh' or 'rh').
@@ -497,7 +507,8 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
         dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
     load_end = time.time()
     load_execution_time = load_end - load_start
-    print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
+    if verbose:
+        print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
 
     data_settings['datafiles_loaded'] = datafiles_loaded
 
@@ -508,7 +519,10 @@ def get_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=Fa
 
 def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=None, dataset_settings_file=None):
     """
-    Wrapper around get_dataset that additionally uses pickling if requested.
+    Wrapper around `compute_dataset` that additionally uses pickling if requested.
+
+    If `do_pickle_data` is `True` and the file `dataset_pickle_file` exists, it will load the dataset from the given pkl file, ignoring the `data_settings_in`.
+    Otherwise, it will compute the dataset from the dataset (load raw mesh + descriptor files and compute mesh neighborhoods from them), using the settings from `data_settings_in`.
     """
     if do_pickle_data and (dataset_pickle_file is None or dataset_settings_file is None):
         raise ValueError(f"If 'do_pickle_data' is 'True', a valid 'dataset_pickle_file' and 'dataset_settings_file' have to be supplied.")
@@ -532,7 +546,7 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
             data_settings = None
             print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
     else:
-        dataset, col_names, data_settings = get_dataset(**data_settings_in)
+        dataset, col_names, data_settings = compute_dataset(**data_settings_in)
         if do_pickle_data:
             pickle_start = time.time()
             # Save the settings as a JSON file.

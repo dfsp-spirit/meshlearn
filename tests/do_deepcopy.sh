@@ -27,5 +27,5 @@ if [ ! -d "${DEST_DIR}" ]; then
     exit 1
 fi
 
-
+# The subjects list is expected at "${SOURCE_DIR}/subjects.txt"
 python ./deepcopy_testdata.py -s "${SOURCE_DIR}" -t "${DEST_DIR}" --file-list ./deepcopy_filelist.txt --verbose

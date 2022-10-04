@@ -99,6 +99,8 @@ Use one of the run scripts, like: `./run.sh`.
 
 Be sure to run within the correct `conda` environment!
 
+For training data, you may want to download the [native space lgi data for all ABIDE I subjects from here](https://doi.org/10.5281/zenodo.7132610).
+
 
 #### Running the unit tests
 

@@ -4,7 +4,6 @@
 Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory.
 """
 
-import brainload as bl
 import trimesh as tm
 import nibabel.freesurfer.io as fsio
 import brainload.nitools as nit
@@ -493,10 +492,9 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
 
         neigh_size_tag = "auto-determined neighborhood size" if mesh_neighborhood_count is None or mesh_neighborhood_count is 0 else f"neighborhood size {mesh_neighborhood_count}"
         if filter_smaller_neighborhoods:
-            print(f"Will filter (remove) all datasets smaller than {neigh_size_tag}.")
+            print(f"Will filter (remove) all neighborhoods smaller than {neigh_size_tag}.")
         else:
-            print(f"NOTICE: Will fill the respective missing columns of neighborhoods smaller than {neigh_size_tag} with NAN values. You will have to handle NAN values before training!")
-            print(f"NOTICE: Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
+            print(f"NOTICE: Will fill the respective missing columns of neighborhoods smaller than {neigh_size_tag} with NAN values. You will have to handle NAN values before training! (Set 'filter_smaller_neighborhoods' to 'True' to ignore them instead.)")
 
 
     load_start = time.time()
@@ -517,7 +515,7 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
 
 
 
-def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=None, dataset_settings_file=None):
+def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=None, dataset_settings_file=None, verbose=True):
     """
     Wrapper around `compute_dataset` that additionally uses pickling if requested.
 
@@ -529,22 +527,26 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
 
     if do_pickle_data and os.path.isfile(dataset_pickle_file):
         pickle_file_size_mb = int(os.path.getsize(dataset_pickle_file) / 1024. / 1024.)
-        print("==========================================================================================================================================================================")
-        print(f"WARNING: Unpickling pre-saved dataframe from {pickle_file_size_mb} MB pickle file '{dataset_pickle_file}', ignoring all datset settings! Delete file or set 'do_pickle_data' to False to prevent.")
-        print("==========================================================================================================================================================================")
+        if verbose:
+            print("==========================================================================================================================================================================")
+            print(f"WARNING: Unpickling pre-saved dataframe from {pickle_file_size_mb} MB pickle file '{dataset_pickle_file}', ignoring all datset settings! Delete file or set 'do_pickle_data' to False to prevent.")
+            print("==========================================================================================================================================================================")
         unpickle_start = time.time()
         dataset = pd.read_pickle(dataset_pickle_file)
         col_names = dataset.columns
-        unpickle_end = time.time()
-        pickle_load_time = unpickle_end - unpickle_start
-        print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took {timedelta(seconds=pickle_load_time)}.")
+        if verbose:
+            unpickle_end = time.time()
+            pickle_load_time = unpickle_end - unpickle_start
+            print(f"INFO: Loaded dataset with shape {dataset.shape} from pickle file '{dataset_pickle_file}'. It took {timedelta(seconds=pickle_load_time)}.")
         try:
             with open(dataset_settings_file, 'r') as fp:
                 data_settings = json.load(fp)
-                print(f"INFO: Loaded settings used to create dataset from file '{dataset_settings_file}'.")
+                if verbose:
+                    print(f"INFO: Loaded settings used to create dataset from file '{dataset_settings_file}'.")
         except Exception as ex:
             data_settings = None
-            print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
+            if verbose:
+                print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
     else:
         dataset, col_names, data_settings = compute_dataset(**data_settings_in)
         if do_pickle_data:
@@ -554,10 +556,11 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
                 json.dump(data_settings, fp, sort_keys=True, indent=4)
             # Save the dataset itself as a pkl file.
             dataset.to_pickle(dataset_pickle_file)
-            pickle_end = time.time()
-            pickle_save_time = pickle_end - pickle_start
-            pickle_file_size_mb = int(os.path.getsize(dataset_pickle_file) / 1024. / 1024.)
-            print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' ({pickle_file_size_mb} MB) and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
+            if verbose:
+                pickle_end = time.time()
+                pickle_save_time = pickle_end - pickle_start
+                pickle_file_size_mb = int(os.path.getsize(dataset_pickle_file) / 1024. / 1024.)
+                print(f"INFO: Saved dataset to pickle file '{dataset_pickle_file}' ({pickle_file_size_mb} MB) and dataset settings to '{dataset_settings_file}', ready to load next run. Saving dataset took {timedelta(seconds=pickle_save_time)}.")
     return dataset, col_names, data_settings
 
 

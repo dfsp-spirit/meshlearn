@@ -16,7 +16,6 @@ some computationally expensive per-vertex descriptor, there is no point in doing
 """
 
 import numpy as np
-import trimesh as tm
 
 
 

@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+"""
+Memory optimization functions.
+"""
+
 import numpy as np
 
 

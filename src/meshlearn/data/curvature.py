@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Functions for computing different curvature measure from the two principal curvatures.
+Functions for computing different curvature measures from the two principal curvatures.
 
 This is used to compute vertex-descriptors from the mesh itself. It assumes that you
 have some way to compute the principal curvatures, typically the `igl.principal_curvature`

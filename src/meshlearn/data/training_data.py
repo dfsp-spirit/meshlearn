@@ -137,7 +137,7 @@ class TrainingData():
         if len(datafiles) == 0:
             raise ValueError(f"[seq] datafiles must not be empty")
         if not isinstance(datafiles[0], tuple):
-            raise ValueError(f"[seq] datafiles must be a list of 2-tuples, it is a list but does not contain tuples: {type(datafiles[0])}.")
+            raise ValueError(f"[seq] datafiles must be a list of tuples, it is a list but does not contain tuples: {type(datafiles[0])}.")
 
         num_samples_loaded = 0
         do_break = False

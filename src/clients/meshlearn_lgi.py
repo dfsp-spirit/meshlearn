@@ -280,7 +280,6 @@ from sklearn.utils import shuffle # We use sklearn.utils.shuffle over pandas.Dat
 dataset = shuffle(dataset)
 dataset.reset_index(inplace=True, drop=True)
 
-exit()
 
 ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
 # WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets.

@@ -19,6 +19,7 @@ import psutil
 import json
 from datetime import timedelta
 from sys import getsizeof
+import random
 
 
 class TrainingData():
@@ -428,7 +429,7 @@ def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
         return valid_mesh_files, valid_desc_files
 
 
-def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
+def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
     """
@@ -467,6 +468,22 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
         input_filepair_list = list(zip(mesh_files, desc_files, files_subject, files_hemi))  # List of 4-tuples, for each tuple first elem is mesh_file, 2nd is desc_file, 3rd is source subject, 4th is source hemi ('lh' or 'rh').
     else:
         input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
+
+    # Shuffle input file list if requested. Useful to ensure that we do not handle only the first X files, which are all from the same site.
+    random_seed = None
+    if type(shuffle_input_file_order) == int or type(shuffle_input_file_order) == float:
+        random_seed = shuffle_input_file_order
+        shuffle_input_file_order = True
+    if shuffle_input_file_order:
+        if verbose:
+            print(f"Shuffling input file list.")
+        random.seed(random_seed)
+        random.shuffle(input_filepair_list)
+    else:
+        if verbose:
+            print(f"Not shuffling input file list.")
+
+
 
     num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
     seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"

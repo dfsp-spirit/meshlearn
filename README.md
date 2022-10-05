@@ -98,9 +98,11 @@ We now make our training data publicly available. See the [native space lgi data
 
 #### Running model training
 
-Use one of the run scripts, like: `./run_lgbm.sh`.
+Select the model you want to run in `src/clients/` and adapt the settings at the top and/or the defaults for the command line arguments.
 
-Be sure to run within the correct `conda` environment!
+Then run the client script in `ipython` or use one of the run scripts, like: `./run_lgbm.sh`, after adapting the command line arguments in there.
+
+Note: Be sure to run within the correct `conda` environment!
 
 
 #### Running the unit tests

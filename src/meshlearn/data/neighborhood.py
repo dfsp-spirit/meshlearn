@@ -33,22 +33,23 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
-    This uses a kdtree to compute all vertices in a certain radius. This is an alternative approach to the
-    _k_neighborhoods() function below, which computes the k-neighborhoods on the mesh instead
-    of simple Euclidean distance.
+    This uses a kdtree to compute all vertices in a certain radius around the central query vertex.
 
     Parameters
     ----------
-    query_vert_coords nx3 numpy.ndarray for n 3D points
-    query_vert_indices np.array of ints, the vertex indices in the mesh for the vert_coords. required to assign proper pvd_data value. Set to None to assume that the coords are the coords of all mesh vertices.
-    kdtree scipy.spatial.KDTree instance
-    neighborhood_radius the radius for sphere used in kdtree query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with num_neighbors.
-    mesh tmesh.Trimesh instance (the one from which vert_coords also come, currently duplicated)
-    max_num_neighbors number of neighbors max to consider per neighborhood. must be changed together with neighborhood_radius. Set to None or 0 to auto-determine from min size over all neighborhoods (will differ across mesh files then!).
-    pvd_data vector of length vert_coords.shape[0] (number of vertes in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
+    query_vert_coords   : `nx3` numpy.ndarray for n 3D points, typically a subset of the vertices of the mesh represented in the `kdtree`
+    query_vert_indices  : 1D `np.ndarray` of ints, the vertex indices in the mesh for the `query_vert_coords`. required to assign proper `pvd_data` value. Set to `None` to assume that the coords are the coords of all mesh vertices.
+    kdtree              : `scipy.spatial.KDTree` instance of all mesh vertex coordinates (not just the `query_vert_coords`)
+    neighborhood_radius : the radius of the sphere used in the `kdtree` query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with `max_num_neighbors`.
+    mesh                : `tmesh.Trimesh` instance representing the full mesh
+    max_num_neighbors   : number of neighbors max to consider per neighborhood. must be changed together with `neighborhood_radius`. Set to `None` or `0` to auto-determine from min size over all neighborhoods (will differ across mesh files then!).
+    pvd_data            : vector of length `vert_coords.shape[0]` (number of vertices in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
 
     Returns
     -------
+    neighborhoods            : `nxm` numpy.ndarray, where `n` is the number of query_vert_coords (`query_vert_coords.shape[0]`, to be precise), and `m` is the number of features and depends on the parameters including `max_num_neighbors`, `add_desc_vertex_index`, `add_desc_neigh_size`, and `extra_columns`.
+    col_names                : list of `m` strings, the column names for the `neighborhoods` matrix
+    kept_vertex_indices_mesh : numpy 1D array of ints, the vertex indices of the returned neighborhoods, in the same order as the neighborhoods. Only relevant if `filter_smaller_neighborhoods` is True, otherwise this will be identical to the passed `query_vert_indices`.
     """
     if kdtree is None:
         raise ValueError("No kdtree initialized yet.")

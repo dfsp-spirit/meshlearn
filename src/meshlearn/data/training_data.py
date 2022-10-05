@@ -38,8 +38,8 @@ class TrainingData():
         self.num_neighbors = num_neighbors
         self.allow_nan = allow_nan
 
-        self.kdtree = None
-        self.mesh = None
+        self.kdtree = None  # Do not use in multi-threading context if sharing the TrainingData instance between threads.
+        self.mesh = None    # Do not use in multi-threading context if sharing the TrainingData instance between threads.
 
     @staticmethod
     def data_from_files(mesh_file_name, descriptor_file_name):

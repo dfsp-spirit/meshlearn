@@ -78,11 +78,11 @@ pip3 install -e .
 ### Running the development version
 
 
-##### Obtaining training data
+#### Obtaining training data
 
-Obtaining training data is non-trivial, unless you have quite a bit of computational resources and experience with structural neuroimaging data.
+##### Option 1: Generating your own training data
 
-If both applies to you, the following should help you get the data:
+With some computational resources and experience with structural neuroimaging, you can generate your own training data:
 
 * Download a suitable, large collection of T1-weighted (and optionally T2-weighted) structural MRI scans from many healthy subjects. To avoid bias, only use controls in case its a clinical dataset. Make sure to include subjects from as many sites (different scanners) as possible, as well as a wide age range, different genders, etc.
      - An option is to use all controls from the ABIDE dataset.
@@ -91,15 +91,16 @@ If both applies to you, the following should help you get the data:
 * Pre-process all scans with FreeSurfer v6 (full recon-all pipeline). This takes about 12 - 18 hours per subject when done sequentially on a single core of a 2022 consumer desktop computer.
      - When pre-processing is done, compute pial-lgi for all subjects.
 
+##### Option 2: Downloading our training data
+
+We now make our training data publicly available. See the [native space lgi data for all ABIDE I subjects](https://doi.org/10.5281/zenodo.7132610) on Zenodo (6.5 GB download).
 
 
-##### Running model training
+#### Running model training
 
 Use one of the run scripts, like: `./run_lgbm.sh`.
 
 Be sure to run within the correct `conda` environment!
-
-For training data, you may want to download the [native space lgi data for all ABIDE I subjects from here](https://doi.org/10.5281/zenodo.7132610).
 
 
 #### Running the unit tests

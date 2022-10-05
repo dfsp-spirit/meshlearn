@@ -95,7 +95,7 @@ If both applies to you, the following should help you get the data:
 
 ##### Running model training
 
-Use one of the run scripts, like: `./run.sh`.
+Use one of the run scripts, like: `./run_lgbm.sh`.
 
 Be sure to run within the correct `conda` environment!
 

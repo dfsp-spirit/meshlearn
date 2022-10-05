@@ -386,59 +386,81 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
 
 def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
-        """
-        Discover valid pairs of mesh and descriptor files in datadir created with `deepcopy_testdata.py`  script and the `--not-so-deep` option.
+    """
+    Discover valid pairs of mesh and descriptor files in datadir created with `deepcopy_testdata.py`  script and the `--not-so-deep` option.
 
-        WARNING: Note that `dc_data_dir` is NOT a standard FreeSurfer directory structure, but a flat directory with
-                renamed files (including subject to make them unique in the dir). Use the mentioned script `deepcopy_testdata.py` with the
-                `--not-so-deep` command line option to
-                turn a FreeSUrfer recon-all output dir into such a flat dir.
+    WARNING: Note that `dc_data_dir` is NOT a standard FreeSurfer directory structure, but a flat directory with
+            renamed files (including subject to make them unique in the dir). Use the mentioned script `deepcopy_testdata.py` with the
+            `--not-so-deep` command line option to
+            turn a FreeSUrfer recon-all output dir into such a flat dir.
 
-        See also
-        --------
-        get_valid_mesh_desc_file_pairs_reconall: similar function that works with a standard recon-all output dir. Prefer that.
+    See also
+    --------
+    get_valid_mesh_desc_file_pairs_reconall: similar function that works with a standard recon-all output dir. Prefer that.
 
-        Returns
-        -------
-        tuple of 2 lists of filenames, the first list is a list of pial surface mesh files. the 2nd a list of lgi descriptor files. It is
-        guaranteed that the lists have some lengths, and that the files at identical indices in them belong to each other.
-        """
+    Returns
+    -------
+    tuple of 2 lists of filenames, the first list is a list of pial surface mesh files. the 2nd a list of lgi descriptor files. It is
+    guaranteed that the lists have some lengths, and that the files at identical indices in them belong to each other.
+    """
 
-        if not os.path.isdir(dc_data_dir):
-            raise ValueError("The data directory '{data_dir}' does not exist or cannot be accessed".format(data_dir=dc_data_dir))
+    if not os.path.isdir(dc_data_dir):
+        raise ValueError("The data directory '{data_dir}' does not exist or cannot be accessed".format(data_dir=dc_data_dir))
 
-        mesh_files = np.sort(glob.glob("{data_dir}/*.pial".format(data_dir=dc_data_dir)))
-        descriptor_files = np.sort(glob.glob("{data_dir}/*.pial_lgi".format(data_dir=dc_data_dir)))
-        if verbose:
-            if len(mesh_files) < 3:
-                print("Found {num_mesh_files} mesh files: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files)))
-            else:
-                print("Found {num_mesh_files} mesh files, first 3: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files[0:3])))
-            if len(descriptor_files) < 3:
-                print("Found {num_descriptor_files} descriptor files: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files)))
-            else:
-                print("Found {num_descriptor_files} descriptor files, first 3: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files[0:3])))
+    mesh_files = np.sort(glob.glob("{data_dir}/*.pial".format(data_dir=dc_data_dir)))
+    descriptor_files = np.sort(glob.glob("{data_dir}/*.pial_lgi".format(data_dir=dc_data_dir)))
+    if verbose:
+        if len(mesh_files) < 3:
+            print("Found {num_mesh_files} mesh files: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files)))
+        else:
+            print("Found {num_mesh_files} mesh files, first 3: {mesh_files}".format(num_mesh_files=len(mesh_files), mesh_files=', '.join(mesh_files[0:3])))
+        if len(descriptor_files) < 3:
+            print("Found {num_descriptor_files} descriptor files: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files)))
+        else:
+            print("Found {num_descriptor_files} descriptor files, first 3: {descriptor_files}".format(num_descriptor_files=len(descriptor_files), descriptor_files=', '.join(descriptor_files[0:3])))
 
-        valid_mesh_files = list()
-        valid_desc_files = list()
+    valid_mesh_files = list()
+    valid_desc_files = list()
 
-        for mesh_filename in mesh_files:
-            expected_desc_filename = "{mesh_filename}_lgi".format(mesh_filename=mesh_filename)
-            if os.path.exists(expected_desc_filename):
-                valid_mesh_files.append(mesh_filename)
-                valid_desc_files.append(expected_desc_filename)
+    for mesh_filename in mesh_files:
+        expected_desc_filename = "{mesh_filename}_lgi".format(mesh_filename=mesh_filename)
+        if os.path.exists(expected_desc_filename):
+            valid_mesh_files.append(mesh_filename)
+            valid_desc_files.append(expected_desc_filename)
 
-        assert len(valid_mesh_files) == len(valid_desc_files)
-        num_valid_file_pairs = len(valid_mesh_files)
+    assert len(valid_mesh_files) == len(valid_desc_files)
+    num_valid_file_pairs = len(valid_mesh_files)
 
-        if verbose:
-            print("Found {num_valid_file_pairs} valid pairs of mesh file with matching descriptor file.".format(num_valid_file_pairs=num_valid_file_pairs))
-        return valid_mesh_files, valid_desc_files
+    if verbose:
+        print("Found {num_valid_file_pairs} valid pairs of mesh file with matching descriptor file.".format(num_valid_file_pairs=num_valid_file_pairs))
+    return valid_mesh_files, valid_desc_files
 
 
 def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
+
+    Parameters
+    -----------
+    data_dir: str, recon-all output dir.
+    surface: str, FreeSurfer surface mesh available for subjects in data_dir. Something like `white` or `pial`.
+    descriptor: str, FreeSurfer per-vertex descriptor available for subjects in data_dir. Something like `thickness` or `pial_lgi`, or `area`.
+    cortex_label: bool, whether to load cortex label file from recon-all dir. Not implementend yet.
+    verbose: bool, whether to print verbose output.
+    num_neighborhoods_to_load: int or None, the total number of neighborhoods (rows) to load. Set to None for all in the files. Only considered if `sequential=True`.
+    num_samples_per_file: int or None, the number of neighborhoods (rows) to load per file. See also `exactly`.
+    add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
+    add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
+    sequential: whether to load data sequentially (as opposed to parallel).
+    num_cores: int, number of CPU cores to use for parallel loading. depends on your cpu count and harddisk speed. ignored if `sequential=True`.
+    num_files_to_load: int or None, number of files to load from those available in data_dir
+    mesh_neighborhood_radius: float, radius of sphere for kdtree ball point query (neighbor search).
+    mesh_neighborhood_count: int, number of neighbors to consider at most per vertex (even if more were found within the mesh_neighborhood_radius during kdtree search).
+    filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
+    exactly: bool, see `num_samples_per_file`: whether to disallow loading more if the file contained more.
+    add_desc_brain_bbox: whether to add descriptor: brain bounding bo
+    add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
+    shuffle_input_file_order: bool, int or float. If a bool, whether to shuffle input files before starting to load from the beginning. If an int or float, we assume `shuffle_input_file_order=True` and use the int or float as the random seed for the shuffle operation.
     """
     if cortex_label:
         raise ValueError("Parameter 'cortex_label' must be False: not implemented yet.")
@@ -483,7 +505,7 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
         shuffle_input_file_order = True
     if shuffle_input_file_order:
         if verbose:
-            print(f"Shuffling input file list.")
+            print(f"Shuffling input file list with random seed '{random_seed}'.")
         random.seed(random_seed)
         random.shuffle(input_filepair_list)
     else:

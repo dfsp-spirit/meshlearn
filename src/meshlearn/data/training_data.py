@@ -10,6 +10,7 @@ import brainload.nitools as nit
 import numpy as np
 import pandas as pd
 from scipy.spatial import KDTree
+from meshlearn.data.mem_opt import reduce_mem_usage
 from meshlearn.data.neighborhood import neighborhoods_euclid_around_points
 from warnings import warn
 import os.path
@@ -62,7 +63,7 @@ class TrainingData():
         return (vert_coords, faces, pvd_data)
 
 
-    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
+    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True):
         """
         Parallel version of `neighborhoods_from_raw_data`.
 
@@ -87,12 +88,12 @@ class TrainingData():
                 datafiles = datafiles_subset
 
         with ThreadPoolExecutor(num_cores) as pool:
-            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
         return df, df.columns, datafiles
 
 
-    def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False):
+    def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
@@ -280,9 +281,15 @@ class TrainingData():
 
         if df:
             full_data = pd.DataFrame(full_data, columns=col_names)
-            dataset_size_bytes = full_data.memory_usage(deep=True).sum()
             if verbose:
+                dataset_size_bytes = full_data.memory_usage(deep=True).sum()
                 print(f"[load] Total dataset size in RAM is about {int(dataset_size_bytes / 1024. / 1024.)} MB.")
+            if reduce_mem:
+                full_data = reduce_mem_usage(full_data)
+                if verbose:
+                    dataset_size_bytes = full_data.memory_usage(deep=True).sum()
+                    print(f"[load] Total dataset size in RAM after memory optimization is about {int(dataset_size_bytes / 1024. / 1024.)} MB.")
+            if verbose:
                 print(f"[load] RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
         if is_parallel_wrapped:

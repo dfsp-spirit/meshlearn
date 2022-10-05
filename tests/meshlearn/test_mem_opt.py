@@ -5,6 +5,7 @@ import os
 import pandas as pd
 from meshlearn.data.curvature import Curvature
 from meshlearn.data.mem_opt import reduce_mem_usage
+from sys import getsizeof
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')
@@ -20,5 +21,6 @@ def test_mem_opt():
     df_opt = reduce_mem_usage(df)
     assert df.shape == df_opt.shape
     assert (df.columns == df_opt.columns).all()
+    assert getsizeof(df_opt) <= getsizeof(df)
 
 

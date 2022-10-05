@@ -1,5 +1,7 @@
 import pytest
 import meshlearn as ml
+import pandas as pd
+from meshlearn.data.curvature import Curvature
 import nibabel.freesurfer.io as fsio
 import os
 
@@ -15,10 +17,34 @@ def test_file_pair():
     descriptor_file = os.path.join(TEST_DATA_DIR, 'tim_only', 'tim_surf_lh.pial_lgi')
     return mesh_file, descriptor_file
 
+def test_curvature_instance_can_be_initialized(test_file_pair):
+    mesh_file, _ = test_file_pair
+    num_verts = 149244
+    curv = Curvature(mesh_file)
 
-@pytest.fixture
-def mesh_data(test_file_pair):
-    (mesh_file_name, descriptor_file_name) = test_file_pair
-    vert_coords, faces = fsio.read_geometry(mesh_file_name)
-    return vert_coords, faces
+    assert isinstance(curv.pc, dict)
+    assert len(curv.pc) == 4
+    assert curv.k1.size == num_verts
+    assert curv.k2.size == num_verts
+    assert curv.k_major.size == num_verts
+    assert curv.k_minor.size == num_verts
+
+def test_prinicipal_curvatures_can_be_computed(test_file_pair):
+    mesh_file, _ = test_file_pair
+    num_verts = 149244
+    curv = Curvature(mesh_file)
+
+    desc = curv.compute_all()
+    assert isinstance(desc, pd.DataFrame)
+    assert desc.columns.size == 20 # The 4 basic ones (k1, k2, k_major, k_minor) and the 16 other implemented ones.
+    assert desc.shape == (num_verts, 20)
+
+    desc = curv.compute(["gaussian_curvature", "mean_curvature"])
+    assert isinstance(desc, pd.DataFrame)
+    assert desc.columns.size == 6  # The 4 basic ones (k1, k2, k_major, k_minor) and the 2 requested ones.
+    assert desc.shape == (num_verts, 6)
+
+
+
+
 

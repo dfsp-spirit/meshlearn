@@ -63,7 +63,7 @@ class TrainingData():
         return (vert_coords, faces, pvd_data)
 
 
-    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True):
+    def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None):
         """
         Parallel version of `neighborhoods_from_raw_data`.
 
@@ -88,12 +88,12 @@ class TrainingData():
                 datafiles = datafiles_subset
 
         with ThreadPoolExecutor(num_cores) as pool:
-            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem)
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, neighborhood_radius=neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, max_num_neighbors=max_num_neighbors, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem, random_seed=random_seed)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
         return df, df.columns, datafiles
 
 
-    def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True):
+    def neighborhoods_from_raw_data_seq(self, datafiles, neighborhood_radius=None, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
@@ -177,7 +177,7 @@ class TrainingData():
             else:
                 query_vert_coords = vert_coords.copy()
                 # Sample 'num_samples_per_file' vertex coords from the full coords list
-                randomstate = np.random.default_rng(0)
+                randomstate = np.random.default_rng(random_seed)
                 query_vert_indices = randomstate.choice(num_verts_total, num_samples_per_file, replace=False, shuffle=False)
                 query_vert_coords = query_vert_coords[query_vert_indices, :]
 
@@ -436,7 +436,7 @@ def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
     return valid_mesh_files, valid_desc_files
 
 
-def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True):
+def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True, random_seed=None):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
 
@@ -460,7 +460,8 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
     exactly: bool, see `num_samples_per_file`: whether to disallow loading more if the file contained more.
     add_desc_brain_bbox: whether to add descriptor: brain bounding bo
     add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
-    shuffle_input_file_order: bool, int or float. If a bool, whether to shuffle input files before starting to load from the beginning. If an int or float, we assume `shuffle_input_file_order=True` and use the int or float as the random seed for the shuffle operation.
+    shuffle_input_file_order: bool, whether to shuffle input files before starting to load from the beginning.
+    random_seed: None or int, something to seed the random number generators used for randomness in the functions. Set to None for random, or an int for a reproducible choice (e.g., which of the vertices to load, which files to load, etc.).
     """
     if cortex_label:
         raise ValueError("Parameter 'cortex_label' must be False: not implemented yet.")
@@ -499,10 +500,6 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
         input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
 
     # Shuffle input file list if requested. Useful to ensure that we do not handle only the first X files, which are all from the same site.
-    random_seed = None
-    if type(shuffle_input_file_order) == int or type(shuffle_input_file_order) == float:
-        random_seed = shuffle_input_file_order
-        shuffle_input_file_order = True
     if shuffle_input_file_order:
         if verbose:
             print(f"Shuffling input file list with random seed '{random_seed}'.")
@@ -511,8 +508,6 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
     else:
         if verbose:
             print(f"Not shuffling input file list.")
-
-
 
     num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
     seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
@@ -546,9 +541,9 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
     load_start = time.time()
     tdl = TrainingData(neighborhood_radius=mesh_neighborhood_radius, num_neighbors=mesh_neighborhood_count)
     if sequential:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=random_seed)
     else:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=random_seed)
     load_end = time.time()
     load_execution_time = load_end - load_start
     if verbose:
@@ -567,6 +562,14 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
 
     If `do_pickle_data` is `True` and the file `dataset_pickle_file` exists, it will load the dataset from the given pkl file, ignoring the `data_settings_in`.
     Otherwise, it will compute the dataset from the dataset (load raw mesh + descriptor files and compute mesh neighborhoods from them), using the settings from `data_settings_in`.
+
+    Parameters
+    ----------
+    data_settings_in: dict, passed on as kwargs to compute_dataset if we do not load a pickled dataset. Ignored otherwise.
+    do_pickle_data: bool, whether to pickle data (compute and then save if no file found, load if found.)
+    dataset_pickle_file: str, the pkl file to load the pickled dataset from, or save it to if not exists. Ignored if do_pickle_data=False.
+    dataset_settings_file: str, the JSON file to load the dataset metadata from, or save it to if not exists. Ignored if do_pickle_data=False.
+    verbose: bool, whether to print verbose info
     """
     if do_pickle_data and (dataset_pickle_file is None or dataset_settings_file is None):
         raise ValueError(f"If 'do_pickle_data' is 'True', a valid 'dataset_pickle_file' and 'dataset_settings_file' have to be supplied.")

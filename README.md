@@ -112,5 +112,7 @@ These are limited.
 ```bash
 #pip3 install pytest
 cd <repo_dir>
-python3 -m pytest tests/
+export PYTHON_PATH=$(pwd)
+cd tests/
+pytest
 ```

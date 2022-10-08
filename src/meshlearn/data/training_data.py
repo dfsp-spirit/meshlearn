@@ -67,6 +67,8 @@ class TrainingData():
         """
         Parallel version of `neighborhoods_from_raw_data`. Calls the latter in parallel using multi-threading.
 
+        Note that this does not take the `num_samples_total` parameter, as this cannot be respected when loading files in parallel. Use a combination of `num_samples_per_file`/`exactly` and `num_files_total` instead to limit the dataset to a size compatible with your available RAM.
+
         Parameters
         ----------
         datafiles: list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
@@ -118,6 +120,8 @@ class TrainingData():
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
         Returns, for each such vertex neighborhood, the coordinates and normals of all neighborhood vertices.
         Note that the data must fit into memory. Use this or `gen_data`, depending on whether or not you want everything in memory at once.
+
+        Use the `num_samples_total` parameter, or a combination of `num_samples_per_file`/`exactly` and `num_files_total` to limit the dataset to a size compatible with your available RAM.
 
         Parameters
         ----------

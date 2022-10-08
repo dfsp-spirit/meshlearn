@@ -60,7 +60,7 @@ class TrainingData():
         """
         vert_coords, faces = fsio.read_geometry(mesh_file_name)
         pvd_data = fsio.read_morph_data(descriptor_file_name)
-        return (vert_coords, faces, pvd_data)
+        return vert_coords, faces, pvd_data
 
 
     def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None):
@@ -376,7 +376,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     valid_desc_files = []  # per-vertex descriptor files (one per hemi), like lGI
     valid_labl_files = []  # cortex label files, if requested.
     valid_files_hemi = []     # For each entry in the previous 3 lists, the hemisphere ('lh' or 'rh') to which the files belong.
-    subjects_valid = [] # For each entry in the previous 3 lists, the subject to which the files belong.
+    valid_files_subject = [] # For each entry in the previous 3 lists, the subject to which the files belong.
     subjects_missing_some_file = [] # All subjects which were missing one or more of the requested files. No data from them gets returned.
 
     for subject in subjects_list:
@@ -392,7 +392,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                         valid_mesh_files.append(surf_file)
                         valid_desc_files.append(desc_file)
                         valid_labl_files.append(labl_file)
-                        subjects_valid.append(subject)
+                        valid_files_subject.append(subject)
                         valid_files_hemi.append(hemi)
 
                     else:
@@ -401,7 +401,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
                     if os.path.isfile(surf_file) and os.path.isfile(desc_file):
                         valid_mesh_files.append(surf_file)
                         valid_desc_files.append(desc_file)
-                        subjects_valid.append(subject)
+                        valid_files_subject.append(subject)
                         valid_files_hemi.append(hemi)
                     else:
                         subjects_missing_some_file.append(subject)
@@ -411,7 +411,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
         if len(subjects_missing_some_file) > 0:
             print(f"The following {len(subjects_missing_some_file)} subjects where missing files: {', '.join(subjects_missing_some_file)}")
 
-    return valid_mesh_files, valid_desc_files, valid_labl_files, subjects_valid, valid_files_hemi, subjects_missing_some_file
+    return valid_mesh_files, valid_desc_files, valid_labl_files, valid_files_subject, valid_files_hemi, subjects_missing_some_file
 
 
 

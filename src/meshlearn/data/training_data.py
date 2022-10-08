@@ -65,7 +65,26 @@ class TrainingData():
 
     def neighborhoods_from_raw_data_parallel(self, datafiles, neighborhood_radius=None, exactly=False, num_samples_per_file=None, df=True, verbose=False, max_num_neighbors=None, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None):
         """
-        Parallel version of `neighborhoods_from_raw_data`.
+        Parallel version of `neighborhoods_from_raw_data`. Calls the latter in parallel using multi-threading.
+
+        Parameters
+        ----------
+        datafiles: list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
+        neighborhood_radius: radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
+        exactly: bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
+        num_samples_per_file: positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `max_num_neighbors`.
+        df : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray)
+        verbose: bool, whether to print output (or be silent)
+        max_num_neighbors: int or None, number of neighbors to consider at most per vertex (even if more were found within the mesh_neighborhood_radius during kdtree search). Set to None for all.
+        add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
+        add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
+        num_cores: int, number of cores to use for parallel data loading.
+        num_files_total: int or None, number of files to load. Set to None for all. Consider your available RAM.
+        filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
+        add_desc_brain_bbox: whether to add descriptor: brain bounding box
+        add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
+        reduce_mem: bool, whether to convert all datatypes to memory saving version with lower precision to save RAM (e.g., int64 to in32), if the value range allows it.
+        random_seed: int or None, seed for random number generator.
 
         Note: Parameter 'num_samples_total' is not supported in parallel mode.
               Use 'num_files_total' (and 'num_samples_per_file') instead
@@ -109,6 +128,15 @@ class TrainingData():
         num_samples_per_file: positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `max_num_neighbors`.
         df : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray)
         verbose: bool, whether to print output (or be silent)
+        max_num_neighbors: int, number of neighbors to consider at most per vertex (even if more were found within the mesh_neighborhood_radius during kdtree search).
+        add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
+        add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
+        filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
+        add_desc_brain_bbox: whether to add descriptor: brain bounding box
+        add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
+        reduce_mem: bool, whether to convert all datatypes to memory saving version with lower precision to save RAM (e.g., int64 to in32), if the value range allows it.
+        random_seed: int or None, seed for random number generator.
+
 
         Returns
         ------
@@ -311,7 +339,7 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     verbose bool, whether to print status info
     subjects_file str, path to subjects file. assumed to be recon_dir/subjects.txt if omitted
     subjects_list list of str, use only if no subjects_file is given.
-    hemis list of str, containing one or more of 'lh', 'rh'
+    hemis list of str, containing one or both of 'lh', 'rh'
     cortex_label bool, whether to also require label/<hemi>.cortex.label files.
 
     See also
@@ -393,6 +421,14 @@ def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
             renamed files (including subject to make them unique in the dir). Use the mentioned script `deepcopy_testdata.py` with the
             `--not-so-deep` command line option to
             turn a FreeSUrfer recon-all output dir into such a flat dir.
+
+    Parameters
+    -----------
+    dc_data_dir: str, heavily modified (flattened) recon-all output dir structure: Flat directory with
+                      renamed files (including subject to make them unique in the dir). Use the mentioned
+                      script `deepcopy_testdata.py` with the `--not-so-deep` command line option to
+                      turn a FreeSUrfer recon-all output dir into such a flat dir.
+    verbose: bool, whether to print verbose output.
 
     See also
     --------

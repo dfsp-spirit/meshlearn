@@ -107,7 +107,7 @@ Note: Be sure to run within the correct `conda` environment!
 
 #### Running the unit tests
 
-These are limited.
+See [./tests/meshlearn/](./tests/meshlearn/) for the unit tests.
 
 ```bash
 #pip3 install pytest

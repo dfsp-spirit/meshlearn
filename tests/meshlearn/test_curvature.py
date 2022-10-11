@@ -8,7 +8,7 @@ import os
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')
 # Respect the environment variable BRAINLOAD_TEST_DATA_DIR if it is set. If not, fall back to default:
-TEST_DATA_DIR = os.getenv('BRAINLOAD_TEST_DATA_DIR', TEST_DATA_DIR)
+TEST_DATA_DIR = os.getenv('MESHLEARN_TEST_DATA_DIR', TEST_DATA_DIR)
 
 
 @pytest.fixture
@@ -44,6 +44,10 @@ def test_prinicipal_curvatures_can_be_computed(test_file_pair):
     assert desc.columns.size == 6  # The 4 basic ones (k1, k2, k_major, k_minor) and the 2 requested ones.
     assert desc.shape == (num_verts, 6)
 
+def test_write_curv(test_file_pair):
+    mesh_file, _ = test_file_pair
+    curv = Curvature(mesh_file)
+    curv._save_curv(outdir=os.path.expanduser("~"))
 
 
 

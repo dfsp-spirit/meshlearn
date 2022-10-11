@@ -127,12 +127,43 @@ class Curvature:
         """Compute all available descriptors, return as pd.DataFrame."""
         return _compute_shape_descriptors(self.pc, verbose=self.verbose)
 
+    def _save_curv(self, outdir, descriptors=None, outfile_prefix="lh.", outfile_suffix=""):
+        """
+        Compute descriptors and save as curv files (for displaying in viewers).
+
+        Parameters
+        ----------
+        outdir: str, the output directory. Must exist and be writable.
+        descriptors: pd.DataFrame with descriptor computation results, or list of str, which is interpreted of the list of descriptors to compute, or None, which mwans all available ones.
+        outfile_prefix: str, prefix for output file.
+        outfile_suffix: str, suffix for output file.
+
+        Returns
+        -------
+        None. Called for side-effect of writing to disk.
+        """
+        if descriptors is None:
+            descriptors = Curvature.available()
+        if isinstance(descriptors, list):
+            descriptors = self.compute(descriptors)
+        for cm in descriptors:
+            output_file = os.path.join(outdir, outfile_prefix + cm + outfile_suffix)
+            fsio.write_morph_data(output_file, descriptors[cm])
+
     @staticmethod
     def available(include_not_implemented = False):
         """
         Get list of available descriptor names.
 
         Can be used with `compute` function `descriptors` parameter.
+
+        Parameters
+        ----------
+        include_not_implemented: bool, whether to include WIP ones.
+
+        Returns
+        -------
+        list of str, the available descriptor names.
         """
         all = _shape_descriptor_names()
         if include_not_implemented:
@@ -244,6 +275,4 @@ def _compute_shape_descriptors(pc, descriptors=Curvature.available(), verbose=Fa
         else:
             print(f"NOTICE: Curvature method for '{desc}' not implemented, skipping.")
     return df
-
-
 

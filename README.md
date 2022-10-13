@@ -41,24 +41,24 @@ We highly recommend to work in a `conda` environment, especially when using `ten
 If you want to run the neural network scripts that use tensorflow and you have a powerful GPU, I highly recommend that you install `tensorflow-gpu` to use it. Here is how I did it under Ubuntu 20.04 LTS:
 
 ```shell
-conda create -y --name meshlearn-gpu python=3.7
-conda activate meshlearn-gpu
+conda create -y --name meshlearn python=3.7
+conda activate meshlearn
 conda install -y tensorflow-gpu  # Or just 'tensorflow' if you don't have a suitable GPU.
 conda install -y pandas matplotlib ipython scikit-learn psutil lightgbm
 conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, speedups for scikit-learn.
 conda install -y -c conda-forge trimesh igl
 ```
 
-Keep in mind though that your GPU's memory (video RAM) may be smaller than your system RAM, and you will most likely have to train in batches for large datasets.
+Keep in mind though that your GPU's memory (VRAM) may be smaller than your system RAM, and you will most likely have to train in batches for large datasets.
 
-If you do not have a good GPU, simply replace `tensorflow-gpu` with `tensorflow`.
+If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorflow`.
 
 #### Step 2 of 2: Install meshlearn into the conda env ####
 
 Checkout the repo using git:
 
 ```bash
-conda activate meshlearn-gpu # if not done already
+conda activate meshlear  # If not done already.
 git clone https://github.com/dfsp-spirit/meshlearn
 cd meshlearn
 ```
@@ -105,7 +105,7 @@ Note: Be sure to run within the correct `conda` environment!
 See [./tests/meshlearn/](./tests/meshlearn/) for the unit tests. To run them, you will need to have `pytest`` installed in your environment. If you do not have that already, first install it:
 
 ```shell
-conda activate meshlearn-gpu
+conda activate meshlearn
 conda install -y pytest
 ```
 Then run the tests:

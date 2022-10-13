@@ -1,20 +1,15 @@
 # meshlearn
 AI model to predict computationally expensive local, vertex-wise descriptors like the local gyrification index from the local mesh neighborhood.
 
-**This is highly experimental and work-in-progress, ignore this.**
+**This currently is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
 
-**This is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
-
-**To run this, you also need training data that is not supplied in this repo because it is too large.**
-
-*Note: The only reason this repo is public is to make it more convenient to install the module from scripts running on cloud-based AI platforms, like Google Colab, without having to mess with the Github authentication system.*
 
 ## About
 
 Predict per-vertex descriptors like the local gyrification index (lGI) or other local descriptors for a mesh.
 
 * The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image (MRI). See [Schaer et al. 2008](https://doi.org/10.1109/TMI.2007.903576) for details.
-* The geodesic circle radius and related descriptors are described in my [cpp_geodesics repo](https://github.com/dfsp-spirit/cpp_geodesics) and in the references listed there.
+* The geodesic circle radius and related descriptors are described in my [cpp_geodesics repo](https://github.com/dfsp-spirit/cpp_geodesics) and in the references listed there. Ignore the global descriptors (like mean geodesic distance) in there.
 
 
 ![Vis1](./web/brain_mesh_full.jpg?raw=true "Brain mesh, white surface.")
@@ -23,9 +18,9 @@ Predict per-vertex descriptors like the local gyrification index (lGI) or other 
 
 ![Vis2](./web/brain_mesh_vertices.jpg?raw=true "Brain mesh, zoomed view that shows the mesh structure.")
 
-**Fig. 2** *Close up view of the triangular mesh, showing the vertices, edges and faces.*
+**Fig. 2** *Close up view of the triangular mesh, showing the vertices, edges and faces. Each vertex neighborhood (example for the ML model) describes the mesh structure in a sphere around the respective vertex. Vertex neighborhoods are computed from the mesh during pre-processing.*
 
-This implementation uses Python/tensorflow.
+This implementation uses Python, with `tensorflow` and `lightgbm` for the machine learning part. Mesh pre-processing is done with `pymesh` and `igl`.
 
 ## Why
 
@@ -46,24 +41,24 @@ We highly recommend to work in a `conda` environment, especially when using `ten
 If you want to run the neural network scripts that use tensorflow and you have a powerful GPU, I highly recommend that you install `tensorflow-gpu` to use it. Here is how I did it under Ubuntu 20.04 LTS:
 
 ```shell
-conda create -y --name meshlearn-gpu python=3.7
-conda activate meshlearn-gpu
+conda create -y --name meshlearn python=3.7
+conda activate meshlearn
 conda install -y tensorflow-gpu  # Or just 'tensorflow' if you don't have a suitable GPU.
 conda install -y pandas matplotlib ipython scikit-learn psutil lightgbm
 conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, speedups for scikit-learn.
 conda install -y -c conda-forge trimesh igl
 ```
 
-Keep in mind though that your GPU's memory (video RAM) may be smaller than your system RAM, and you will most likely have to train in batches for large datasets.
+Keep in mind though that your GPU's memory (VRAM) may be smaller than your system RAM, and you will most likely have to train in batches for large datasets.
 
-If you do not have a good GPU, simply replace `tensorflow-gpu` with `tensorflow`.
+If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorflow`.
 
 #### Step 2 of 2: Install meshlearn into the conda env ####
 
 Checkout the repo using git:
 
 ```bash
-conda activate meshlearn-gpu # if not done already
+conda activate meshlear  # If not done already.
 git clone https://github.com/dfsp-spirit/meshlearn
 cd meshlearn
 ```
@@ -107,10 +102,15 @@ Note: Be sure to run within the correct `conda` environment!
 
 #### Running the unit tests
 
-See [./tests/meshlearn/](./tests/meshlearn/) for the unit tests.
+See [./tests/meshlearn/](./tests/meshlearn/) for the unit tests. To run them, you will need to have `pytest`` installed in your environment. If you do not have that already, first install it:
 
-```bash
-#pip3 install pytest
+```shell
+conda activate meshlearn
+conda install -y pytest
+```
+Then run the tests:
+
+```shell
 cd <repo_dir>
 export PYTHON_PATH=$(pwd)
 cd tests/

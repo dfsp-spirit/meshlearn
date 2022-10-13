@@ -107,10 +107,15 @@ Note: Be sure to run within the correct `conda` environment!
 
 #### Running the unit tests
 
-See [./tests/meshlearn/](./tests/meshlearn/) for the unit tests.
+See [./tests/meshlearn/](./tests/meshlearn/) for the unit tests. To run them, you will need to have `pytest`` installed in your environment. If you do not have that already, first install it:
 
-```bash
-#pip3 install pytest
+```shell
+conda activate meshlearn-gpu
+conda install -y pytest
+```
+Then run the tests:
+
+```shell
 cd <repo_dir>
 export PYTHON_PATH=$(pwd)
 cd tests/

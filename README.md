@@ -3,6 +3,9 @@ AI model to predict computationally expensive local, vertex-wise descriptors lik
 
 **This currently is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
 
+![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)
+[![codecov](https://codecov.io/github/dfsp-spirit/meshlearn/branch/main/graph/badge.svg?token=IX2WWVM0WV)](https://codecov.io/github/dfsp-spirit/meshlearn)
+
 
 ## About
 
@@ -114,5 +117,3 @@ export PYTHON_PATH=$(pwd)
 cd tests/
 pytest
 ```
-
-[![codecov](https://codecov.io/github/dfsp-spirit/meshlearn/branch/main/graph/badge.svg?token=IX2WWVM0WV)](https://codecov.io/github/dfsp-spirit/meshlearn)

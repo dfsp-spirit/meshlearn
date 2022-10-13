@@ -571,7 +571,7 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
         else:
             print(f"Will load at most {num_samples_per_file} vertex neighborhoods per mesh file.")
 
-        neigh_size_tag = "auto-determined neighborhood size" if mesh_neighborhood_count is None or mesh_neighborhood_count is 0 else f"neighborhood size {mesh_neighborhood_count}"
+        neigh_size_tag = "auto-determined neighborhood size" if mesh_neighborhood_count is None or mesh_neighborhood_count == 0 else f"neighborhood size {mesh_neighborhood_count}"
         if filter_smaller_neighborhoods:
             print(f"Will filter (remove) all neighborhoods smaller than {neigh_size_tag}.")
         else:

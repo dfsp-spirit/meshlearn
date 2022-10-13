@@ -114,3 +114,5 @@ export PYTHON_PATH=$(pwd)
 cd tests/
 pytest
 ```
+
+[![codecov](https://codecov.io/github/dfsp-spirit/meshlearn/branch/main/graph/badge.svg?token=IX2WWVM0WV)](https://codecov.io/github/dfsp-spirit/meshlearn)

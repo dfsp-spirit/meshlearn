@@ -56,7 +56,7 @@ If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorf
 Checkout the repo using git:
 
 ```bash
-conda activate meshlear  # If not done already.
+conda activate meshlearn  # If not done already.
 git clone https://github.com/dfsp-spirit/meshlearn
 cd meshlearn
 ```

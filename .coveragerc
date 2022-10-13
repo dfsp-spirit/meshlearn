@@ -1,0 +1,16 @@
+[run]
+branch = True
+source = src/meshlearn
+
+[report]
+exclude_lines =
+    if self.debug:
+    if debug:
+    raise NotImplementedError
+    if __name__ == .__main__.:
+ignore_errors = True
+omit =
+    src/clients/*
+    tests/*
+    *setup.py
+    test_*

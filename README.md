@@ -49,8 +49,6 @@ conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, spe
 conda install -y -c conda-forge trimesh igl
 ```
 
-Keep in mind though that your GPU's memory (VRAM) may be smaller than your system RAM, and you will most likely have to train in batches for large datasets.
-
 If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorflow`.
 
 #### Step 2 of 2: Install meshlearn into the conda env ####

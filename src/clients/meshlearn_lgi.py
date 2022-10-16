@@ -340,10 +340,16 @@ if data_settings_in['verbose']:
 
 print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
-sc = StandardScaler()
-X_train = sc.fit_transform(X_train)
-X_test = sc.transform(X_test)
-X_eval = sc.transform(X_eval)
+#sc = StandardScaler()
+#X_train = sc.fit_transform(X_train)
+#X_test = sc.transform(X_test)
+#X_eval = sc.transform(X_eval)
+
+scale = lambda x : x - x.min(0) / x.ptp(0)
+
+X_train = scale(X_train)
+X_test = scale(X_test)
+X_eval = scale(X_eval)
 
 
 print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")

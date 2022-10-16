@@ -10,6 +10,7 @@ import psutil
 import lightgbm
 import gc  # Garbage collection.
 
+
 #from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
 #patch_sklearn()                       # Do this BEFORE loading sklearn.
 
@@ -223,31 +224,31 @@ num_cores_tag = "all" if data_settings_in['num_cores'] is None or data_settings_
 seq_par_tag = " sequentially " if data_settings_in['sequential'] else f" in parallel using {num_cores_tag} cores"
 
 if not will_load_dataset_from_pickle_file:
-    if add_desc_brain_bbox:
-        print(f"Will add brain bounding box coords as extra descriptor columns.")
-    else:
-        print(f"Will NOT add brain bounding box coords as extra descriptor columns.")
-
-    if data_settings_in['sequential']:
-        print(f"Loading datafiles{seq_par_tag}.")
-        print(f"Using data directory '{data_settings_in['data_dir']}', observations to load total limit is set to: {data_settings_in['num_neighborhoods_to_load']}.")
-    else:
-        print("Loading datafiles in parallel.")
-        print(f"Using data directory '{data_settings_in['data_dir']}', number of files to load limit is set to: {data_settings_in['num_files_to_load']}.")
-
-    print(f"Using neighborhood radius {data_settings_in['mesh_neighborhood_radius']} and keeping {data_settings_in['mesh_neighborhood_count']} vertices per neighborhood.")
-
-    print("Descriptor settings:")
-    if add_desc_vertex_index:
-        print(f" - Adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
-    else:
-        print(f" - Not adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
-    if add_desc_neigh_size:
-        print(f" - Adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
-    else:
-        print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
-
     if data_settings_in['verbose']:
+        if add_desc_brain_bbox:
+            print(f"Will add brain bounding box coords as extra descriptor columns.")
+        else:
+            print(f"Will NOT add brain bounding box coords as extra descriptor columns.")
+
+        if data_settings_in['sequential']:
+            print(f"Loading datafiles{seq_par_tag}.")
+            print(f"Using data directory '{data_settings_in['data_dir']}', observations to load total limit is set to: {data_settings_in['num_neighborhoods_to_load']}.")
+        else:
+            print("Loading datafiles in parallel.")
+            print(f"Using data directory '{data_settings_in['data_dir']}', number of files to load limit is set to: {data_settings_in['num_files_to_load']}.")
+
+        print(f"Using neighborhood radius {data_settings_in['mesh_neighborhood_radius']} and keeping {data_settings_in['mesh_neighborhood_count']} vertices per neighborhood.")
+
+        print("Descriptor settings:")
+        if add_desc_vertex_index:
+            print(f" - Adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
+        else:
+            print(f" - Not adding vertex index in mesh as additional descriptor (column) to computed observations (neighborhoods).")
+        if add_desc_neigh_size:
+            print(f" - Adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
+        else:
+            print(f" - Not adding neighborhood size before pruning as additional descriptor (column) to computed observations (neighborhoods).")
+
         mem_avail_mb = int(psutil.virtual_memory().available / 1024. / 1024.)
         print(f"RAM available is about {mem_avail_mb} MB.")
         can_estimate = False
@@ -266,6 +267,7 @@ if not will_load_dataset_from_pickle_file:
             ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
             ds_dummy = None
             del ds_dummy
+            gc.collect()
             ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
             print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
             if ds_estimated_full_data_size_MB * 2.0 >= mem_avail_mb:
@@ -276,16 +278,18 @@ dataset, _, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data,
 
 print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 
+dataset_postproc_start = time.time()
+
 # Shuffle the entire dataset, to prevent the model from training only on (consecutive) vertices from some of the meshes in the set of input files.
 print(f"Shuffling the rows (row order) of the dataframe.")
 #dataset = dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
 from sklearn.utils import shuffle # We use sklearn.utils.shuffle over pandas.DataFrame.sample, as that is buggy in my pandas version and allocates lots of memory (more than 2x size of MB in RAM), crashing this script for large datasets.
-dataset = shuffle(dataset)
+dataset = shuffle(dataset, random_state=random_state)
 dataset.reset_index(inplace=True, drop=True)
 
 
 ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
-# WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets.
+# WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets to prevent leakage!
 row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
 if row_indices_with_nan_values.size > 0:
     print(f"NOTICE: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
@@ -326,6 +330,12 @@ print(f"Created validation data set with shape {X_eval.shape}.")
 
 print(f"Created training data set with shape {X_train.shape} and testing data set with shape {X_test.shape}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 print(f"The label arrays have shape {y_train.shape} for the training data and  {y_test.shape} for the testing data.")
+
+
+if data_settings_in['verbose']:
+    dataset_postproc_end = time.time()
+    dataset_postproc_execution_time = dataset_postproc_end - dataset_postproc_start
+    print(f"=== Post-processing dataset done (shuffle, NAN-fill, train/test/validation-split), it took: {timedelta(seconds=dataset_postproc_execution_time)} ===")
 
 
 print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")

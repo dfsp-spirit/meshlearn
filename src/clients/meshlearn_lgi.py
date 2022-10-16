@@ -8,9 +8,10 @@ from datetime import timedelta
 from sys import getsizeof
 import psutil
 import lightgbm
+import gc  # Garbage collection.
 
-from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
-patch_sklearn()                       # Do this BEFORE loading sklearn.
+#from sklearnex import patch_sklearn   # Use Intel extension to speed-up sklearn. Optional, benefits depend on processor type/manufacturer.
+#patch_sklearn()                       # Do this BEFORE loading sklearn.
 
 import matplotlib.pyplot as plt
 plt.ion()
@@ -149,9 +150,9 @@ parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider 
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
-parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="48")
+parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="96")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
-parser.add_argument("-c", "--cores", help="Number of cores to use when loading in parallel. Defaults to 0, meaning all.", default="8")
+parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to 0, meaning all. (Model fitting always uses all cores.)", default="8")
 args = parser.parse_args()
 
 args.verbose = True
@@ -251,18 +252,20 @@ if not will_load_dataset_from_pickle_file:
         print(f"RAM available is about {mem_avail_mb} MB.")
         can_estimate = False
         ds_estimated_num_neighborhoods = None
-        ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1
+        ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1  # minor TODO: The +1 is not true (depends on settings above), but this is minor in comparison to 6 * data_settings_in['mesh_neighborhood_count'] anyways.
         if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
             # Estimate total dataset size in RAM early to prevent crashing later, if possible.
             ds_estimated_num_neighborhoods = data_settings_in['num_neighborhoods_to_load']
+            can_estimate = True
         if data_settings_in['num_samples_per_file'] is not None and data_settings_in['num_files_to_load'] is not None and not data_settings_in['sequential']:
             ds_estimated_num_neighborhoods = data_settings_in['num_samples_per_file'] * data_settings_in['num_files_to_load']
             can_estimate = True
         if can_estimate:
             # try to allocate, will err if too little RAM.
-            ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood))
+            ds_dummy = np.empty((ds_estimated_num_neighborhoods, ds_estimated_num_values_per_neighborhood), dtype=np.float32)
             ds_estimated_full_data_size_bytes = getsizeof(ds_dummy)
             ds_dummy = None
+            del ds_dummy
             ds_estimated_full_data_size_MB = ds_estimated_full_data_size_bytes / 1024. / 1024.
             print(f"Estimated dataset size in RAM will be {int(ds_estimated_full_data_size_MB)} MB.")
             if ds_estimated_full_data_size_MB * 2.0 >= mem_avail_mb:
@@ -293,6 +296,7 @@ if row_indices_with_nan_values.size > 0:
     print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 else:
     print(f"Dataset contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+del row_indices_with_nan_values
 
 
 nc = len(dataset.columns)
@@ -300,10 +304,13 @@ feature_names = np.array(dataset.columns[:-1]) # We require that the label is in
 label_name = dataset.columns[-1]
 print(f"Separating observations into {len(feature_names)} features and target column '{label_name}'...")
 
-X = dataset.iloc[:, 0:(nc-1)].values
-y = dataset.iloc[:, (nc-1)].values
+dataset = dataset.to_numpy()
 
-dataset = None # Free RAM
+y = dataset[:, (nc-1)]
+dataset = dataset[:, 0:(nc-1)]
+X = dataset
+del dataset
+gc.collect()
 
 print(f"Splitting data into train and test sets... ({int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
@@ -311,7 +318,8 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 X = None # Free RAM.
 y = None
-
+del X, y
+gc.collect()
 
 X_train, X_eval, y_train, y_eval = train_test_split(X_train, y_train, test_size=0.2, random_state=random_state)
 print(f"Created validation data set with shape {X_eval.shape}.")

@@ -618,7 +618,7 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
         pickle_file_size_mb = int(os.path.getsize(dataset_pickle_file) / 1024. / 1024.)
         if verbose:
             print("==========================================================================================================================================================================")
-            print(f"WARNING: Unpickling pre-saved dataframe from {pickle_file_size_mb} MB pickle file '{dataset_pickle_file}', ignoring all datset settings! Delete file or set 'do_pickle_data' to False to prevent.")
+            print(f"WARNING: Unpickling pre-saved dataframe from {pickle_file_size_mb} MB pickle file '{dataset_pickle_file}', ignoring all dataset settings! Delete file or set 'do_pickle_data' to False to prevent.")
             print("==========================================================================================================================================================================")
         unpickle_start = time.time()
         dataset = pd.read_pickle(dataset_pickle_file)

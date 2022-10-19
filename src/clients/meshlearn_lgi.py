@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+
+"""
+This program trains a LightGBM model on local gyrification index (lGI) per-vertex data.
+"""
+
 import numpy as np
 import pandas as pd
 import argparse

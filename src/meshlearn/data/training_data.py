@@ -2,6 +2,8 @@
 
 """
 Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory.
+
+This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for details.
 """
 
 import trimesh as tm

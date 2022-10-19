@@ -2,6 +2,8 @@
 
 """
 Model evaluation functions.
+
+This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for details.
 """
 
 import numpy as np

@@ -2,16 +2,29 @@
 
 """
 Memory optimization functions.
+
+
+This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for details.
 """
 
 import numpy as np
 
 
 def reduce_mem_usage(df, verbose=False):
-    """ Iterate through all the columns of a dataframe and modify the data type
-        to reduce memory usage.
+    """
+    Iterate through all the columns of a dataframe and modify the data type to reduce memory usage.
 
-        Credits: https://www.kaggle.com/code/mlisovyi/lightgbm-hyperparameter-optimisation-lb-0-761
+    Parameters
+    ----------
+    df: pandas.DataFrame
+
+    Returns
+    -------
+    df: pandas.DataFrame, with optimized memory usage (if possible without sacrificing numerical precision), otherwise the input df.
+
+    Credits
+    --------
+    This was written by mlisovyi, see https://www.kaggle.com/code/mlisovyi/lightgbm-hyperparameter-optimisation-lb-0-761
     """
     start_mem = df.memory_usage().sum() / 1024**2
     if verbose:

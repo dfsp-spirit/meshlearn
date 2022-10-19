@@ -13,6 +13,9 @@ This basically implements some feature engineering aimed to best describe local 
 is that all these descriptors have to be fast to compute: if you want to use them to predict (rather than compute)
 some computationally expensive per-vertex descriptor, there is no point in doing that if these features take
 (almost) as long to compute as the target feature.
+
+
+This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for details.
 """
 
 import numpy as np

@@ -28,8 +28,8 @@ def model_files():
 
 def test_predict(test_file_pair, model_files):
     mesh_file, _ = test_file_pair
-    model_pkl_file, _ = model_files
-    Mp = MeshPredictLgi(model_pkl_file)
+    model_pkl_file, metadata_json_file = model_files
+    Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
     pervertex_lgi = Mp.predict(mesh_file)
     num_mesh_vertices = 149223 # TODO: fix number
     assert pervertex_lgi.size == num_mesh_vertices

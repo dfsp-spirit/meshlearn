@@ -321,14 +321,14 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
     Parameters
     ----------
-    recon_dir str, recon-all output dir.
-    surface str, surface file to load. 'white', 'pial', 'sphere', etc
-    descriptor str, desc to load (per-vertex data). 'thickness', 'volume', 'area' etc
-    verbose bool, whether to print status info
-    subjects_file str, path to subjects file. assumed to be recon_dir/subjects.txt if omitted
-    subjects_list list of str, use only if no subjects_file is given.
-    hemis list of str, containing one or both of 'lh', 'rh'
-    cortex_label bool, whether to also require label/<hemi>.cortex.label files.
+    recon_dir     : str, recon-all output dir.
+    surface       : str, surface file to load. 'white', 'pial', 'sphere', etc
+    descriptor    : str or None, desc to load (per-vertex data). Something like 'thickness', 'volume', 'area', or 'None' for no desciptor.
+    verbose       : bool, whether to print status info
+    subjects_file : str, path to subjects file. assumed to be recon_dir/subjects.txt if omitted
+    subjects_list : list of str, the subjects to load. Used only if no subjects_file is given.
+    hemis         : list of str, containing one or both of 'lh', 'rh'
+    cortex_label  : bool, whether to also require label/<hemi>.cortex.label files.
 
     See also
     --------
@@ -340,17 +340,21 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     if subjects_file is not None and subjects_list is not None:
         raise ValueError("Pass only one of 'subjects_file' and 'subjects_list', not both.")
 
-    if subjects_file is None and subjects_list is None: # Assume standard subjects file in data dir.
-        subjects_file = os.path.join(recon_dir, "subjects.txt")
+    if subjects_list is None:
+        if subjects_file is None:  # Assume standard subjects file in data dir.
+            subjects_file = os.path.join(recon_dir, "subjects.txt")
+            print(f"INFO: No 'subjects_list' and no 'subjects_file' given for loading data, assuming subjects file '{subjects_file}'.")
 
-    if not subjects_file is None:
         if not os.path.isfile(subjects_file):
             raise ValueError(f"Subjects file '{subjects_file}' cannot be read.")
         subjects_list = nit.read_subjects_file(subjects_file)
 
     if verbose:
         print(f"Using subjects list containing {len(subjects_list)} subjects. Loading them from recon-all output dir '{recon_dir}'.")
-        print(f"Discovering surface '{surface}', descriptor '{descriptor}' for {len(hemis)} hemis: {hemis}.")
+        if descriptor is None:
+            print(f"Discovering surface '{surface}' for {len(hemis)} hemis: {hemis}.")
+        else:
+            print(f"Discovering surface '{surface}', descriptor '{descriptor}' for {len(hemis)} hemis: {hemis}.")
         if cortex_label:
             print(f"Discovering cortex labels.")
         else:
@@ -372,26 +376,52 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
 
                 if cortex_label:
                     labl_file = os.path.join(sjd, "label", f"{hemi}.cortex.label")
-                    if os.path.isfile(surf_file) and os.path.isfile(desc_file) and os.path.isfile(labl_file):
-                        valid_mesh_files.append(surf_file)
-                        valid_desc_files.append(desc_file)
-                        valid_labl_files.append(labl_file)
-                        valid_files_subject.append(subject)
-                        valid_files_hemi.append(hemi)
+                    if descriptor is None:
+                        if os.path.isfile(surf_file) and os.path.isfile(labl_file):
+                            valid_mesh_files.append(surf_file)
+                            valid_desc_files.append(None)
+                            valid_labl_files.append(labl_file)
+                            valid_files_subject.append(subject)
+                            valid_files_hemi.append(hemi)
+                        else:
+                            subjects_missing_some_file.append(subject)
+                    else:
+                        if os.path.isfile(surf_file) and os.path.isfile(desc_file) and os.path.isfile(labl_file):
+                            valid_mesh_files.append(surf_file)
+                            valid_desc_files.append(desc_file)
+                            valid_labl_files.append(labl_file)
+                            valid_files_subject.append(subject)
+                            valid_files_hemi.append(hemi)
+                        else:
+                            subjects_missing_some_file.append(subject)
 
-                    else:
-                        subjects_missing_some_file.append(subject)
                 else:
-                    if os.path.isfile(surf_file) and os.path.isfile(desc_file):
-                        valid_mesh_files.append(surf_file)
-                        valid_desc_files.append(desc_file)
-                        valid_files_subject.append(subject)
-                        valid_files_hemi.append(hemi)
+                    if descriptor is None:
+                        if os.path.isfile(surf_file):
+                            valid_mesh_files.append(surf_file)
+                            valid_desc_files.append(None)
+                            valid_files_subject.append(subject)
+                            valid_files_hemi.append(hemi)
+                        else:
+                            subjects_missing_some_file.append(subject)
                     else:
-                        subjects_missing_some_file.append(subject)
+                        if os.path.isfile(surf_file) and os.path.isfile(desc_file):
+                            valid_mesh_files.append(surf_file)
+                            valid_desc_files.append(desc_file)
+                            valid_files_subject.append(subject)
+                            valid_files_hemi.append(hemi)
+                        else:
+                            subjects_missing_some_file.append(subject)
 
     if verbose:
-        print(f"Out of {len(subjects_list)*2} subject hemispheres ({len(subjects_list)} subjects), {len(valid_mesh_files)} had the requested surface and descriptor files.")
+        cortex_tag = ""
+        if cortex_label:
+            cortex_tag = " and cortex label"
+
+        if descriptor is None:
+            print(f"Out of {len(subjects_list)*2} subject hemispheres ({len(subjects_list)} subjects), {len(valid_mesh_files)} had the requested surface{cortex_tag} files.")
+        else:
+            print(f"Out of {len(subjects_list)*2} subject hemispheres ({len(subjects_list)} subjects), {len(valid_mesh_files)} had the requested surface and descriptor{cortex_tag} files.")
         if len(subjects_missing_some_file) > 0:
             print(f"The following {len(subjects_missing_some_file)} subjects where missing files: {', '.join(subjects_missing_some_file)}")
 
@@ -460,16 +490,43 @@ def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
     return valid_mesh_files, valid_desc_files
 
 
-def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True, random_seed=None):
+
+def compute_dataset_for_mesh(mesh_file, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True, random_seed=None):
+    """
+    Perform loading and pre-processing for a single mesh file. Useful when predicting.
+    """
+    input_filepair_list = list((mesh_file, None, ))
+    data_settings = locals() # Save passed parameters as dict.
+
+    load_start = time.time()
+    tdl = TrainingData()
+    if sequential:
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, neighborhood_radius=mesh_neighborhood_radius, max_num_neighbors=mesh_neighborhood_count, num_samples_total=num_neighborhoods_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=random_seed)
+    else:
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, neighborhood_radius=mesh_neighborhood_radius, max_num_neighbors=mesh_neighborhood_count, num_files_total=num_files_to_load, num_samples_per_file=num_samples_per_file, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, num_cores=num_cores, filter_smaller_neighborhoods=filter_smaller_neighborhoods, exactly=exactly, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=random_seed)
+    load_end = time.time()
+    load_execution_time = load_end - load_start
+    if verbose:
+        num_cores_tag = "all" if num_cores is None or num_cores == 0 else num_cores
+        seq_par_tag = " sequentially " if sequential else f" in parallel using {num_cores_tag} cores"
+        print(f"=== Loading data files{seq_par_tag} done, it took: {timedelta(seconds=load_execution_time)} ===")
+
+    data_settings['datafiles_loaded'] = datafiles_loaded
+
+    assert isinstance(dataset, pd.DataFrame)
+    return dataset, col_names, data_settings
+
+
+def compute_dataset_from_datadir(data_dir, surface="pial", descriptor="pial_lgi", cortex_label=False, verbose=False, num_neighborhoods_to_load=None, num_samples_per_file=None, add_desc_vertex_index=False, add_desc_neigh_size=False, sequential=False, num_cores=8, num_files_to_load=None, mesh_neighborhood_radius=10, mesh_neighborhood_count=300, filter_smaller_neighborhoods=False, exactly=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, shuffle_input_file_order=True, random_seed=None):
     """
     Very high-level wrapper with debug info around `Trainingdata.neighborhoods_from_raw_data_seq` and `Trainingdata.neighborhoods_from_raw_data_parallel`.
 
     Parameters
     -----------
     data_dir: str, recon-all output dir.
-    surface: str, FreeSurfer surface mesh available for subjects in data_dir. Something like `white` or `pial`.
-    descriptor: str, FreeSurfer per-vertex descriptor available for subjects in data_dir. Something like `thickness` or `pial_lgi`, or `area`.
-    cortex_label: bool, whether to load cortex label file from recon-all dir. Not implementend yet.
+    surface: str or mesh, FreeSurfer surface mesh available for subjects in data_dir. Something like `white` or `pial`.
+    descriptor: str or None, FreeSurfer per-vertex descriptor available for subjects in data_dir. Something like `thickness` or `pial_lgi`, or `area`. If None, no descriptor data will be loaded (useful if you load to predict).
+    cortex_label: bool, whether to load cortex label file from recon-all dir. Not implementend yet, must be False.
     verbose: bool, whether to print verbose output.
     num_neighborhoods_to_load: int or None, the total number of neighborhoods (rows) to load. Set to None for all in the files. Only considered if `sequential=True`.
     num_samples_per_file: int or None, the number of neighborhoods (rows) to load per file. See also `exactly`.
@@ -483,13 +540,13 @@ def compute_dataset(data_dir, surface="pial", descriptor="pial_lgi", cortex_labe
     filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
     exactly: bool, see `num_samples_per_file`: whether to disallow loading more if the file contained more.
     add_desc_brain_bbox: whether to add descriptor: brain bounding bo
-    add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
+    add_subject_and_hemi_columns: bool whether to add extra columns containing subject identifier and hemi.
     shuffle_input_file_order: bool, whether to shuffle input files before starting to load from the beginning.
     random_seed: None or int, something to seed the random number generators used for randomness in the functions. Set to None for random, or an int for a reproducible choice (e.g., which of the vertices to load, which files to load, etc.).
     """
     if cortex_label:
         raise ValueError("Parameter 'cortex_label' must be False: not implemented yet.")
-    data_settings = locals() # Capute passed parameters as dict.
+    data_settings = locals() # Save passed parameters as dict.
     discover_start = time.time()
     mesh_files, desc_files, cortex_files, files_subject, files_hemi, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_dir, surface=surface, descriptor=descriptor, cortex_label=cortex_label)
 
@@ -621,7 +678,7 @@ def get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file=Non
             if verbose:
                 print(f"NOTICE: Could not load settings used to create dataset from file '{dataset_settings_file}': {str(ex)}.")
     else:
-        dataset, col_names, data_settings = compute_dataset(**data_settings_in)
+        dataset, col_names, data_settings = compute_dataset_from_datadir(**data_settings_in)
         if do_pickle_data:
             pickle_start = time.time()
             # Save the settings as a JSON file.

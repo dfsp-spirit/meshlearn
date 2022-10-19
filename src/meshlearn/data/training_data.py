@@ -27,22 +27,6 @@ import random
 
 class TrainingData():
 
-    def __init__(self, neighborhood_radius, num_neighbors, allow_nan=False):
-        """
-        Parameters
-        ----------
-        datafiles: dict str,str of mesh_file_name : pvd_file_name
-        neighborhood_radius: The ball radius for kdtree ball queries, defining the neighborhood.
-        num_neighbors: int, the number of neighbors to actually use per vertex (keeps only num_neighbors per neighborhood), to fix the dimension of the descriptor. Each vertex must have at least this many neighbors for this to work, unless allow_nan is True.
-        allow_nan: boolean, whether to continue in case a neighborhood is smaller than num_neighbors. If this is True and the situation occurs, np.nan values will be added as neighbor coordinates. If this is False and the situation occurs, an error is raised. Whether or not allowing nans makes sense depends on the machine learning method used downstream. Many methods cannot handle nan values.
-        """
-        self.neighborhood_radius = neighborhood_radius
-        self.num_neighbors = num_neighbors
-        self.allow_nan = allow_nan
-
-        self.kdtree = None  # Do not use in multi-threading context if sharing the TrainingData instance between threads.
-        self.mesh = None    # Do not use in multi-threading context if sharing the TrainingData instance between threads.
-
     @staticmethod
     def data_from_files(mesh_file_name, descriptor_file_name):
         """
@@ -150,10 +134,10 @@ class TrainingData():
         y scalar float, the per-vertex data value for the source vertex.
         """
         if neighborhood_radius is None:
-            neighborhood_radius = self.neighborhood_radius
+            raise ValueError("Must pass non-None value for parameter 'neighborhood_radius'.")
 
         if max_num_neighbors is None:
-            max_num_neighbors = self.num_neighbors
+            raise ValueError("Must pass non-None value for parameter 'max_num_neighbors'.")
 
         is_parallel_wrapped = False
         if isinstance(datafiles, tuple):  # We come from the parallel wrapper 'neighborhoods_from_raw_data_parallel', and received a single tuple from the full list.
@@ -201,7 +185,6 @@ class TrainingData():
             vert_coords, faces, pvd_data = TrainingData.data_from_files(mesh_file_name, descriptor_file_name)
             assert faces.ndim == 2
             datafiles_loaded.append(filepair)
-            self.mesh = None  # Cannot use self.mesh due to required thread-safety.
 
             num_verts_total = vert_coords.shape[0]
 
@@ -272,7 +255,6 @@ class TrainingData():
                 print(f"[load] Adding {len(extra_columns)} extra descriptor columns for current file done, it took: {timedelta(seconds=compute_extra_columns_execution_time)}.")
 
 
-            self.kdtree = None # Cannot use self.kdtree due to required thread-safety.
             if verbose:
                 print(f"[load]  - Computing neighborhoods based on radius {neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
 

@@ -30,7 +30,7 @@ def test_predict(test_file_pair, model_files):
     mesh_file, _ = test_file_pair
     model_pkl_file, metadata_json_file = model_files
     Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
-    pervertex_lgi = Mp.predict(mesh_file)
+    pervertex_lgi = Mp.predict(mesh_file, num_to_predict=1000)
     num_mesh_vertices = 149244
     assert pervertex_lgi.size == num_mesh_vertices
     assert np.min(pervertex_lgi) >= 0.0

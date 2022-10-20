@@ -66,7 +66,7 @@ class MeshPredictLgi(MeshPredict):
                     preproc_settings[k] = legacy_model_settings['data_settings'][k]
         return preproc_settings
 
-    def predict(self, mesh_file):
+    def predict(self, mesh_file, num_to_predict=None):
 
         if self.verbose:
             preproc_start = time.time()
@@ -80,6 +80,9 @@ class MeshPredictLgi(MeshPredict):
             preproc_execution_time_readable = timedelta(seconds=preproc_execution_time)
             print(f"Pre-processing mesh took {preproc_execution_time_readable}.")
             predict_start = time.time()
+
+        if num_to_predict is not None:
+            dataset = dataset[0:num_to_predict, ]
 
         self.model.predict(dataset)
 

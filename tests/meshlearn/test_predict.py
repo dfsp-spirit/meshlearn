@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import pytest
-import trimesh as tm
 import os
 import numpy as np
 from meshlearn.model.predict import MeshPredictLgi
@@ -25,7 +24,7 @@ def model_files():
     metadata_json_file = os.path.join(TEST_DATA_DIR, 'models', 'lgbm_lgi', 'ml_model.json')  # Metadata file is not needed for predictions, return None if you do not have it.
     return model_pkl_file, metadata_json_file
 
-
+@pytest.mark.skip(reason="Currently too slow.")
 def test_predict(test_file_pair, model_files):
     mesh_file, _ = test_file_pair
     model_pkl_file, metadata_json_file = model_files

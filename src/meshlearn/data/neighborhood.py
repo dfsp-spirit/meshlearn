@@ -131,10 +131,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     elif too_small_action == "fill":
         neighbor_indices_filtered = [neigh[0:max_num_neighbors] for neigh in neighbor_indices] # Do not filter them, but restrict all rows to length 'max_num_neighbors'.
         neighbor_indices = neighbor_indices_filtered
-        num_query_verts_after_filtering = len(neighbor_indices)
-        kept_vertex_indices_rel = np.arange(len(neighbor_indices)) # We kept all of them.
-        kept_vertex_indices_mesh = query_vert_indices # No changes
-        neigh_lengths_full_filtered_row_subset = np.array(neigh_lengths) # These are the full lengths (before limiting to max_num_neighbors). We did not filter anything, really.
+        num_query_verts_after_filtering = len(neighbor_indices)     # We kept all of them.
+        kept_vertex_indices_rel = np.arange(len(neighbor_indices))  # We kept all of them.
+        kept_vertex_indices_mesh = query_vert_indices               # No changes.
+        neigh_lengths_full_filtered_row_subset = np.array(neigh_lengths)  # These are the full lengths (before limiting to max_num_neighbors). We did not filter anything, really.
         neigh_lengths_nonnan_after_filtering = [min(len(neigh), max_num_neighbors) for neigh in neighbor_indices]
         if verbose:
             vertex_indices_to_fill_rel = np.where([len(neigh) < max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords.
@@ -142,9 +142,12 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
         # We do not need to do anything special to fill with NANs: later, we create a matrix of NAN values,
         # and the places which are not filled stay NAN.
-
     else:
         raise ValueError(f"Invalid 'too_small_action' to apply to neighborhoods smaller than {max_num_neighbors} vertices.")
+
+    neigh_lengths_after_preproc = [len(neigh) for neigh in neighbor_indices]
+    assert np.unique(neigh_lengths_after_preproc).size == 1, f"Expected same size for all pre-processed neighborhoods, but found {np.unique(neigh_lengths_after_preproc).size} different sizes."  # They should all have the same size now.
+    neigh_length = np.unique(neigh_lengths_after_preproc)[0]
 
     extra_fields = []
     if add_desc_vertex_index:
@@ -189,39 +192,44 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     very_verbose = True
 
+    do_insert_by_column = False
 
-    for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
-        if very_verbose and central_vert_rel_idx % 10000 == 0:
-            print(f"[neig]     * At vertex {central_vert_rel_idx} of {len(neighbor_indices)}.")
+    if do_insert_by_column:
+        central_vert_rel_indices = [i for i in range(len(neighbor_indices))]
+        central_vert_mesh_indices = kept_vertex_indices_mesh[central_vert_rel_indices]
+    else:
+        for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
+            if very_verbose and central_vert_rel_idx % 10000 == 0:
+                print(f"[neig]     * At vertex {central_vert_rel_idx} of {len(neighbor_indices)}.")
 
-        central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
-        col_start_idx = 0
-        this_vertex_num_neighbors = neigh_lengths_nonnan_after_filtering[central_vert_rel_idx] # We need to know this for each vertex so we only fill the correct length in case (and leave the rest at np.nan) for neighborhoods smaller than 'max_num_neighbors'.
+            central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
+            col_start_idx = 0
+            this_vertex_num_neighbors = neigh_lengths_nonnan_after_filtering[central_vert_rel_idx] # We need to know this for each vertex so we only fill the correct length in case (and leave the rest at np.nan) for neighborhoods smaller than 'max_num_neighbors'.
 
-        col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
-        neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices]) # Add absolute vertex coords
+            col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
+            neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertices[neigh_vert_indices]) # Add absolute vertex coords
 
-        col_start_idx = col_end_idx
-        col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
+            col_start_idx = col_end_idx
+            col_end_idx = col_start_idx+(this_vertex_num_neighbors*3)
 
-        neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
-        col_idx = col_end_idx  # The end is not included.
+            neighborhoods[central_vert_rel_idx, col_start_idx:col_end_idx] = np.ravel(mesh.vertex_normals[neigh_vert_indices]) # Add vertex normals
+            col_idx = col_end_idx  # The end is not included.
 
 
-        if add_desc_vertex_index:
-            neighborhoods[central_vert_rel_idx, col_idx] = central_vert_idx_mesh   # Add index of central vertex
-            col_idx += 1
+            if add_desc_vertex_index:
+                neighborhoods[central_vert_rel_idx, col_idx] = central_vert_idx_mesh   # Add index of central vertex
+                col_idx += 1
 
-        if add_desc_neigh_size:
-            neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_full_filtered_row_subset[central_vert_rel_idx]   # Add neighborhood size
-            col_idx += 1
+            if add_desc_neigh_size:
+                neighborhoods[central_vert_rel_idx, col_idx] = neigh_lengths_full_filtered_row_subset[central_vert_rel_idx]   # Add neighborhood size
+                col_idx += 1
 
-        for ec_key in extra_columns.keys():
-            neighborhoods[central_vert_rel_idx, col_idx] = extra_columns[ec_key][central_vert_rel_idx]   # Add extra_column pvd-value for the vertex.
-            col_idx += 1
+            for ec_key in extra_columns.keys():
+                neighborhoods[central_vert_rel_idx, col_idx] = extra_columns[ec_key][central_vert_rel_idx]   # Add extra_column pvd-value for the vertex.
+                col_idx += 1
 
-        if with_label:
-            neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
+            if with_label:
+                neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
 
     assert neighborhoods.shape[0] == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods, but found {neighborhoods.shape[0]}."
     assert neighborhoods.shape[1] == len(col_names)

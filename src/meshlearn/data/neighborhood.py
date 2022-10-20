@@ -52,7 +52,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     kdtree              : `scipy.spatial.KDTree` instance of all mesh vertex coordinates (not just the `query_vert_coords`)
     neighborhood_radius : the radius of the sphere used in the `kdtree` query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with `max_num_neighbors`.
     mesh                : `tmesh.Trimesh` instance representing the full mesh.
-    pvd_data            : vector of length `vert_coords.shape[0]` (number of vertices in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
+    pvd_data            : None or vector of length `vert_coords.shape[0]` (number of vertices in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
     max_num_neighbors   : number of neighbors max to consider per neighborhood. must be changed together with `neighborhood_radius`. Set to `None` or `0` to auto-determine from min size over all neighborhoods (will differ across mesh files then!).
     add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
     add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
@@ -76,7 +76,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     if not query_vert_coords.shape[1] == 3:
         raise ValueError("Expected np.ndarray with 2nd dimension of length 3 as input.")
     mesh_num_verts = int(mesh.vertices.size / 3)
-    assert np.array(pvd_data).size == mesh_num_verts, f"Expected {mesh_num_verts} per-vertex data values for mesh with {mesh_num_verts} verts, but got {np.array(pvd_data).size} pvd values."
+    if pvd_data is not None:
+        assert np.array(pvd_data).size == mesh_num_verts, f"Expected {mesh_num_verts} per-vertex data values for mesh with {mesh_num_verts} verts, but got {np.array(pvd_data).size} pvd values."
 
     num_query_verts = query_vert_coords.shape[0]
     if query_vert_indices is None:
@@ -154,10 +155,14 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         extra_fields.append(ec_key)
         assert np.array(extra_columns[ec_key]).size == mesh_num_verts, f"Expected {mesh_num_verts} per-vertex data values in extra_column '{ec_key}' for mesh with {mesh_num_verts} verts, but found {np.array(extra_columns[ec_key]).size} pvd values."
 
-    neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=True)
-    # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood
+    with_label = pvd_data is not None  # Add label if pvd_data is available.
+    neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=with_label)
+    # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood (or None)
+    label_tag = "no label added, because no per-vertex descriptor data available"
+    if with_label:
+        label_tag = "the last 1 of them is the label"
     if verbose:
-        print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns (the last 1 of them is the label) per observation.")
+        print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns ({label_tag}) per observation.")
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float64)
@@ -176,7 +181,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         col_names.append("nsize") # 'nsize' for neighborhood size
     for ec_key in extra_columns.keys():
         col_names.append(ec_key)
-    col_names.append("label")
+    if with_label:
+        col_names.append("label")
 
     assert mesh.vertices.ndim == 2
     assert mesh.vertices.shape[1] == 3 #x,y,z
@@ -208,7 +214,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
             neighborhoods[central_vert_rel_idx, col_idx] = extra_columns[ec_key][central_vert_rel_idx]   # Add extra_column pvd-value for the vertex.
             col_idx += 1
 
-        neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
+        if with_label:
+            neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
 
     assert neighborhoods.shape[0] == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods, but found {neighborhoods.shape[0]}."
     assert neighborhoods.shape[1] == len(col_names)

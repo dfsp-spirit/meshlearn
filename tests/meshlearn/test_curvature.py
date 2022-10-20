@@ -1,8 +1,8 @@
+# -*- coding: utf-8 -*-
+
 import pytest
-import meshlearn as ml
 import pandas as pd
 from meshlearn.data.curvature import Curvature
-import nibabel.freesurfer.io as fsio
 import os
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))

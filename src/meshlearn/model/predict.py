@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 import nibabel.freesurfer.io as fsio
 from meshlearn.model.persistance import load_model
 from meshlearn.data.training_data import compute_dataset_for_mesh
+import time
+from datetime import timedelta
 
 class MeshPredict():
     """
@@ -26,7 +28,7 @@ class MeshPredict():
     verbose = True
 
     @abstractmethod
-    def predict(self, mesh_file, target_descriptor='pial_lgi'):
+    def predict(self, mesh_file):
         pass
 
 
@@ -53,7 +55,38 @@ class MeshPredictLgi(MeshPredict):
         if not 'data_settings' in self.model_settings:
             raise ValueError("Model settings obtained based on parameter 'model_settings_file' is a dict but is missing key 'data_settings' with data pre-processing settings. Cannot perform pre-processing of data for prediction if we do not have these settings.")
 
+    def _extract_preproc_settings(self, legacy_model_settings):
+        if 'preproc_settings' in legacy_model_settings:  # Not legacy.
+            return legacy_model_settings['preproc_settings']
+        else:
+            preproc_settings = dict()
+            keys_of_interest = ["add_desc_brain_bbox", "add_desc_neigh_size", "add_desc_vertex_index", "cortex_label", "filter_smaller_neighborhoods", "mesh_neighborhood_count" , "mesh_neighborhood_radius"]
+            for k in keys_of_interest:
+                if k in legacy_model_settings['data_settings']:
+                    preproc_settings[k] = legacy_model_settings['data_settings'][k]
+        return preproc_settings
 
-    def predict(self, mesh_file, target_descriptor='pial_lgi'):
-        dataset, _, _ = compute_dataset_for_mesh(mesh_file, **self.model_settings['data_settings'])
+    def predict(self, mesh_file):
+
+        if self.verbose:
+            preproc_start = time.time()
+
+        preproc_settings = self._extract_preproc_settings(self.model_settings)
+        dataset, _, _ = compute_dataset_for_mesh(mesh_file, preproc_settings)
+
+        if self.verbose:
+            preproc_end = time.time()
+            preproc_execution_time = preproc_end - preproc_start
+            preproc_execution_time_readable = timedelta(seconds=preproc_execution_time)
+            print(f"Pre-processing mesh took {preproc_execution_time_readable}.")
+            predict_start = time.time()
+
+        self.model.predict(dataset)
+
+        if self.verbose:
+            predict_end = time.time()
+            predict_execution_time = predict_end - predict_start
+            predict_execution_time_readable = timedelta(seconds=predict_execution_time)
+            print(f"Prediction of {dataset.shape[0]} values took {predict_execution_time_readable}.")
+
 

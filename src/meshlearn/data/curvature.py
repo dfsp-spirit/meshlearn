@@ -216,7 +216,41 @@ class Curvature:
         aici = self.absolute_intrinsic_curvature_index()
         return gln / aici
 
+    def _save_curv(self, outdir, outfile_prefix="lh.", outfile_suffix=""):
+        """
+        Compute curvature-based descriptors and save to separate files (one file per descriptor) in FreeSurfer curv format.
 
+        Parameters
+        ----------
+        outdir : str, the output directory. Must exist and be writable.
+        outfile_prefix: str, the prefix to construct the filename in the `outdir`, from `outfile_prefix` + `<descriptor_name>` + `outfile_suffix`.
+        outfile_suffix: str, the suffix to construct the filename in the `outdir`, from `outfile_prefix` + `<descriptor_name>` + `outfile_suffix`.
+
+        Returns
+        -------
+        None, called for side effect of writing to disk.
+        """
+        if not os.path.isdir(outdir):
+            raise ValueError(f"Curvature output directory '{outdir}' does not exist or cannot be read.")
+        df = self.compute_all()
+        for desc in df.columns:
+            outfile = os.path.join(outdir, outfile_prefix + desc + outfile_suffix)
+            fsio.write_morph_data(outfile, df[desc])
+
+    def _save_csv(self, output_file):
+        """
+        Compute curvature-based descriptors and save to a single CSV file using `pandas.DataFrame.to_csv`.
+
+        Parameters
+        ----------
+        output_file : str, the output file name. The directory must exist and be writable.
+
+        Returns
+        -------
+        None, called for side effect of writing to disk.
+        """
+        df = self.compute_all()
+        df.to_csv(output_file)
 
 
 

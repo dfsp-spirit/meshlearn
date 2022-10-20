@@ -174,12 +174,31 @@ load_per_file_force_exactly = True # Whether to load exactly the requested numbe
 add_desc_brain_bbox = True
 random_state = 42
 
-# Construct data settings from command line and other data setting above.
-data_settings_in = {'data_dir': args.data_dir, 'surface': surface, 'descriptor' : descriptor, 'cortex_label': cortex_label, 'verbose': args.verbose,
-                        'num_neighborhoods_to_load':None if int(args.load_max) == 0 else int(args.load_max), 'num_samples_per_file': None if int(args.load_per_file) == 0 else int(args.load_per_file),
-                        'add_desc_vertex_index':add_desc_vertex_index, 'add_desc_neigh_size':add_desc_neigh_size, 'sequential':args.sequential,
-                        'num_cores':None if args.cores == "0" else int(args.cores), 'num_files_to_load':None if int(args.load_files) == 0 else int(args.load_files), 'mesh_neighborhood_radius':int(args.neigh_radius),
-                        'mesh_neighborhood_count':int(args.neigh_count), 'filter_smaller_neighborhoods': filter_smaller_neighborhoods, 'exactly': load_per_file_force_exactly, 'add_desc_brain_bbox': add_desc_brain_bbox}
+### Construct data settings from command line and other data setting above.
+
+## All settings relevant for pre-processing of a single mesh. These must also be used when pre-processing meshes that you want to predict pvd-descriptors for later.
+preproc_settings = { 'cortex_label': cortex_label,
+                     'add_desc_vertex_index':add_desc_vertex_index,
+                     'add_desc_neigh_size':add_desc_neigh_size,
+                     'mesh_neighborhood_radius':int(args.neigh_radius),
+                     'mesh_neighborhood_count':int(args.neigh_count),
+                     'filter_smaller_neighborhoods': filter_smaller_neighborhoods,
+                     'add_desc_brain_bbox': add_desc_brain_bbox
+                   }
+
+## All settings relevant for deciding which meshes to load, how to load them, and what data to keep from them.
+data_settings_in = {'data_dir': args.data_dir,
+                    'num_neighborhoods_to_load': None if int(args.load_max) == 0 else int(args.load_max),
+                    'surface': surface,
+                    'descriptor' : descriptor,
+                    'verbose': args.verbose,
+                    'sequential': args.sequential,
+                    'num_samples_per_file': None if int(args.load_per_file) == 0 else int(args.load_per_file),
+                    'num_cores': None if args.cores == "0" else int(args.cores),
+                    'num_files_to_load':None if int(args.load_files) == 0 else int(args.load_files),
+                    'exactly': load_per_file_force_exactly
+                    }
+
 
 ### Other settings, not related to data loading. Adapt here if needed.
 do_pickle_data = True
@@ -242,7 +261,7 @@ if not will_load_dataset_from_pickle_file:
             print("Loading datafiles in parallel.")
             print(f"Using data directory '{data_settings_in['data_dir']}', number of files to load limit is set to: {data_settings_in['num_files_to_load']}.")
 
-        print(f"Using neighborhood radius {data_settings_in['mesh_neighborhood_radius']} and keeping {data_settings_in['mesh_neighborhood_count']} vertices per neighborhood.")
+        print(f"Using neighborhood radius {preproc_settings['mesh_neighborhood_radius']} and keeping {preproc_settings['mesh_neighborhood_count']} vertices per neighborhood.")
 
         print("Descriptor settings:")
         if add_desc_vertex_index:
@@ -258,7 +277,7 @@ if not will_load_dataset_from_pickle_file:
         print(f"RAM available is about {mem_avail_mb} MB.")
         can_estimate = False
         ds_estimated_num_neighborhoods = None
-        ds_estimated_num_values_per_neighborhood = 6 * data_settings_in['mesh_neighborhood_count'] + 1  # minor TODO: The +1 is not true (depends on settings above), but this is minor in comparison to 6 * data_settings_in['mesh_neighborhood_count'] anyways.
+        ds_estimated_num_values_per_neighborhood = 6 * preproc_settings['mesh_neighborhood_count'] + 1  # minor TODO: The +1 is not true (depends on settings above), but this is minor in comparison to 6 * data_settings_in['mesh_neighborhood_count'] anyways.
         if data_settings_in['num_neighborhoods_to_load'] is not None and data_settings_in['sequential']:
             # Estimate total dataset size in RAM early to prevent crashing later, if possible.
             ds_estimated_num_neighborhoods = data_settings_in['num_neighborhoods_to_load']
@@ -279,7 +298,7 @@ if not will_load_dataset_from_pickle_file:
                 print(f"WARNING: Dataset size in RAM is more than half the available memory!") # A simple copy operation will lead to trouble!
 
 
-dataset, _, data_settings = get_dataset_pickle(data_settings_in, do_pickle_data, dataset_pickle_file, dataset_settings_file)
+dataset, _, data_settings = get_dataset_pickle(data_settings_in, preproc_settings, do_pickle_data, dataset_pickle_file, dataset_settings_file)
 
 print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 

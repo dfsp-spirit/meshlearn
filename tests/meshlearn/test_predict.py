@@ -31,7 +31,7 @@ def test_predict(test_file_pair, model_files):
     model_pkl_file, metadata_json_file = model_files
     Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
     pervertex_lgi = Mp.predict(mesh_file)
-    num_mesh_vertices = 149223 # TODO: fix number
+    num_mesh_vertices = 149244
     assert pervertex_lgi.size == num_mesh_vertices
     assert np.min(pervertex_lgi) >= 0.0
     assert np.max(pervertex_lgi) <= 8.0

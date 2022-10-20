@@ -162,10 +162,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     if with_label:
         label_tag = "the last 1 of them is the label"
     if verbose:
-        print(f"[neigh]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns ({label_tag}) per observation.")
+        print(f"[neig]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns ({label_tag}) per observation.")
 
     ## Full matrix for all neighborhoods
-    neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float64)
+    neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float32)
     neighborhoods[:] = np.nan
 
     col_names = []
@@ -187,7 +187,13 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert mesh.vertices.ndim == 2
     assert mesh.vertices.shape[1] == 3 #x,y,z
 
+    very_verbose = True
+
+
     for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
+        if very_verbose and central_vert_rel_idx % 10000 == 0:
+            print(f"[neig]     * At vertex {central_vert_rel_idx} of {len(neighbor_indices)}.")
+
         central_vert_idx_mesh = kept_vertex_indices_mesh[central_vert_rel_idx]
         col_start_idx = 0
         this_vertex_num_neighbors = neigh_lengths_nonnan_after_filtering[central_vert_rel_idx] # We need to know this for each vertex so we only fill the correct length in case (and leave the rest at np.nan) for neighborhoods smaller than 'max_num_neighbors'.

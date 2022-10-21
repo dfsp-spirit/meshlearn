@@ -189,15 +189,42 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     assert mesh.vertices.ndim == 2
     assert mesh.vertices.shape[1] == 3 #x,y,z
+    assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected num_query_verts_after_filtering {num_query_verts_after_filtering} to be equal to len(kept_vertex_indices_mesh) {len(kept_vertex_indices_mesh)}."
 
     very_verbose = True
 
     do_insert_by_column = False
 
     if do_insert_by_column:
-        central_vert_rel_indices = [i for i in range(len(neighbor_indices))]
-        central_vert_mesh_indices = kept_vertex_indices_mesh[central_vert_rel_indices]
+        if very_verbose:
+            print(f"[neig]   - Inserting by column.")
+        current_col_idx = 0
+
+        # Add an extra, final row to the mesh vertices, that is all NaN. We will later
+        # map all NaN indices to this row, so we get NaN values (instead of out-of-bounds errors)
+        # when accessing them.
+        nan_row = np.empty((3,3), dtype=mesh.vertices.dtype)
+        nan_row[:] = np.NaN
+        mesh_verts_ext = np.r_[ mesh.vertices, nan_row ]
+
+        # TODO: Insert the vertex coord and vertex normal columns here.
+
+        if add_desc_vertex_index:
+            neighborhoods[:, current_col_idx] = kept_vertex_indices_mesh  # The vertex index column.
+            current_col_idx += 1
+        if add_desc_neigh_size:
+            neighborhoods[:, current_col_idx] = neigh_lengths_full_filtered_row_subset   # Add neighborhood size column.
+        for ec_key in extra_columns.keys():
+            neighborhoods[:, current_col_idx] = extra_columns[ec_key][kept_vertex_indices_mesh]   # Add extra_column pvd-value for the vertex.
+            current_col_idx += 1
+        if with_label:
+            neighborhoods[:, current_col_idx] = pvd_data[kept_vertex_indices_mesh] # Add label (lgi, thickness, or whatever)
+        assert current_col_idx + 1 == neighborhood_col_num_values, f"Inserted {current_col_idx + 1} columns, but neighborhoods matrix expects {neighborhood_col_num_values} columns."
+
+        # https://stackoverflow.com/questions/54707525/how-to-get-a-value-of-numpy-ndarray-at-index-or-nan-for-indexerror
     else:
+        if very_verbose:
+            print(f"[neig]   - Inserting by row.")
         for central_vert_rel_idx, neigh_vert_indices in enumerate(neighbor_indices):
             if very_verbose and central_vert_rel_idx % 10000 == 0:
                 print(f"[neig]     * At vertex {central_vert_rel_idx} of {len(neighbor_indices)}.")
@@ -230,6 +257,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
             if with_label:
                 neighborhoods[central_vert_rel_idx, col_idx] = pvd_data[central_vert_idx_mesh] # Add label (lgi, thickness, or whatever)
+                col_idx += 1
+        assert central_vert_rel_idx+1 == neighborhoods.shape[0], f"Done after inserting value in row with index {central_vert_rel_idx}, but neighborhood matrix has {neighborhoods.shape[0]} rows. Should end with last one."
+        col_idx -= 1  # We added too much above.
+        assert col_idx+1 == neighborhoods.shape[1], f"Done after inserting value in column with index {col_idx}, but neighborhood matrix has {neighborhoods.shape[1]} columns. Should end with last one."
 
     assert neighborhoods.shape[0] == len(kept_vertex_indices_mesh), f"Expected {len(kept_vertex_indices_mesh)} neighborhoods, but found {neighborhoods.shape[0]}."
     assert neighborhoods.shape[1] == len(col_names)

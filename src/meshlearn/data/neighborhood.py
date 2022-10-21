@@ -193,7 +193,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     very_verbose = True
 
-    do_insert_by_column = False
+    do_insert_by_column = True
 
     if do_insert_by_column:
         if very_verbose:
@@ -214,11 +214,15 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
             current_col_idx += 1
         if add_desc_neigh_size:
             neighborhoods[:, current_col_idx] = neigh_lengths_full_filtered_row_subset   # Add neighborhood size column.
+            current_col_idx += 1
         for ec_key in extra_columns.keys():
             neighborhoods[:, current_col_idx] = extra_columns[ec_key][kept_vertex_indices_mesh]   # Add extra_column pvd-value for the vertex.
             current_col_idx += 1
         if with_label:
             neighborhoods[:, current_col_idx] = pvd_data[kept_vertex_indices_mesh] # Add label (lgi, thickness, or whatever)
+            current_col_idx += 1
+
+        current_col_idx -= 1  # We added 1 too much above.
         assert current_col_idx + 1 == neighborhood_col_num_values, f"Inserted {current_col_idx + 1} columns, but neighborhoods matrix expects {neighborhood_col_num_values} columns."
 
         # https://stackoverflow.com/questions/54707525/how-to-get-a-value-of-numpy-ndarray-at-index-or-nan-for-indexerror

@@ -39,7 +39,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, extra_columns = {}):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, extra_columns = {}, do_insert_by_column = True):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -102,13 +102,14 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         max_num_neighbors = min_neigh_size # set to minimum to avoid NANs
         print(f"[neig]   - Auto-determinded max_num_neighbors to be {min_neigh_size} for mesh.")
 
+    too_small_action = "filter" if filter_smaller_neighborhoods else "fill"
+
     if verbose:
         max_neigh_size = np.max(neigh_lengths)
         mean_neigh_size = np.mean(neigh_lengths)
         median_neigh_size = np.median(neigh_lengths)
         print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
-
-    too_small_action = "filter" if filter_smaller_neighborhoods else "fill"
+        print(f"[neig]   - too_small_action: '{too_small_action}'.")
 
     if too_small_action == "filter":
         ## Filter neighborhoods which are too small.
@@ -145,6 +146,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     else:
         raise ValueError(f"Invalid 'too_small_action' to apply to neighborhoods smaller than {max_num_neighbors} vertices.")
 
+    print(f"[neig]   -Type of neighbor_indices is: {type(neighbor_indices)}. Type of neighbor_indices[0] is {type(neighbor_indices[0])}")
+
+
+    assert any([any(np.isnan(x)) for x in neighbor_indices]) == False, f"Expected no NaN-values in neighbor_indices, but found some."
     neigh_lengths_after_preproc = [len(neigh) for neigh in neighbor_indices]
     assert np.unique(neigh_lengths_after_preproc).size == 1, f"Expected same size for all pre-processed neighborhoods, but found {np.unique(neigh_lengths_after_preproc).size} different sizes."  # They should all have the same size now.
     neigh_length = np.unique(neigh_lengths_after_preproc)[0]
@@ -190,10 +195,9 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert mesh.vertices.ndim == 2
     assert mesh.vertices.shape[1] == 3 #x,y,z
     assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected num_query_verts_after_filtering {num_query_verts_after_filtering} to be equal to len(kept_vertex_indices_mesh) {len(kept_vertex_indices_mesh)}."
+    assert np.count_nonzero(np.isnan(neighbor_indices)) == 0, f"Expected no NaN-values in neighbor_indices, but found some."
 
-    very_verbose = True
-
-    do_insert_by_column = True
+    very_verbose = False
 
     if do_insert_by_column:
         if very_verbose:
@@ -203,11 +207,23 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         # Add an extra, final row to the mesh vertices, that is all NaN. We will later
         # map all NaN indices to this row, so we get NaN values (instead of out-of-bounds errors)
         # when accessing them.
-        nan_row = np.empty((3,3), dtype=mesh.vertices.dtype)
-        nan_row[:] = np.NaN
-        mesh_verts_ext = np.r_[ mesh.vertices, nan_row ]
+        #nan_row = np.empty((3,3), dtype=mesh.vertices.dtype)
+        #nan_row[:] = np.NaN
+        #mesh_verts_ext = np.r_[ mesh.vertices, nan_row ]
 
-        # TODO: Insert the vertex coord and vertex normal columns here.
+        # Add vertex coords.
+        for _ in np.arange(neigh_length):
+            col_start_idx = current_col_idx
+            col_end_idx = current_col_idx+3
+            neighborhoods[:, col_start_idx:col_end_idx] = mesh.vertices[kept_vertex_indices_mesh, :]
+            current_col_idx = col_end_idx
+
+        # Add vertex normals.
+        for _ in np.arange(neigh_length):
+            col_start_idx = current_col_idx
+            col_end_idx = current_col_idx+3
+            neighborhoods[:, col_start_idx:col_end_idx] = mesh.vertex_normals[kept_vertex_indices_mesh, :]
+            current_col_idx = col_end_idx
 
         if add_desc_vertex_index:
             neighborhoods[:, current_col_idx] = kept_vertex_indices_mesh  # The vertex index column.

@@ -146,13 +146,21 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     else:
         raise ValueError(f"Invalid 'too_small_action' to apply to neighborhoods smaller than {max_num_neighbors} vertices.")
 
-    print(f"[neig]   -Type of neighbor_indices is: {type(neighbor_indices)}. Type of neighbor_indices[0] is {type(neighbor_indices[0])}")
+    print(f"[neig]   - Type of neighbor_indices is: {type(neighbor_indices)}. Type of neighbor_indices[0] is {type(neighbor_indices[0])}")
+
+    ## Turn the 'neighbor_indices' list of lists into a 2D np.ndarray
+    #neighbor_indices_mat = np.zeros((num_query_verts_after_filtering, max_num_neighbors), dtype=np.int64) + mesh_num_verts # Set default value to one *more* than available (0-based) vertex indices in mesh, to hit extra NaN row later.
+    print(f"[neig]   - Turning into 2D matrix starts.")
+    neighbor_indices_mat = np.array([xi+[mesh_num_verts]*(max_num_neighbors-len(xi)) for xi in neighbor_indices])# Set default value to one number of mesh verts, i.e., *more* than available (0-based) vertex indices in mesh, to hit extra NaN row later. All empty (NaN) indices will hit the last row later, resulting in NaN values (instead of out-of-bounds errors).
+    assert neighbor_indices_mat.shape == (len(neighbor_indices), max_num_neighbors, )
+    print(f"[neig]   - Turning into 2D matrix done.")
 
 
     assert any([any(np.isnan(x)) for x in neighbor_indices]) == False, f"Expected no NaN-values in neighbor_indices, but found some."
     neigh_lengths_after_preproc = [len(neigh) for neigh in neighbor_indices]
-    assert np.unique(neigh_lengths_after_preproc).size == 1, f"Expected same size for all pre-processed neighborhoods, but found {np.unique(neigh_lengths_after_preproc).size} different sizes."  # They should all have the same size now.
-    neigh_length = np.unique(neigh_lengths_after_preproc)[0]
+    if too_small_action == "filter":
+        assert np.unique(neigh_lengths_after_preproc).size == 1, f"Expected same size for all pre-processed neighborhoods with filtering, but found {np.unique(neigh_lengths_after_preproc).size} different sizes."  # They should all have the same size now.
+    max_neigh_length = np.max(neigh_lengths_after_preproc)
 
     extra_fields = []
     if add_desc_vertex_index:
@@ -171,6 +179,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         label_tag = "the last 1 of them is the label"
     if verbose:
         print(f"[neig]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns ({label_tag}) per observation.")
+        print(f"[neig]   - Max neighborhood size is {max_neigh_length}.")
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float32)
@@ -195,7 +204,6 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     assert mesh.vertices.ndim == 2
     assert mesh.vertices.shape[1] == 3 #x,y,z
     assert num_query_verts_after_filtering == len(kept_vertex_indices_mesh), f"Expected num_query_verts_after_filtering {num_query_verts_after_filtering} to be equal to len(kept_vertex_indices_mesh) {len(kept_vertex_indices_mesh)}."
-    assert np.count_nonzero(np.isnan(neighbor_indices)) == 0, f"Expected no NaN-values in neighbor_indices, but found some."
 
     very_verbose = False
 
@@ -207,19 +215,20 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         # Add an extra, final row to the mesh vertices, that is all NaN. We will later
         # map all NaN indices to this row, so we get NaN values (instead of out-of-bounds errors)
         # when accessing them.
-        #nan_row = np.empty((3,3), dtype=mesh.vertices.dtype)
-        #nan_row[:] = np.NaN
-        #mesh_verts_ext = np.r_[ mesh.vertices, nan_row ]
+        nan_row = np.empty((1, 3), dtype=mesh.vertices.dtype)
+        nan_row[:] = np.NaN
+        mesh_verts_ext = np.r_[ mesh.vertices[kept_vertex_indices_mesh, :], nan_row ]
+        assert mesh_verts_ext.shape == (len(kept_vertex_indices_mesh) + 1, 3,), f"Expected mesh_verts_ext shape {(len(kept_vertex_indices_mesh) + 1, 3,)} but found {mesh_verts_ext.shape}."  # x,y,z
 
         # Add vertex coords.
-        for _ in np.arange(neigh_length):
+        for neigh_rel_idx in np.arange(max_num_neighbors):  # neighbor_indices_mat
             col_start_idx = current_col_idx
             col_end_idx = current_col_idx+3
-            neighborhoods[:, col_start_idx:col_end_idx] = mesh.vertices[kept_vertex_indices_mesh, :]
+            neighborhoods[:, col_start_idx:col_end_idx] = mesh_verts_ext[:, neighbor_indices_mat[:, neigh_rel_idx]]
             current_col_idx = col_end_idx
 
         # Add vertex normals.
-        for _ in np.arange(neigh_length):
+        for _ in np.arange(max_num_neighbors):
             col_start_idx = current_col_idx
             col_end_idx = current_col_idx+3
             neighborhoods[:, col_start_idx:col_end_idx] = mesh.vertex_normals[kept_vertex_indices_mesh, :]

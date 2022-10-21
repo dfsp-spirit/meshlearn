@@ -39,7 +39,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, extra_columns = {}, do_insert_by_column = True):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, extra_columns = {}):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -61,12 +61,16 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     extra_columns: dict, the keys are strings and define the column name, the values are 1D float np.ndarrays with one value per mesh vertex (size equal to that of `pvd_data`).
 
 
+
     Returns
     -------
     neighborhoods            : `nxm` numpy.ndarray, where `n` is the number of query_vert_coords (`query_vert_coords.shape[0]`, to be precise), and `m` is the number of features and depends on the parameters including `max_num_neighbors`, `add_desc_vertex_index`, `add_desc_neigh_size`, and `extra_columns`.
     col_names                : list of `m` strings, the column names for the `neighborhoods` matrix
     kept_vertex_indices_mesh : numpy 1D array of ints, the vertex indices of the returned neighborhoods, in the same order as the neighborhoods. Only relevant if `filter_smaller_neighborhoods` is True, otherwise this will be identical to the passed `query_vert_indices`.
     """
+
+    do_insert_by_column = True  # bool, internal, leave alone. Leaving this at the default of True is much faster, but does not alter results.
+
     if kdtree is None:
         raise ValueError("No kdtree initialized yet.")
     if not isinstance(query_vert_coords, np.ndarray):
@@ -108,8 +112,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         max_neigh_size = np.max(neigh_lengths)
         mean_neigh_size = np.mean(neigh_lengths)
         median_neigh_size = np.median(neigh_lengths)
-        print(f"[neig]   - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
-        print(f"[neig]   - too_small_action: '{too_small_action}'.")
+        print(f"[neig]  - Min neigh size across {len(neighbor_indices)} neighborhoods is {min_neigh_size}, max is {max_neigh_size}, mean is {mean_neigh_size}, median is {median_neigh_size}")
 
     if too_small_action == "filter":
         ## Filter neighborhoods which are too small.
@@ -139,21 +142,19 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         neigh_lengths_nonnan_after_filtering = [min(len(neigh), max_num_neighbors) for neigh in neighbor_indices]
         if verbose:
             vertex_indices_to_fill_rel = np.where([len(neigh) < max_num_neighbors for neigh in neighbor_indices])[0] # These are indices into the query_vert_coords.
-            print(f"[neig]   - Filled neighborhood vertex coords and normals with 'np.nan' for the {vertex_indices_to_fill_rel.size} neighborhoods smaller than {max_num_neighbors} verts.")
+            print(f"[neig]  - Filled neighborhood vertex coords and normals with 'np.nan' for the {vertex_indices_to_fill_rel.size} neighborhoods smaller than {max_num_neighbors} verts.")
 
         # We do not need to do anything special to fill with NANs: later, we create a matrix of NAN values,
         # and the places which are not filled stay NAN.
     else:
         raise ValueError(f"Invalid 'too_small_action' to apply to neighborhoods smaller than {max_num_neighbors} vertices.")
 
-    print(f"[neig]   - Type of neighbor_indices is: {type(neighbor_indices)}. Type of neighbor_indices[0] is {type(neighbor_indices[0])}")
 
     ## Turn the 'neighbor_indices' list of lists into a 2D np.ndarray
-    #neighbor_indices_mat = np.zeros((num_query_verts_after_filtering, max_num_neighbors), dtype=np.int64) + mesh_num_verts # Set default value to one *more* than available (0-based) vertex indices in mesh, to hit extra NaN row later.
-    print(f"[neig]   - Turning into 2D matrix starts.")
+    #print(f"[neig]   - Turning into 2D matrix starts.")
     neighbor_indices_mat = np.array([xi+[mesh_num_verts]*(max_num_neighbors-len(xi)) for xi in neighbor_indices])# Set default value to one number of mesh verts, i.e., *more* than available (0-based) vertex indices in mesh, to hit extra NaN row later. All empty (NaN) indices will hit the last row later, resulting in NaN values (instead of out-of-bounds errors).
     assert neighbor_indices_mat.shape == (len(neighbor_indices), max_num_neighbors, )
-    print(f"[neig]   - Turning into 2D matrix done.")
+    #print(f"[neig]   - Turning into 2D matrix done.")
 
 
     assert any([any(np.isnan(x)) for x in neighbor_indices]) == False, f"Expected no NaN-values in neighbor_indices, but found some."
@@ -178,8 +179,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     if with_label:
         label_tag = "the last 1 of them is the label"
     if verbose:
-        print(f"[neig]   - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns ({label_tag}) per observation.")
-        print(f"[neig]   - Max neighborhood size is {max_neigh_length}.")
+        print(f"[neig]  - Current settings with max_num_neighbors={max_num_neighbors} and {len(extra_fields)} extra columns lead to {neighborhood_col_num_values} columns ({label_tag}) per observation.")
 
     ## Full matrix for all neighborhoods
     neighborhoods = np.empty((num_query_verts_after_filtering, neighborhood_col_num_values), dtype=np.float32)

@@ -72,6 +72,10 @@ class MeshPredictLgi(MeshPredict):
             preproc_start = time.time()
 
         preproc_settings = self._extract_preproc_settings(self.model_settings)
+
+        if self.verbose:
+            print(f"preproc_settings: {preproc_settings}")
+
         dataset, _, _ = compute_dataset_for_mesh(mesh_file, preproc_settings)
 
         if self.verbose:
@@ -82,12 +86,12 @@ class MeshPredictLgi(MeshPredict):
             predict_start = time.time()
 
         res = self.model.predict(dataset)
-        print(f"Predicted {res.size} lgi values in range {np.min(res)} to {np.max(res)}.")
 
         if self.verbose:
             predict_end = time.time()
             predict_execution_time = predict_end - predict_start
             predict_execution_time_readable = timedelta(seconds=predict_execution_time)
+            print(f"Predicted {res.size} lgi values in range {np.min(res)} to {np.max(res)}.")
             print(f"Prediction of {dataset.shape[0]} values took {predict_execution_time_readable}.")
         return res
 

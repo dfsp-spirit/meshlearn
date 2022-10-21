@@ -493,16 +493,16 @@ def get_valid_mesh_desc_lgi_file_pairs_flat_dir(dc_data_dir, verbose=True):
 
 
 
-def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False):
+def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_settings = {'num_samples_total': None,
+                     'num_samples_per_file': None,
+                     'random_seed': None,
+                     'exactly': False,
+                     'reduce_mem': False  # Reducing mem takes a lot of time, is not needed here and we want fast predictions.
+                     }):
     """
     Perform loading and pre-processing for a single mesh file. Useful when predicting.
     """
     input_filepair_list = [(mesh_file, None, )]
-    data_settings = {'num_samples_total': None,
-                     'num_samples_per_file': None,
-                     'random_seed': None,
-                     'exactly': False
-                     }
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}
 
     if preproc_settings['cortex_label'] is not None:

@@ -221,17 +221,29 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         assert mesh_verts_ext.shape == (len(kept_vertex_indices_mesh) + 1, 3,), f"Expected mesh_verts_ext shape {(len(kept_vertex_indices_mesh) + 1, 3,)} but found {mesh_verts_ext.shape}."  # x,y,z
 
         # Add vertex coords.
-        for neigh_rel_idx in np.arange(max_num_neighbors):  # neighbor_indices_mat
+        for neigh_rel_idx in np.arange(max_num_neighbors):  # neighbor_indices_mat.shape == (len(neighbor_indices), max_num_neighbors, )
             col_start_idx = current_col_idx
             col_end_idx = current_col_idx+3
-            neighborhoods[:, col_start_idx:col_end_idx] = mesh_verts_ext[:, neighbor_indices_mat[:, neigh_rel_idx]]
+            print(f"[neigh]      * At coords neigh_rel_idx {neigh_rel_idx}, assigning to columns (inclusive) {col_start_idx} to (inclusice) {col_end_idx}.")
+            col_verts_indices = neighbor_indices_mat[:, neigh_rel_idx]
+            assert col_verts_indices.shape == (num_query_verts_after_filtering, ), f"Expected col_verts_indices.shape to be {(num_query_verts_after_filtering, )} but found {col_verts_indices.shape}."
+            col_verts_xyz = mesh_verts_ext[col_verts_indices, :]
+            assert col_verts_xyz.shape == (num_query_verts_after_filtering, 3,), f"Expected col_verts_xyz.shape to be {(num_query_verts_after_filtering, 3,)} but found {col_verts_xyz.shape}."
+            neighborhoods[:, col_start_idx:col_end_idx] = col_verts_xyz
             current_col_idx = col_end_idx
 
         # Add vertex normals.
-        for _ in np.arange(max_num_neighbors):
+        mesh_normals_ext = np.r_[ mesh.vertices[kept_vertex_indices_mesh, :], nan_row ]
+        assert mesh_normals_ext.shape == (len(kept_vertex_indices_mesh) + 1, 3,), f"Expected mesh_normals_ext shape {(len(kept_vertex_indices_mesh) + 1, 3,)} but found {mesh_normals_ext.shape}."  # x,y,z
+        for neigh_rel_idx in np.arange(max_num_neighbors):
             col_start_idx = current_col_idx
             col_end_idx = current_col_idx+3
-            neighborhoods[:, col_start_idx:col_end_idx] = mesh.vertex_normals[kept_vertex_indices_mesh, :]
+            print(f"[neigh]      * At normals neigh_rel_idx {neigh_rel_idx}, assigning to columns (inclusive) {col_start_idx} to (inclusice) {col_end_idx}.")
+            col_verts_indices = neighbor_indices_mat[:, neigh_rel_idx]
+            assert col_verts_indices.shape == (num_query_verts_after_filtering, ), f"Expected col_verts_indices.shape to be {(num_query_verts_after_filtering, )} but found {col_verts_indices.shape}."
+            col_normals_xyz = mesh_normals_ext[col_verts_indices, :]
+            assert col_normals_xyz.shape == (num_query_verts_after_filtering, 3,), f"Expected col_normals_xyz.shape to be {(num_query_verts_after_filtering, 3,)} but found {col_normals_xyz.shape}."
+            neighborhoods[:, col_start_idx:col_end_idx] = col_normals_xyz
             current_col_idx = col_end_idx
 
         if add_desc_vertex_index:
@@ -241,7 +253,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
             neighborhoods[:, current_col_idx] = neigh_lengths_full_filtered_row_subset   # Add neighborhood size column.
             current_col_idx += 1
         for ec_key in extra_columns.keys():
-            neighborhoods[:, current_col_idx] = extra_columns[ec_key][kept_vertex_indices_mesh]   # Add extra_column pvd-value for the vertex.
+            neighborhoods[:, current_col_idx] = np.squeeze(extra_columns[ec_key][kept_vertex_indices_mesh])   # Add extra_column pvd-value for the vertex.
             current_col_idx += 1
         if with_label:
             neighborhoods[:, current_col_idx] = pvd_data[kept_vertex_indices_mesh] # Add label (lgi, thickness, or whatever)

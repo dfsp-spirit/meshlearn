@@ -20,7 +20,7 @@ metadata_json_file = os.path.join(TEST_DATA_DIR, 'models', 'lgbm_lgi', 'ml_model
 print(f"Creating MeshPredictLgi instance...")
 Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
 print(f"Predicting using MeshPredictLgi instance...")
-pervertex_lgi = Mp.predict(mesh_file, num_to_predict=1000)
+pervertex_lgi = Mp.predict(mesh_file)
 num_mesh_vertices = 149244
 print(f"Verifying results...")
 assert pervertex_lgi.size == num_mesh_vertices

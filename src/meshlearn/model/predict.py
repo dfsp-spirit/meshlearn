@@ -7,7 +7,7 @@ This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for
 """
 
 from abc import ABC, abstractmethod
-import nibabel.freesurfer.io as fsio
+import numpy as np
 from meshlearn.model.persistance import load_model
 from meshlearn.data.training_data import compute_dataset_for_mesh
 import time
@@ -66,7 +66,7 @@ class MeshPredictLgi(MeshPredict):
                     preproc_settings[k] = legacy_model_settings['data_settings'][k]
         return preproc_settings
 
-    def predict(self, mesh_file, num_to_predict=None):
+    def predict(self, mesh_file):
 
         if self.verbose:
             preproc_start = time.time()
@@ -81,15 +81,16 @@ class MeshPredictLgi(MeshPredict):
             print(f"Pre-processing mesh took {preproc_execution_time_readable}.")
             predict_start = time.time()
 
-        if num_to_predict is not None:
-            dataset = dataset[0:num_to_predict, ]
-
-        self.model.predict(dataset)
+        res = self.model.predict(dataset)
+        print(f"Predicted {res.size} lgi values in range {np.min(res)} to {np.max(res)}.")
 
         if self.verbose:
             predict_end = time.time()
             predict_execution_time = predict_end - predict_start
             predict_execution_time_readable = timedelta(seconds=predict_execution_time)
             print(f"Prediction of {dataset.shape[0]} values took {predict_execution_time_readable}.")
+        return res
+
+
 
 

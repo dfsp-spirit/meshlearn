@@ -224,7 +224,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         for neigh_rel_idx in np.arange(max_num_neighbors):  # neighbor_indices_mat.shape == (len(neighbor_indices), max_num_neighbors, )
             col_start_idx = current_col_idx
             col_end_idx = current_col_idx+3
-            print(f"[neigh]      * At coords neigh_rel_idx {neigh_rel_idx}, assigning to columns (inclusive) {col_start_idx} to (inclusice) {col_end_idx}.")
+            #print(f"[neigh]      * At coords neigh_rel_idx {neigh_rel_idx}, assigning to columns (inclusive) {col_start_idx} to (inclusice) {col_end_idx}.")
             col_verts_indices = neighbor_indices_mat[:, neigh_rel_idx]
             assert col_verts_indices.shape == (num_query_verts_after_filtering, ), f"Expected col_verts_indices.shape to be {(num_query_verts_after_filtering, )} but found {col_verts_indices.shape}."
             col_verts_xyz = mesh_verts_ext[col_verts_indices, :]
@@ -238,7 +238,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         for neigh_rel_idx in np.arange(max_num_neighbors):
             col_start_idx = current_col_idx
             col_end_idx = current_col_idx+3
-            print(f"[neigh]      * At normals neigh_rel_idx {neigh_rel_idx}, assigning to columns (inclusive) {col_start_idx} to (inclusice) {col_end_idx}.")
+            #(f"[neigh]      * At normals neigh_rel_idx {neigh_rel_idx}, assigning to columns (inclusive) {col_start_idx} to (inclusice) {col_end_idx}.")
             col_verts_indices = neighbor_indices_mat[:, neigh_rel_idx]
             assert col_verts_indices.shape == (num_query_verts_after_filtering, ), f"Expected col_verts_indices.shape to be {(num_query_verts_after_filtering, )} but found {col_verts_indices.shape}."
             col_normals_xyz = mesh_normals_ext[col_verts_indices, :]

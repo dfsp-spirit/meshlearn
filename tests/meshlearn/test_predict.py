@@ -4,6 +4,7 @@ import pytest
 import os
 import numpy as np
 from meshlearn.model.predict import MeshPredictLgi
+import nibabel.freesurfer.io as fsio
 
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,15 +25,17 @@ def model_files():
     metadata_json_file = os.path.join(TEST_DATA_DIR, 'models', 'lgbm_lgi', 'ml_model.json')  # Metadata file is not needed for predictions, return None if you do not have it.
     return model_pkl_file, metadata_json_file
 
-#@pytest.mark.skip(reason="Currently too slow.")
+#@pytest.mark.skip(reason="I'm in a hurry.")
 def test_predict(test_file_pair, model_files):
-    mesh_file, _ = test_file_pair
+    mesh_file, descriptor_file = test_file_pair
     model_pkl_file, metadata_json_file = model_files
     Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
-    pervertex_lgi = Mp.predict(mesh_file)
+    lgi_predicted = Mp.predict(mesh_file)
     num_mesh_vertices = 149244
-    assert pervertex_lgi.size == num_mesh_vertices
-    assert np.min(pervertex_lgi) >= 0.0
-    assert np.max(pervertex_lgi) <= 8.0
+    assert lgi_predicted.size == num_mesh_vertices
+    assert np.min(lgi_predicted) >= 0.0
+    assert np.max(lgi_predicted) <= 6.0
+    lgi_known = fsio.read_morph_data(descriptor_file)
+    assert np.corrcoef(lgi_predicted, lgi_known)[0,1] > 0.9  # Require high correlation.
 
 

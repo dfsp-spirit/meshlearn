@@ -55,19 +55,35 @@ class MeshPredictLgi(MeshPredict):
         if not 'data_settings' in self.model_settings:
             raise ValueError("Model settings obtained based on parameter 'model_settings_file' is a dict but is missing key 'data_settings' with data pre-processing settings. Cannot perform pre-processing of data for prediction if we do not have these settings.")
 
-    def _extract_preproc_settings(self, legacy_model_settings):
-        if 'preproc_settings' in legacy_model_settings:  # Not legacy.
-            return legacy_model_settings['preproc_settings']
+    def _extract_preproc_settings(self, model_settings):
+        """
+        Extract the relevant pre-processing settings used for model training from the model settings.
+
+        We need to pre-process the model we want to predict on in the same way.
+        """
+        if 'preproc_settings' in model_settings:  # They are stored in there directly, this is the new version (not legacy).
+            return model_settings['preproc_settings']
         else:
-            preproc_settings = dict()
+            preproc_settings = dict()  # Legacy file format version,
             keys_of_interest = ["add_desc_brain_bbox", "add_desc_neigh_size", "add_desc_vertex_index", "cortex_label", "filter_smaller_neighborhoods", "mesh_neighborhood_count" , "mesh_neighborhood_radius"]
             for k in keys_of_interest:
-                if k in legacy_model_settings['data_settings']:
-                    preproc_settings[k] = legacy_model_settings['data_settings'][k]
+                if k in model_settings['data_settings']:
+                    preproc_settings[k] = model_settings['data_settings'][k]
         return preproc_settings
 
-    def predict(self, mesh_file):
 
+    def predict(self, mesh_file):
+        """
+        Predict per-vertex descriptor values for a mesh.
+
+        Parameters
+        ----------
+        mesh_file : str, path to a mesh in FreeSurfer surf format (i.e., `lh.pial` or `rh.pial` surface of recon-all output).
+
+        Returns
+        -------
+        1d np.ndarray of floats, the predicted per-vertex descriptor values.
+        """
         if self.verbose:
             preproc_start = time.time()
 

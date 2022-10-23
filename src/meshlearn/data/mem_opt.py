@@ -14,6 +14,8 @@ def reduce_mem_usage(df, verbose=False):
     """
     Iterate through all the columns of a dataframe and modify the data type to reduce memory usage.
 
+    Please keep in mind that this is a trade-off: it saves memory, but takes quite a while.
+
     Parameters
     ----------
     df: pandas.DataFrame

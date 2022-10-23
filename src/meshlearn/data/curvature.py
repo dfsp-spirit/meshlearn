@@ -233,9 +233,12 @@ class Curvature:
         if not os.path.isdir(outdir):
             raise ValueError(f"Curvature output directory '{outdir}' does not exist or cannot be read.")
         df = self.compute_all()
+        outfiles = []
         for desc in df.columns:
             outfile = os.path.join(outdir, outfile_prefix + desc + outfile_suffix)
+            outfiles.append(outfile)
             fsio.write_morph_data(outfile, df[desc])
+        return outfiles
 
     def _save_csv(self, output_file):
         """

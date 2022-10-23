@@ -35,7 +35,7 @@ def mesh_and_pvd_data(test_file_pair):
     return TrainingData.data_from_files(mesh_file, descriptor_file)
 
 
-def test_neighborhoods_euclid_around_points_filter(mesh_and_pvd_data):
+def test_neighborhoods_euclid_around_points_some_filter(mesh_and_pvd_data):
     vert_coords, faces, pvd_data = mesh_and_pvd_data
     max_num_neighbors = 600
     filter_smaller_neighborhoods = True
@@ -51,7 +51,7 @@ def test_neighborhoods_euclid_around_points_filter(mesh_and_pvd_data):
     assert len(col_names) == max_num_neighbors * 6 + 1
     assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 
-def test_neighborhoods_euclid_around_points_nofilter(mesh_and_pvd_data):
+def test_neighborhoods_euclid_around_points_some_nofilter(mesh_and_pvd_data):
     vert_coords, faces, pvd_data = mesh_and_pvd_data
     max_num_neighbors = 100
     filter_smaller_neighborhoods = False
@@ -67,4 +67,41 @@ def test_neighborhoods_euclid_around_points_nofilter(mesh_and_pvd_data):
     assert len(col_names) == max_num_neighbors * 6 + 1
     assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 
+def test_neighborhoods_euclid_around_points_all_filter(mesh_and_pvd_data):
+    """
+    We also test with verbose=True here.
+    """
+    vert_coords, faces, pvd_data = mesh_and_pvd_data
+    max_num_neighbors = 600
+    filter_smaller_neighborhoods = True
+
+    query_vert_coords = vert_coords  # Use all.
+    num_query_coords = query_vert_coords.shape[0]
+    query_vert_indices = np.arange(num_query_coords)
+    mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+
+    neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=10.0, mesh=mesh, pvd_data=pvd_data, max_num_neighbors=max_num_neighbors, verbose=True, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=filter_smaller_neighborhoods)
+    assert isinstance(neighborhoods, np.ndarray)
+    assert neighborhoods.shape[0] < num_query_coords  # Some will have been filtered.
+    assert len(col_names) == max_num_neighbors * 6 + 1
+    assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
+
+def test_neighborhoods_euclid_around_points_some_nofilter(mesh_and_pvd_data):
+    """
+    We also test with verbose=True here.
+    """
+    vert_coords, faces, pvd_data = mesh_and_pvd_data
+    max_num_neighbors = 100
+    filter_smaller_neighborhoods = False
+
+    query_vert_coords = vert_coords  # Use all.
+    num_query_coords = query_vert_coords.shape[0]
+    query_vert_indices = np.arange(num_query_coords)
+    mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+
+    neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=10.0, mesh=mesh, pvd_data=pvd_data, max_num_neighbors=max_num_neighbors, verbose=True, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=filter_smaller_neighborhoods)
+    assert isinstance(neighborhoods, np.ndarray)
+    assert neighborhoods.shape[0] == num_query_coords  # Must match exactly.
+    assert len(col_names) == max_num_neighbors * 6 + 1
+    assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 

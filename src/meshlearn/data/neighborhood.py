@@ -47,19 +47,18 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     Parameters
     ----------
-    query_vert_coords   : `nx3` numpy.ndarray for n 3D points, typically a subset of the vertices of the mesh represented in the `kdtree`
-    query_vert_indices  : 1D `np.ndarray` of ints, the vertex indices in the mesh for the `query_vert_coords`. required to assign proper `pvd_data` value. Set to `None` to assume that the coords are the coords of all mesh vertices.
-    kdtree              : `scipy.spatial.KDTree` instance of all mesh vertex coordinates (not just the `query_vert_coords`)
-    neighborhood_radius : the radius of the sphere used in the `kdtree` query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with `max_num_neighbors`.
-    mesh                : `tmesh.Trimesh` instance representing the full mesh.
-    pvd_data            : None or vector of length `vert_coords.shape[0]` (number of vertices in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
-    max_num_neighbors   : number of neighbors max to consider per neighborhood. must be changed together with `neighborhood_radius`. Set to `None` or `0` to auto-determine from min size over all neighborhoods (will differ across mesh files then!).
-    add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
-    add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
-    verbose: bool, whether to print output (or be silent)
-    filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
-    extra_columns: dict, the keys are strings and define the column name, the values are 1D float np.ndarrays with one value per mesh vertex (size equal to that of `pvd_data`).
-
+    query_vert_coords            : `nx3` numpy.ndarray of float for n 3D points, typically a subset of the vertices of the mesh represented in the `kdtree`
+    query_vert_indices           : 1D `np.ndarray` of ints, the vertex indices in the mesh for the `query_vert_coords`. required to assign proper `pvd_data` value. Set to `None` to assume that the coords are the coords of all mesh vertices.
+    kdtree                       : `scipy.spatial.KDTree` instance of all mesh vertex coordinates (not just the `query_vert_coords`)
+    neighborhood_radius          : float, the radius of the sphere used in the `kdtree` query, in mesh spatial units. use 25 for 25mm with freesurfer meshes. must be changed together with `max_num_neighbors`.
+    mesh                         : `tmesh.Trimesh` instance representing the full mesh.
+    pvd_data                     : None or vector of length `vert_coords.shape[0]` (number of vertices in mesh), assigning a descriptor value (cortical thoickness, lgi, ...) to each vertex.
+    max_num_neighbors            : number of neighbors max to consider per neighborhood. must be changed together with `neighborhood_radius`. Set to `None` or `0` to auto-determine from min size over all neighborhoods (will differ across mesh files then!).
+    add_desc_vertex_index        : bool, whether to add descriptor: vertex index in mesh
+    add_desc_neigh_size          : bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
+    verbose                      : bool, whether to print output (or be silent)
+    filter_smaller_neighborhoods : bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
+    extra_columns                : dict, the keys are strings and define the column name, the values are 1D float np.ndarrays with one value per mesh vertex (size equal to that of `pvd_data`).
 
 
     Returns

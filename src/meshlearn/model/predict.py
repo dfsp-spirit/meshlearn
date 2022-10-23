@@ -6,7 +6,7 @@ Model prediction functions.
 This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for details.
 """
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import numpy as np
 from meshlearn.model.persistance import load_model
 from meshlearn.data.training_data import compute_dataset_for_mesh
@@ -78,11 +78,11 @@ class MeshPredictLgi(MeshPredict):
 
         Parameters
         ----------
-        mesh_file : str, path to a mesh in FreeSurfer surf format (i.e., `lh.pial` or `rh.pial` surface of recon-all output).
+        mesh_file : str or list of str, path(s) to one or more meshes in FreeSurfer surf format (i.e., `lh.pial` or `rh.pial` surface of recon-all output).
 
         Returns
         -------
-        1d np.ndarray of floats, the predicted per-vertex descriptor values.
+        1d np.ndarray of floats, the predicted per-vertex descriptor values. If parameter `mesh_file` is a list, a list of such arrays in returned.
         """
         if self.verbose:
             preproc_start = time.time()
@@ -92,24 +92,41 @@ class MeshPredictLgi(MeshPredict):
         if self.verbose:
             print(f"preproc_settings: {preproc_settings}")
 
-        dataset, _, _ = compute_dataset_for_mesh(mesh_file, preproc_settings)
+        is_list = isinstance(mesh_file, list)
+        if not is_list:
+            mfl = [mesh_file]
+        else:
+            mfl = mesh_file
 
-        if self.verbose:
-            preproc_end = time.time()
-            preproc_execution_time = preproc_end - preproc_start
-            preproc_execution_time_readable = timedelta(seconds=preproc_execution_time)
-            print(f"Pre-processing mesh took {preproc_execution_time_readable}.")
-            predict_start = time.time()
+        res_list = []
 
-        res = self.model.predict(dataset)
+        for file_idx, meshf in mfl:
+            dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings)
 
-        if self.verbose:
-            predict_end = time.time()
-            predict_execution_time = predict_end - predict_start
-            predict_execution_time_readable = timedelta(seconds=predict_execution_time)
-            print(f"Predicted {res.size} lgi values in range {np.min(res)} to {np.max(res)}.")
-            print(f"Prediction of {dataset.shape[0]} values took {predict_execution_time_readable}.")
-        return res
+            if self.verbose:
+                print(f"Handling mesh file 'meshf'.")
+                preproc_end = time.time()
+                preproc_execution_time = preproc_end - preproc_start
+                preproc_execution_time_readable = timedelta(seconds=preproc_execution_time)
+                print(f" - Pre-processing mesh took {preproc_execution_time_readable}.")
+                predict_start = time.time()
+
+            res_list.append(self.model.predict(dataset))
+
+            if self.verbose:
+                predict_end = time.time()
+                predict_execution_time = predict_end - predict_start
+                predict_execution_time_readable = timedelta(seconds=predict_execution_time)
+                print(f" - Predicted {res_list[file_idx].size} lgi values in range {np.min(res_list[file_idx])} to {np.max(res_list[file_idx])}.")
+                print(f" - Prediction of {dataset.shape[0]} values took {predict_execution_time_readable}.")
+
+        if is_list:
+            return res_list
+        else:
+            return res_list[0]
+
+    def predict_for_recon_dir(self, recon_dir, subjects_list=None):
+        pass
 
 
 

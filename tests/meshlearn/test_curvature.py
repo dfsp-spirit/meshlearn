@@ -44,10 +44,22 @@ def test_prinicipal_curvatures_can_be_computed(test_file_pair):
     assert desc.columns.size == 6  # The 4 basic ones (k1, k2, k_major, k_minor) and the 2 requested ones.
     assert desc.shape == (num_verts, 6)
 
-def test_write_curv(test_file_pair):
+def test_save_curv(test_file_pair):
     mesh_file, _ = test_file_pair
     curv = Curvature(mesh_file)
-    curv._save_curv(outdir=os.path.expanduser("~"))
+    filenames = curv._save_curv(outdir=os.path.expanduser("~"))
+    for f in filenames:
+        assert os.path.isfile(f)
+        os.remove(f)
+
+def test_save_csv(test_file_pair):
+    mesh_file, _ = test_file_pair
+    curv = Curvature(mesh_file)
+    out_file = "descriptors.csv"
+    filenames = curv._save_csv(out_file)
+    assert os.path.isfile(out_file)
+    os.remove(out_file)
+
 
 
 

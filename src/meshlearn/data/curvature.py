@@ -228,7 +228,7 @@ class Curvature:
 
         Returns
         -------
-        None, called for side effect of writing to disk.
+        list of str, the names of the output files written. Called for side effect of writing to disk though.
         """
         if not os.path.isdir(outdir):
             raise ValueError(f"Curvature output directory '{outdir}' does not exist or cannot be read.")
@@ -247,10 +247,11 @@ class Curvature:
 
         Returns
         -------
-        None, called for side effect of writing to disk.
+        str, the output file name. Called for side effect of writing to disk though.
         """
         df = self.compute_all()
         df.to_csv(output_file)
+        return output_file
 
 
 

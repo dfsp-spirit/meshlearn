@@ -4,6 +4,7 @@
 import os
 import numpy as np
 from meshlearn.model.predict import MeshPredictLgi
+import nibabel.freesurfer.io as fsio
 
 
 TEST_DATA_DIR = "./tests/test_data"
@@ -20,9 +21,15 @@ metadata_json_file = os.path.join(TEST_DATA_DIR, 'models', 'lgbm_lgi', 'ml_model
 print(f"Creating MeshPredictLgi instance...")
 Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
 print(f"Predicting using MeshPredictLgi instance...")
-pervertex_lgi = Mp.predict(mesh_file)
-num_mesh_vertices = 149244
+lgi_predicted = Mp.predict(mesh_file)
+
+
 print(f"Verifying results...")
-assert pervertex_lgi.size == num_mesh_vertices
-assert np.min(pervertex_lgi) >= 0.0
-assert np.max(pervertex_lgi) <= 8.0
+num_mesh_vertices = 149244
+assert lgi_predicted.size == num_mesh_vertices
+assert np.min(lgi_predicted) >= 0.0
+assert np.max(lgi_predicted) <= 8.0
+lgi_known = fsio.read_morph_data(descriptor_file)
+p = np.corrcoef(lgi_predicted, lgi_known)
+print(f"Pearson corr: {p[0,1]}")
+fsio.write_morph_data("lh.pial_lgi_predicted", lgi_predicted)  # For visualization, e.g. in R with fsbrain.

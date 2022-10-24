@@ -34,7 +34,7 @@ def mesh_and_pvd_data(test_file_pair):
     mesh_file, descriptor_file = test_file_pair
     return TrainingData.data_from_files(mesh_file, descriptor_file)
 
-
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_neighborhoods_euclid_around_points_some_filter(mesh_and_pvd_data):
     vert_coords, faces, pvd_data = mesh_and_pvd_data
     max_num_neighbors = 600
@@ -51,6 +51,7 @@ def test_neighborhoods_euclid_around_points_some_filter(mesh_and_pvd_data):
     assert len(col_names) == max_num_neighbors * 6 + 1
     assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_neighborhoods_euclid_around_points_some_nofilter(mesh_and_pvd_data):
     vert_coords, faces, pvd_data = mesh_and_pvd_data
     max_num_neighbors = 100
@@ -67,6 +68,7 @@ def test_neighborhoods_euclid_around_points_some_nofilter(mesh_and_pvd_data):
     assert len(col_names) == max_num_neighbors * 6 + 1
     assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_neighborhoods_euclid_around_points_all_filter(mesh_and_pvd_data):
     """
     We also test with verbose=True here.
@@ -86,6 +88,7 @@ def test_neighborhoods_euclid_around_points_all_filter(mesh_and_pvd_data):
     assert len(col_names) == max_num_neighbors * 6 + 1
     assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_neighborhoods_euclid_around_points_some_nofilter(mesh_and_pvd_data):
     """
     We also test with verbose=True here.

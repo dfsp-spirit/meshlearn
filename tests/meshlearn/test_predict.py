@@ -25,7 +25,7 @@ def model_files():
     metadata_json_file = os.path.join(TEST_DATA_DIR, 'models', 'lgbm_lgi', 'ml_model.json')  # Metadata file is not needed for predictions, return None if you do not have it.
     return model_pkl_file, metadata_json_file
 
-#@pytest.mark.skip(reason="I'm in a hurry.")
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_predict(test_file_pair, model_files):
     mesh_file, descriptor_file = test_file_pair
     model_pkl_file, metadata_json_file = model_files
@@ -41,6 +41,7 @@ def test_predict(test_file_pair, model_files):
     lgi_known = fsio.read_morph_data(descriptor_file)
     assert np.corrcoef(lgi_predicted, lgi_known)[0,1] > 0.9  # Require high correlation.
 
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_predict_with_list(test_file_pair, model_files):
     mesh_file, descriptor_file = test_file_pair
     model_pkl_file, metadata_json_file = model_files
@@ -61,6 +62,7 @@ def test_predict_with_list(test_file_pair, model_files):
 
 # Skip tests that write files to disk on CI.
 # We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 @pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Must not write files into dir on Github.")
 def test_predict_for_recon_dir_write(model_files):
     model_pkl_file, metadata_json_file = model_files
@@ -80,7 +82,7 @@ def test_predict_for_recon_dir_write(model_files):
     for f in pvd_files_written:
         os.remove(f)
 
-
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 def test_predict_for_recon_dir_nowrite(model_files):
     model_pkl_file, metadata_json_file = model_files
     recon_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')
@@ -96,6 +98,4 @@ def test_predict_for_recon_dir_nowrite(model_files):
     assert len(values) == len(subjects_list) * len(hemis)
     assert isinstance(values, list)
     assert isinstance(values[0], np.ndarray)
-
-
 

@@ -12,4 +12,5 @@ dependencies:
   - psutil >= 5.0
   - matplotlib >= 3.5
   - nibabel >= 2.1
+  - brainload >= 0.3.5
 

@@ -15,7 +15,8 @@ setup(
                       'nibabel',
                       'trimesh',
                       'brainload',
-                      'sklearn'
+                      'sklearn',
+                      'brainload'
                       ],
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-cov', 'pytest-console-scripts', 'pytest-runner', 'coverage'],
@@ -29,7 +30,7 @@ setup(
     package_dir = {'': 'src'},
     entry_points = {
         'console_scripts': [
-            'meshlearn_lgi = clients.meshlearn_lgi:main',
+            'meshlearn_lgi_train = clients.meshlearn_lgi:main',
         ]
     }
 )

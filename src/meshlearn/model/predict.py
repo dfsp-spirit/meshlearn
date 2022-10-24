@@ -7,8 +7,12 @@ This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for
 """
 
 from abc import abstractmethod
+from genericpath import isfile
 import numpy as np
+import os
 from meshlearn.model.persistance import load_model
+import brainload.nitools as nit
+import nibabel.freesurfer.io as fsio
 from meshlearn.data.training_data import compute_dataset_for_mesh
 import time
 from datetime import timedelta
@@ -74,7 +78,7 @@ class MeshPredictLgi(MeshPredict):
 
     def predict(self, mesh_file):
         """
-        Predict per-vertex descriptor values for a mesh.
+        Predict per-vertex descriptor values for a mesh or a list of meshes.
 
         Parameters
         ----------
@@ -100,7 +104,7 @@ class MeshPredictLgi(MeshPredict):
 
         res_list = []
 
-        for file_idx, meshf in mfl:
+        for file_idx, meshf in enumerate(mfl):
             dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings)
 
             if self.verbose:
@@ -117,7 +121,7 @@ class MeshPredictLgi(MeshPredict):
                 predict_end = time.time()
                 predict_execution_time = predict_end - predict_start
                 predict_execution_time_readable = timedelta(seconds=predict_execution_time)
-                print(f" - Predicted {res_list[file_idx].size} lgi values in range {np.min(res_list[file_idx])} to {np.max(res_list[file_idx])}.")
+                print(f" - Predicted {res_list[file_idx].size} descriptor values in range {np.min(res_list[file_idx])} to {np.max(res_list[file_idx])}.")
                 print(f" - Prediction of {dataset.shape[0]} values took {predict_execution_time_readable}.")
 
         if is_list:
@@ -125,8 +129,66 @@ class MeshPredictLgi(MeshPredict):
         else:
             return res_list[0]
 
-    def predict_for_recon_dir(self, recon_dir, subjects_list=None):
-        pass
+    def predict_for_recon_dir(self, recon_dir, subjects_list=None, subjects_file=None, outname="pial_lgi_p", surface="pial"):
+        """
+        Predict per-vertex descriptor values for all meshes in a `recon-all` output directory structure, and save the resulting descriptors to disk,
+        into the existing recon-all output structure.
+
+        Parameters
+        ----------
+        recon_dir       : str, path to recon-all output directory containing MRI-data pre-processed with FreeSurfer.
+        subjects_list   : list of str, the subjects to handle in the subjects dir. Leave at None to use all subjects detected in there. See also `subjects_file`.
+        subjects_file   : str, path to subjects file, a txt file containing one subject per line. If this is given (not None), subjects_list must be None.
+        outname         : str, the ouput name of the predicted descriptor files. The output format will be FreeSurfer curv format. A prefix based on the hemisphere (one of `lh.` or `rh.`) will be added to construct the full file name. The file will be placed in the `<recon_dir>/<subject>/surf/` directory of each subject.
+        surface         : str, the input surface (mesh) to use. Must be 'pial' for pial_lgi, or you will get very bad results. Only in here to be able to re-use this method with other models/descriptors.
+
+        Returns
+        -------
+        pvd_files_written   : list of str, the filenames of output files that were written successfully.
+        infiles_okay        : list of str, the input filenames for the files in `pvd_files_written`, in the same order.
+        infiles_missing     : list of str, the filenames of expected input filenames (meshes) that were not found in the recon-all directory structure.
+        infiles_with_errors : list of str, the filenames of files where the input mesh file existed, but an error occurred during prediction or writing the output file.
+        """
+        if not os.path.isdir(recon_dir):
+            raise ValueError(f"Input directory '{recon_dir}' does not exist or cannot be read.")
+        if subjects_list is not None and subjects_file is not None:
+            raise ValueError("Only one of parameters 'subjects_list' and 'subjects_file' can be used.")
+        if subjects_list is None and subjects_file is None:
+            raise ValueError("Exactly one of parameters 'subjects_list' and 'subjects_file' must be given (and not None).")
+        if subjects_file is not None:
+            subjects_list = nit.read_subjects_file(subjects_file)
+        if not isinstance(subjects_list, list):
+            raise ValueError("Parameter 'subjects_list' must be a list of str.")
+
+        pvd_files_written = []
+        infiles_okay = []
+        infiles_missing = []
+        infiles_with_errors = []
+
+        for subject in subjects_list:
+            subj_surf_dir = os.path.join(recon_dir, subject, 'surf')
+            for hemi in ["lh", "rh"]:
+                mesh_file = os.path.join(subj_surf_dir, hemi + "." + surface)
+                if os.path.isfile(mesh_file):
+                    outfile = os.path.join(subj_surf_dir, hemi + outname)
+                    try:
+                        pvd = self.predict(mesh_file)
+
+                        fsio.write_morph_data(outfile, pvd)
+                        pvd_files_written.append(outfile)
+                        infiles_okay.append(mesh_file)
+                    except Exception as ex:
+                        if self.verbose:
+                            print(f"Failed to predict pvd descriptor data for mesh '{mesh_file}' and write output to '{outfile}': {str(ex)}")
+                        infiles_with_errors.append(mesh_file)
+                else:
+                    if self.verbose:
+                        print(f"Subject {subject} is missing {hemi} input mesh file at '{mesh_file}'. Skipping.")
+                    infiles_missing.append(mesh_file)
+
+        assert len(pvd_files_written) == len(infiles_okay), f"Expected len(pvd_files_written)={len(pvd_files_written)} to be equal to len(infiles_okay)={len(infiles_okay)}."
+
+        return pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors
 
 
 

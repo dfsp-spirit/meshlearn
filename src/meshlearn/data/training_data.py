@@ -505,7 +505,7 @@ def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_se
     input_filepair_list = [(mesh_file, None, )]
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}
 
-    if preproc_settings['cortex_label'] is not None:
+    if 'cortex_label' in preproc_settings and preproc_settings['cortex_label'] is not None:
         print(f"Notice: Ignoring parameter 'cortex_label' during preprocessing of mesh for prediction.")
     _ = preproc_settings.pop('cortex_label', None)
 

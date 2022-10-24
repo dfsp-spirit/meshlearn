@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='meshlearn',
-    version='0.0.1',
+    version='0.1.0',
     description='Predict local vertex-wise mesh descriptors. E.g., predict the local gyrification index for a mesh vertex. The local gyrification index is a brain morphometry descriptor used in computational neuroimaging. It describes the folding of the human cortex at a specific point, based on a mesh reconstruction of the cortical surface from a magnetic resonance image.',
     url='https://github.com/dfsp-spirit/meshlearn',
     author='Tim Schaefer',

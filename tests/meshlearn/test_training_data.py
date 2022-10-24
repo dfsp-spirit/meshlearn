@@ -21,6 +21,12 @@ def test_get_valid_mesh_desc_lgi_file_pairs_flat_dir():
     assert len(valid_mesh_files) == 2
     assert len(valid_desc_files) == 2
 
+def test_get_valid_mesh_desc_lgi_file_pairs_flat_dir_verbose():
+    valid_mesh_files, valid_desc_files = get_valid_mesh_desc_lgi_file_pairs_flat_dir(dir_tim_only, verbose=True)
+    assert len(valid_mesh_files) == 2
+    assert len(valid_desc_files) == 2
+
+
 
 def test_get_valid_mesh_desc_file_pairs_reconall():
     valid_mesh_files, valid_desc_files, valid_labl_files, valid_files_subject, valid_files_hemi, subjects_missing_some_file = get_valid_mesh_desc_file_pairs_reconall(dir_abide, verbose=False)
@@ -30,3 +36,18 @@ def test_get_valid_mesh_desc_file_pairs_reconall():
     assert len(valid_files_subject) == len(valid_mesh_files)
     assert len(valid_files_hemi) == len(valid_mesh_files)
     assert len(subjects_missing_some_file) == 0
+
+def test_get_valid_mesh_desc_file_pairs_reconall_cortex_label():
+    subjects_list = ["Caltech_0051447", "Leuven_2_0050742"]
+    valid_mesh_files, valid_desc_files, valid_labl_files, valid_files_subject, valid_files_hemi, subjects_missing_some_file = get_valid_mesh_desc_file_pairs_reconall(dir_abide, verbose=True, cortex_label=True, subjects_list=subjects_list)
+    assert len(valid_mesh_files) == 0  # All subjects are missing the cortex label files.
+    assert len(valid_desc_files) == 0
+    assert len(valid_labl_files) == 0
+
+def test_get_valid_mesh_desc_file_pairs_reconall_cortex_label_nonedesc():
+    subjects_list = ["Caltech_0051447", "Leuven_2_0050742"]
+    valid_mesh_files, valid_desc_files, valid_labl_files, valid_files_subject, valid_files_hemi, subjects_missing_some_file = get_valid_mesh_desc_file_pairs_reconall(dir_abide, verbose=True, cortex_label=True, subjects_list=subjects_list, descriptor=None)
+    assert len(valid_mesh_files) == 0  # All subjects are missing the cortex label files.
+    assert len(valid_desc_files) == 0
+    assert len(valid_labl_files) == 0
+

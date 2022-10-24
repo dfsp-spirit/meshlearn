@@ -2,6 +2,9 @@ name: Run tests in conda environment
 
 on: push
 
+env:
+    MESHLEARN_TESTS_ON_GITHUB: true
+
 jobs:
   build-linux:
     runs-on: ubuntu-latest

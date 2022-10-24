@@ -129,7 +129,7 @@ class MeshPredictLgi(MeshPredict):
         else:
             return res_list[0]
 
-    def predict_for_recon_dir(self, recon_dir, subjects_list=None, subjects_file=None, outname="pial_lgi_p", surface="pial"):
+    def predict_for_recon_dir(self, recon_dir, subjects_list=None, subjects_file=None, outname="pial_lgi_p", surface="pial", hemis=["lh", "rh"], do_write_files=True):
         """
         Predict per-vertex descriptor values for all meshes in a `recon-all` output directory structure, and save the resulting descriptors to disk,
         into the existing recon-all output structure.
@@ -141,6 +141,8 @@ class MeshPredictLgi(MeshPredict):
         subjects_file   : str, path to subjects file, a txt file containing one subject per line. If this is given (not None), subjects_list must be None.
         outname         : str, the ouput name of the predicted descriptor files. The output format will be FreeSurfer curv format. A prefix based on the hemisphere (one of `lh.` or `rh.`) will be added to construct the full file name. The file will be placed in the `<recon_dir>/<subject>/surf/` directory of each subject.
         surface         : str, the input surface (mesh) to use. Must be 'pial' for pial_lgi, or you will get very bad results. Only in here to be able to re-use this method with other models/descriptors.
+        hemis           : list of str, max len 2, entries must be a subset of: `['lh', 'rh']`.
+        do_write_files  : bool, whether to save results as to disk.
 
         Returns
         -------
@@ -148,6 +150,7 @@ class MeshPredictLgi(MeshPredict):
         infiles_okay        : list of str, the input filenames for the files in `pvd_files_written`, in the same order.
         infiles_missing     : list of str, the filenames of expected input filenames (meshes) that were not found in the recon-all directory structure.
         infiles_with_errors : list of str, the filenames of files where the input mesh file existed, but an error occurred during prediction or writing the output file.
+        values              : list of np.ndarray, the predicted values for the files in `infiles_okay`.
         """
         if not os.path.isdir(recon_dir):
             raise ValueError(f"Input directory '{recon_dir}' does not exist or cannot be read.")
@@ -164,19 +167,23 @@ class MeshPredictLgi(MeshPredict):
         infiles_okay = []
         infiles_missing = []
         infiles_with_errors = []
+        values = []
 
         for subject in subjects_list:
             subj_surf_dir = os.path.join(recon_dir, subject, 'surf')
-            for hemi in ["lh", "rh"]:
+            for hemi in hemis:
                 mesh_file = os.path.join(subj_surf_dir, hemi + "." + surface)
                 if os.path.isfile(mesh_file):
                     outfile = os.path.join(subj_surf_dir, hemi + outname)
                     try:
                         pvd = self.predict(mesh_file)
-
-                        fsio.write_morph_data(outfile, pvd)
-                        pvd_files_written.append(outfile)
                         infiles_okay.append(mesh_file)
+                        values.append(pvd)
+
+                        if do_write_files:
+                            fsio.write_morph_data(outfile, pvd)
+                            pvd_files_written.append(outfile)
+
                     except Exception as ex:
                         if self.verbose:
                             print(f"Failed to predict pvd descriptor data for mesh '{mesh_file}' and write output to '{outfile}': {str(ex)}")
@@ -186,9 +193,7 @@ class MeshPredictLgi(MeshPredict):
                         print(f"Subject {subject} is missing {hemi} input mesh file at '{mesh_file}'. Skipping.")
                     infiles_missing.append(mesh_file)
 
-        assert len(pvd_files_written) == len(infiles_okay), f"Expected len(pvd_files_written)={len(pvd_files_written)} to be equal to len(infiles_okay)={len(infiles_okay)}."
-
-        return pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors
+        return pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors, values
 
 
 

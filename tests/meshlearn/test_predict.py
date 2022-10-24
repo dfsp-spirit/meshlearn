@@ -59,19 +59,43 @@ def test_predict_with_list(test_file_pair, model_files):
         assert np.max(pred_values) <= 6.0
         assert np.corrcoef(pred_values, lgi_known)[0,1] > 0.9  # Require high correlation.
 
-#@pytest.mark.skip(reason="I'm in a hurry.")
-def test_predict_for_recon_dir(model_files):
+# Skip tests that write files to disk on CI.
+# We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Must not write files into dir on Github.")
+def test_predict_for_recon_dir_write(model_files):
     model_pkl_file, metadata_json_file = model_files
     recon_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')
 
     Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
     subjects_list=["Leuven_2_0050743"]
-    pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors = Mp.predict_for_recon_dir(recon_dir, subjects_list=subjects_list)
+    hemis=["lh"]
+    do_write_files = True
+    pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors, _ = Mp.predict_for_recon_dir(recon_dir, subjects_list=subjects_list, hemis=hemis, do_write_files=do_write_files)
 
-    assert len(infiles_okay) + len(infiles_missing) + len(infiles_with_errors) == len(subjects_list) * 2  # For the 2 hemis.
-    assert len(infiles_okay) == len(subjects_list) * 2 # For the 2 hemis.
+    assert len(pvd_files_written) == len(subjects_list) * len(hemis)
+    assert len(infiles_okay) + len(infiles_missing) + len(infiles_with_errors) == len(subjects_list) * len(hemis)
+    assert len(infiles_okay) == len(subjects_list) * len(hemis)
+
+    # Clean up.
     for f in pvd_files_written:
         os.remove(f)
+
+
+def test_predict_for_recon_dir_nowrite(model_files):
+    model_pkl_file, metadata_json_file = model_files
+    recon_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')
+
+    Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
+    subjects_list=["Leuven_2_0050743"]
+    hemis=["lh"]
+    do_write_files = False
+    pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors, values = Mp.predict_for_recon_dir(recon_dir, subjects_list=subjects_list, hemis=hemis, do_write_files=do_write_files)
+
+    assert len(infiles_okay) + len(infiles_missing) + len(infiles_with_errors) == len(subjects_list) * len(hemis)
+    assert len(pvd_files_written) == 0
+    assert len(values) == len(subjects_list) * len(hemis)
+    assert isinstance(values, list)
+    assert isinstance(values[0], np.ndarray)
 
 
 

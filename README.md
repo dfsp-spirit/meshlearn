@@ -33,7 +33,9 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 
 **This currently is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
 
-### Development installation for Ubuntu 20.04 LTS
+### Development installation for Ubuntu 20.04 LTS and Ubuntu 22.04
+
+This will most likely work under a number of different operating systems, but Ubuntu 20.04 LTS and Ubuntu 22.04 are the only ones I tested.
 
 We highly recommend to work in a `conda` environment, especially when using `tensorflow-gpu` instead of the CPU-version `tensorflow`:
 

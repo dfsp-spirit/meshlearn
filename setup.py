@@ -1,4 +1,6 @@
 from setuptools import setup
+# This package cannot be installed through pip alone, as it requires 'igl' (the libigl binding for Python).
+# The easiest way to get igl is via conda: https://anaconda.org/conda-forge/igl. Use the supplied environment file to install via conda.
 
 setup(
     name='meshlearn',
@@ -21,7 +23,7 @@ setup(
     setup_requires=['pytest-runner'],
     tests_require=['pytest', 'pytest-cov', 'pytest-console-scripts', 'pytest-runner', 'coverage'],
     classifiers=[
-        'Development Status :: 1 - Planning',
+        'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: BSD License',
         'Operating System :: POSIX :: Linux',
@@ -30,7 +32,8 @@ setup(
     package_dir = {'': 'src'},
     entry_points = {
         'console_scripts': [
-            'meshlearn_lgi_train = clients.meshlearn_lgi:main',
+            'meshlearn_lgi_train = clients.meshlearn_lgi_train:main',
+            'meshlearn_lgi_predict = clients.meshlearn_lgi_predict:main',
         ]
     }
 )

@@ -53,7 +53,11 @@ conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, spe
 conda install -y -c conda-forge trimesh igl
 ```
 
-If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorflow`.
+If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorflow` to run on CPU.
+
+Alternatively, one can use the [environment.yml file we now provide](./environment.yml) to setup the conda environment. This is guaranteed to be up-to-date and to work, as this is the way we also install on our CI system where the unit tests are run.
+
+
 
 #### Step 2 of 2: Install meshlearn into the conda env ####
 

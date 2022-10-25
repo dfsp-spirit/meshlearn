@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
 
 #!/usr/bin/env python3
+
+# This is a temporary file that will be deleted before the official release.
 
 import os
 import numpy as np

@@ -7,8 +7,8 @@ This program trains a LightGBM model on local gyrification index (lGI) per-verte
 import numpy as np
 import pandas as pd
 import argparse
-import time
 import os
+import time
 from datetime import timedelta
 from sys import getsizeof
 import psutil
@@ -146,12 +146,12 @@ Train and evaluate an lGI prediction model.
 """
 
 #default_data_dir = os.path.expanduser("~/data/abide_freesurfer_lgi_2persite")
-default_data_dir = "/media/spirit/science/data/abide"
+#default_data_dir = "/media/spirit/science/data/abide"
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
 parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.", default=default_data_dir)
+parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.")
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="500")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
@@ -160,8 +160,6 @@ parser.add_argument('-f', '--load_files', help="Total number of files to load. S
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
 parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to 0, meaning all. (Model fitting always uses all cores.)", default="8")
 args = parser.parse_args()
-
-args.verbose = True
 
 # Data settings not exposed on cmd line. Change here if needed.
 add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation

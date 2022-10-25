@@ -1,8 +1,6 @@
 # meshlearn
 AI model to predict computationally expensive local, vertex-wise descriptors like the local gyrification index from the local mesh neighborhood.
 
-**This currently is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
-
 ![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)
 [![codecov](https://codecov.io/github/dfsp-spirit/meshlearn/branch/main/graph/badge.svg?token=IX2WWVM0WV)](https://codecov.io/github/dfsp-spirit/meshlearn)
 
@@ -31,8 +29,9 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 
 ## Development
 
-Note: This is structured like a python module, but the code should be treated as a very specific application, I guess. It's just convenient for me to have it in a model to re-use some data loading stuff.
+### Development state
 
+**This currently is a quick prototype and not intended to be used by others. There is no stable API whatsoever, everything changes at will.**
 
 ### Development installation for Ubuntu 20.04 LTS
 

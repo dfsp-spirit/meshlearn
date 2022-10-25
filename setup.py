@@ -33,7 +33,7 @@ setup(
     entry_points = {
         'console_scripts': [
             'meshlearn_lgi_train = clients.meshlearn_lgi_train:main',
-            'meshlearn_lgi_predict = clients.meshlearn_lgi_predict:main',
+            'meshlearn_lgi_predict = clients.meshlearn_lgi_predict:predict_lgi',
         ]
     }
 )

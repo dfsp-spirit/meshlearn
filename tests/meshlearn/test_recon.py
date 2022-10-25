@@ -1,12 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import pytest
-import trimesh as tm
 import os
-import numpy as np
-import pandas as pd
-from meshlearn.data.training_data import TrainingData, get_valid_mesh_desc_lgi_file_pairs_flat_dir, get_valid_mesh_desc_file_pairs_reconall
-from scipy.spatial import KDTree
+from meshlearn.util.recon import get_valid_mesh_desc_lgi_file_pairs_flat_dir, get_valid_mesh_desc_file_pairs_reconall
+
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')

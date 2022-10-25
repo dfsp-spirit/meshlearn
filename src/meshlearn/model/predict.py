@@ -7,7 +7,6 @@ This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for
 """
 
 from abc import abstractmethod
-from genericpath import isfile
 import numpy as np
 import os
 from meshlearn.model.persistance import load_model
@@ -16,6 +15,7 @@ import nibabel.freesurfer.io as fsio
 from meshlearn.data.training_data import compute_dataset_for_mesh
 import time
 from datetime import timedelta
+from pathlib import Path
 
 class MeshPredict():
     """
@@ -108,7 +108,7 @@ class MeshPredictLgi(MeshPredict):
             dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings)
 
             if self.verbose:
-                print(f"Handling mesh file 'meshf'.")
+                print(f"Handling mesh file '{meshf}'.")
                 preproc_end = time.time()
                 preproc_execution_time = preproc_end - preproc_start
                 preproc_execution_time_readable = timedelta(seconds=preproc_execution_time)
@@ -129,7 +129,7 @@ class MeshPredictLgi(MeshPredict):
         else:
             return res_list[0]
 
-    def predict_for_recon_dir(self, recon_dir, subjects_list=None, subjects_file=None, outname="pial_lgi_p", surface="pial", hemis=["lh", "rh"], do_write_files=True):
+    def predict_for_recon_dir(self, recon_dir, subjects_list=None, subjects_file=None, outname="pial_lgi_p", surface="pial", hemis=["lh", "rh"], do_write_files=True, outdir=None):
         """
         Predict per-vertex descriptor values for all meshes in a `recon-all` output directory structure, and save the resulting descriptors to disk,
         into the existing recon-all output structure.
@@ -142,6 +142,7 @@ class MeshPredictLgi(MeshPredict):
         outname         : str, the ouput name of the predicted descriptor files. The output format will be FreeSurfer curv format. A prefix based on the hemisphere (one of `lh.` or `rh.`) will be added to construct the full file name. The file will be placed in the `<recon_dir>/<subject>/surf/` directory of each subject.
         surface         : str, the input surface (mesh) to use. Must be 'pial' for pial_lgi, or you will get very bad results. Only in here to be able to re-use this method with other models/descriptors.
         hemis           : list of str, max len 2, entries must be a subset of: `['lh', 'rh']`.
+        outdir          : str or None, an alternative output directory. Only needed if you do not want to write to the input directory structure (e.g., because you do not have write access there). Only the base dir must exist, the structure underneath will be created for you. Leave at 'None' to write to 'recon_dir'.
         do_write_files  : bool, whether to save results as to disk.
 
         Returns
@@ -163,6 +164,10 @@ class MeshPredictLgi(MeshPredict):
         if not isinstance(subjects_list, list):
             raise ValueError("Parameter 'subjects_list' must be a list of str.")
 
+        if outdir is not None:
+            if not os.path.isdir(outdir):
+                raise ValueError(f"If parameter 'outdir' is given, that directory must exist, but '{outdir}' cannot be read or is not a directory.")
+
         pvd_files_written = []
         infiles_okay = []
         infiles_missing = []
@@ -171,10 +176,14 @@ class MeshPredictLgi(MeshPredict):
 
         for subject in subjects_list:
             subj_surf_dir = os.path.join(recon_dir, subject, 'surf')
+            output_surf_dir = subj_surf_dir
+            if outdir is not None:
+                output_surf_dir = os.path.join(outdir, subject, 'surf')
+                output_surf_dir.mkdir(parents = True,  exist_ok = True)
             for hemi in hemis:
                 mesh_file = os.path.join(subj_surf_dir, hemi + "." + surface)
                 if os.path.isfile(mesh_file):
-                    outfile = os.path.join(subj_surf_dir, hemi + outname)
+                    outfile = os.path.join(output_surf_dir, hemi + outname)
                     try:
                         pvd = self.predict(mesh_file)
                         infiles_okay.append(mesh_file)

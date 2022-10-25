@@ -30,24 +30,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 
-def fit_regression_model_sklearnrf(X_train, y_train, model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs': 8}):
-    """This is extremely slow compared to the lightgbm vesion (60 times slower) and should not be used anymore."""
-    from sklearn.ensemble import RandomForestRegressor
-    regressor = RandomForestRegressor(**model_settings)
-    # The 'model_info' is used for a rough overview only. Saved along with pickled model. Not meant for reproduction.
-    # Currently needs to be manually adjusted when changing model!
-    model_info = {'model_type': 'sklearn.ensemble.RandomForestRegressor', 'model_settings' : model_settings }
-
-    fit_start = time.time()
-    regressor.fit(X_train, y_train)
-
-    fit_end = time.time()
-    fit_execution_time = fit_end - fit_start
-    fit_execution_time_readable = timedelta(seconds=fit_execution_time)
-    model_info['fit_time'] = str(fit_execution_time_readable)
-
-    return regressor, model_info
-
 def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val,
                                   model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs':8},
                                   opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0,

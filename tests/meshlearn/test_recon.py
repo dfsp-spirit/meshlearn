@@ -6,7 +6,7 @@ from meshlearn.util.recon import get_valid_mesh_desc_lgi_file_pairs_flat_dir, ge
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')
-# Respect the environment variable BRAINLOAD_TEST_DATA_DIR if it is set. If not, fall back to default:
+# Respect the environment variable MESHLEARN_TEST_DATA_DIR if it is set. If not, fall back to default:
 TEST_DATA_DIR = os.getenv('MESHLEARN_TEST_DATA_DIR', TEST_DATA_DIR)
 
 dir_tim_only = os.path.join(TEST_DATA_DIR, 'tim_only')

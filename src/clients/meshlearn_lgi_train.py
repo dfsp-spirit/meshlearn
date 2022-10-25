@@ -54,11 +54,22 @@ def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val,
     return regressor, model_info
 
 
-def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, hpt_num_estimators=100, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2):
+def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_iterations = 20, inner_cv_k=3, hpt_num_estimators=100, num_cores=8, random_state=42, eval_metric="neg_mean_absolute_error", verbose_lightgbm=1, verbose_random_search=2, return_opt_model=True):
     """Perform hypermarameter optimization via random parameter search.
 
     This takes (num_iterations x inner_cv_k) times longer than fitting a single model. Run this once, hard-code the obtained
-    parameters, and from then on run `fit_regression_model_lightgbm` with these parameters instead."""
+    parameters, and from then on run `fit_regression_model_lightgbm` with these parameters instead.
+
+    Parameters
+    ----------
+    ...
+    return_opt_model : bool, whether to re-fit a final model on all data with the optimal params and return it. If `False`, the `model` return value will be `None`.
+
+    Returns
+    -------
+    model: None or lightgbm.model instance, depending on parameter `return_opt_model`
+    model_info : dict with subdicts `model_params` and `fit_params`, where `model_params` are the tuned, optimal params. The `fit_params` are other settings used for the model fit that were fixed during optimization.
+    """
 
     # Credits: was based https://www.kaggle.com/code/mlisovyi/lightgbm-hyperparameter-optimisation-lb-0-761
     print(f'Performing hyperparameter optimization for lightgbm Model using {num_iterations} random search iterations and {inner_cv_k}-fold inner cross validation ({num_iterations * inner_cv_k} fits total) using {num_cores} cores.')
@@ -113,11 +124,13 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_ite
     opt_params = random_search.best_params_
     print(f'Best score reached: {random_search.best_score_} with params: {opt_params}. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.')
 
-    print(f'Fitting final model...')
-    model = lightgbm.LGBMRegressor(**model_param_search.get_params())
-    #set optimal parameters
-    model.set_params(**opt_params)
-    model.fit(X_train, y_train, **fit_params)
+    model = None
+    if return_opt_model:
+        print(f'Fitting final model...')
+        model = lightgbm.LGBMRegressor(**model_param_search.get_params())
+        #set optimal parameters
+        model.set_params(**opt_params)
+        model.fit(X_train, y_train, **fit_params)
     model_info['model_params'] =  opt_params
     model_info['fit_params'] =  fit_params
     return model, model_info
@@ -127,20 +140,18 @@ def hyperparameter_optimization_lightgbm(X_train, y_train, X_val, y_val, num_ite
 Train and evaluate an lGI prediction model.
 """
 
-#default_data_dir = os.path.expanduser("~/data/abide_freesurfer_lgi_2persite")
-#default_data_dir = "/media/spirit/science/data/abide"
-
 # Parse command line arguments
 parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
 parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
-parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer.")
+parser.add_argument('-d', '--data_dir', help="The recon-all data directory. Created by FreeSurfer's recon-all on your sMRI images.")
 parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="500")
 parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
 parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
 parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file.", default="50000")
 parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only.", default="96")
 parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default).", action="store_true")
-parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to 0, meaning all. (Model fitting always uses all cores.)", default="8")
+parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to 0, meaning all. (Model fitting always uses all cores.)", default="0")
+parser.add_argument("-t", "--pickle_tag", help="Optional, a tag (arbitrary string) if you want to use pickling (saving/restoring data). If given the tag will be used to construct 1) the filename from/to which to unpickle/pickle the pre-processed dataset as 'ml<dataset_tag>_dataset.pkl', and 2) of the JSON metadata file for the dataset as 'ml<dataset_tag>_dataset.json'. If the model file does not exist, it will be created during the first run (with the respective JSON file), and used in subsequent runs with the same '--pickle-tag'. Can save a lot of time during model tuning if the dataset is final. Example: '_v1'.", default="")
 args = parser.parse_args()
 
 # Data settings not exposed on cmd line. Change here if needed.
@@ -181,11 +192,11 @@ data_settings_in = {'data_dir': args.data_dir,
 
 
 ### Other settings, not related to data loading. Adapt here if needed.
-do_pickle_data = True
+do_pickle_data = len(args.pickle_tag) > 0
 
 # Some common thing to identify a certain dataset. Freeform. Set to empty string if you do not need this.
 # Allows switching between pickled datasets quickly.
-dataset_tag = ""
+dataset_tag = args.pickle_tag
 model_tag = dataset_tag
 
 dataset_pickle_file = f"ml{dataset_tag}_dataset.pkl"  # Only relevant if do_pickle_data is True
@@ -195,7 +206,7 @@ training_history_image_filename = f"ml{dataset_tag}_training.png"  # Image to sa
 do_persist_trained_model = True
 model_save_file=f"ml{model_tag}_model.pkl"
 model_settings_file=f"ml{model_tag}_model.json"
-num_cores_fit = 8
+num_cores_fit = None
 
 # Model settings
 lightgbm_num_estimators = 144 * 3  # The number of estimators (trees) to use during final model fitting.

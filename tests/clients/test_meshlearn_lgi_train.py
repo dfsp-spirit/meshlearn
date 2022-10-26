@@ -17,3 +17,16 @@ def test_help(script_runner):
     assert ret.success
     assert 'usage' in ret.stdout
     assert ret.stderr == ''
+
+# We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
+def test_train_sequential(script_runner):
+    """
+    Train model. Note that the amount of training data used here is very limited and totally unsuitable to train a well-performing model.
+    This is just to make the unit test run quickly.
+    """
+    data_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')
+    with tempfile.TemporaryDirectory() as tmpdir_name:
+        ret = script_runner.run('meshlearn_lgi_train', '-v', '-n', '50', '-r', '10', '-l', '100000', '-w', tmpdir_name, data_dir)
+    assert ret.success

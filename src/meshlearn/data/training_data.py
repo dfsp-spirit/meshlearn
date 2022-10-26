@@ -425,10 +425,11 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
         input_filepair_list = list(zip(mesh_files, desc_files))  # List of 2-tuples, for each tuple first elem is mesh_file, 2nd is desc_file.
 
     # Shuffle input file list if requested. Useful to ensure that we do not handle only the first X files, which are all from the same site.
-    if data_settings['shuffle_input_file_order']:
+
+    if data_settings.get('shuffle_input_file_order', False):
         if verbose:
-            print(f"Shuffling input file list with random seed '{data_settings['random_seed']}'.")
-        random.seed(data_settings['random_seed'])
+            print(f"Shuffling input file list with random seed '{data_settings.get('random_seed', None)}'.")
+        random.seed(data_settings.get('random_seed', None))
         random.shuffle(input_filepair_list)
     else:
         if verbose:
@@ -466,9 +467,9 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
     load_start = time.time()
     tdl = TrainingData()
     if data_settings['sequential']:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings['random_seed'])
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None))
     else:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings['random_seed'])
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None))
     load_end = time.time()
     load_execution_time = load_end - load_start
     if verbose:

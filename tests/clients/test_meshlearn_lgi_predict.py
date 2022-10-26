@@ -21,7 +21,7 @@ def test_help(script_runner):
     assert 'usage' in ret.stdout
     assert ret.stderr == ''
 
-# Skip tests that write files to disk on CI.
+
 # We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 @pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
@@ -35,7 +35,7 @@ def test_predict_file_implicit_modelmetadata(script_runner):
         ret = script_runner.run('meshlearn_lgi_predict', '-p', mesh_file, '-d', tmpdir_name, model_file)
     assert ret.success
 
-# Skip tests that write files to disk on CI.
+
 # We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 @pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")

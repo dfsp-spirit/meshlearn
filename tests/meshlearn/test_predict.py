@@ -5,7 +5,7 @@ import os
 import numpy as np
 from meshlearn.model.predict import MeshPredictLgi
 import nibabel.freesurfer.io as fsio
-
+import tempfile
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')
@@ -73,8 +73,7 @@ def test_predict_for_recon_dir_write(model_files):
     Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
     subjects_list=["Leuven_2_0050743"]
     hemis=["lh"]
-    do_write_files = True
-    pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors, _ = Mp.predict_for_recon_dir(recon_dir, subjects_list=subjects_list, hemis=hemis, do_write_files=do_write_files)
+    pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors, _ = Mp.predict_for_recon_dir(recon_dir, subjects_list=subjects_list, hemis=hemis)
 
     assert len(pvd_files_written) == len(subjects_list) * len(hemis)
     assert len(infiles_okay) + len(infiles_missing) + len(infiles_with_errors) == len(subjects_list) * len(hemis)
@@ -83,6 +82,27 @@ def test_predict_for_recon_dir_write(model_files):
     # Clean up.
     for f in pvd_files_written:
         os.remove(f)
+
+
+# We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
+def test_predict_for_recon_dir_write_elsewhere(model_files):
+    model_pkl_file, metadata_json_file = model_files
+    recon_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')
+
+    Mp = MeshPredictLgi(model_pkl_file, metadata_json_file)
+    subjects_list=["Leuven_2_0050743"]
+    hemis=["lh"]
+
+    with tempfile.TemporaryDirectory() as tmpdir_name:
+        pvd_files_written, infiles_okay, infiles_missing, infiles_with_errors, _ = Mp.predict_for_recon_dir(recon_dir, subjects_list=subjects_list, hemis=hemis, outdir=tmpdir_name)
+
+    assert len(pvd_files_written) == len(subjects_list) * len(hemis)
+    assert len(infiles_okay) + len(infiles_missing) + len(infiles_with_errors) == len(subjects_list) * len(hemis)
+    assert len(infiles_okay) == len(subjects_list) * len(hemis)
+
+
 
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
 @pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
@@ -101,4 +121,6 @@ def test_predict_for_recon_dir_nowrite(model_files):
     assert len(values) == len(subjects_list) * len(hemis)
     assert isinstance(values, list)
     assert isinstance(values[0], np.ndarray)
+
+    assert not os.path.isfile(os.path.join(recon_dir, "Leuven_2_0050743", "surf", "lh.pial_lgi_p"))  # Make sure nothing was written.
 

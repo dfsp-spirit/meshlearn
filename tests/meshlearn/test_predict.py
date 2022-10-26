@@ -26,6 +26,7 @@ def model_files():
     return model_pkl_file, metadata_json_file
 
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
 def test_predict(test_file_pair, model_files):
     mesh_file, descriptor_file = test_file_pair
     model_pkl_file, metadata_json_file = model_files
@@ -42,6 +43,7 @@ def test_predict(test_file_pair, model_files):
     assert np.corrcoef(lgi_predicted, lgi_known)[0,1] > 0.9  # Require high correlation.
 
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
 def test_predict_with_list(test_file_pair, model_files):
     mesh_file, descriptor_file = test_file_pair
     model_pkl_file, metadata_json_file = model_files
@@ -63,7 +65,7 @@ def test_predict_with_list(test_file_pair, model_files):
 # Skip tests that write files to disk on CI.
 # We set the env var MESHLEARN_TESTS_ON_GITHUB in our Github workflow file, at <repo>/.github/workflows/*.
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
-@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Must not write files into dir on Github.")
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
 def test_predict_for_recon_dir_write(model_files):
     model_pkl_file, metadata_json_file = model_files
     recon_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')
@@ -83,6 +85,7 @@ def test_predict_for_recon_dir_write(model_files):
         os.remove(f)
 
 @pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
+@pytest.mark.skipif(os.getenv("MESHLEARN_TESTS_ON_GITHUB", "false") == "true", reason="Not enough memory on Github, see issue #13.")
 def test_predict_for_recon_dir_nowrite(model_files):
     model_pkl_file, metadata_json_file = model_files
     recon_dir = os.path.join(TEST_DATA_DIR, 'abide_lgi')

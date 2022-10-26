@@ -1,7 +1,7 @@
 # meshlearn
 AI model to predict computationally expensive local, vertex-wise descriptors like the local gyrification index from the local mesh neighborhood.
 
-![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)
+[![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)](https://github.com/dfsp-spirit/meshlearn/actions)
 [![codecov](https://codecov.io/github/dfsp-spirit/meshlearn/branch/main/graph/badge.svg?token=IX2WWVM0WV)](https://codecov.io/github/dfsp-spirit/meshlearn)
 
 

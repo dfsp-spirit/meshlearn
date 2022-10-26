@@ -1,6 +1,8 @@
 # meshlearn
 AI model to predict computationally expensive local, vertex-wise descriptors like the local gyrification index from the local mesh neighborhood.
 
+This includes a python package and API (`meshlearn`) and two command line applications for training and predicting lGI, `meshlearn_lgi_train` and `meshlearn_lgi_predict`. End users are most likely interested only in the `meshlearn_lgi_predict` command, in combination with one of our pre-trained models.
+
 [![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)](https://github.com/dfsp-spirit/meshlearn/actions)
 
 
@@ -99,9 +101,9 @@ We now make our training data publicly available. See the [native space lgi data
 
 #### Running model training
 
-Select the model you want to run in `src/clients/` and adapt the settings at the top and/or the defaults for the command line arguments.
+Have a look at the `meshlearn_lgi_train` application and its command line options. After installation of the `meshlearn` Python package (see above for instructions), just type `meshlearn_lgi_train --help` to get started.
 
-Then run the client script in `ipython` or use one of the run scripts, like: `./run_lgbm.sh`, after adapting the command line arguments in there.
+If you need more control, use the meshlearn Python API. We would suggest to have a look at our work to get started: select the model you want to run in `src/clients/` and create your own copy. Then adapt the settings at the top and/or the defaults for the command line arguments or mess with the code.
 
 Note: Be sure to run within the correct `conda` environment!
 
@@ -138,9 +140,9 @@ cd <repo_dir>
 pytest --cov-report term:skip-covered --cov src/meshlearn tests/
 ```
 
-If you prefer a full annotated source tree (more or less required if you want to add new tests specifically designed to increase coverage), create an annotated report instead:
+If you prefer a full HTML report (more or less required if you want to add new tests specifically designed to increase coverage), create it instead of the console report:
 
 ```shell
 pytest --cov-report html:coverage_html --cov src/meshlearn tests/
-firefox ./coverage_html/  # Or whatever your favourite browser is.
+firefox ./coverage_html/index.html  # Or whatever your favourite browser is.
 ```

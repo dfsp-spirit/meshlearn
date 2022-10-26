@@ -25,9 +25,9 @@ def test_mem_opt_float16_range():
     assert getsizeof(df_opt) <= getsizeof(df)
 
 def test_mem_opt_float():
-    for dtype in [np.float32, np.float64]:
+    for dtype in [np.float16, np.float32, np.float64]:
         low = np.finfo(dtype).max - 100.0
-        data = np.random.default_rng().uniform(low=low, high=low+5.0, size=10)
+        data = np.random.default_rng().uniform(low=low, high=low+5.0, size=10).astype(np.float64)
         df = pd.DataFrame({"data": data})
         df_opt = reduce_mem_usage(df)
         assert df.shape == df_opt.shape
@@ -36,8 +36,8 @@ def test_mem_opt_float():
 def test_mem_opt_int():
     for dtype in [np.int8, np.int16, np.int32, np.int64]:
         low = np.iinfo(dtype).max - 50
-        data = np.random.default_rng().integers(low=low, high=low+30, size=10)
-        df = pd.DataFrame({"data": data})
+        data = np.random.default_rng().integers(low=low, high=low+30, size=10, dtype=np.int64)
+        df = pd.DataFrame({"data": data, "obj": np.zeros((10,), dtype=object)})
         df_opt = reduce_mem_usage(df)
         assert df.shape == df_opt.shape
 

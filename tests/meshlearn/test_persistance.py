@@ -13,7 +13,7 @@ import tempfile
 
 THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEST_DATA_DIR = os.path.join(THIS_DIR, os.pardir, 'test_data')
-# Respect the environment variable BRAINLOAD_TEST_DATA_DIR if it is set. If not, fall back to default:
+# Respect the environment variable MESHLEARN_TEST_DATA_DIR if it is set. If not, fall back to default:
 TEST_DATA_DIR = os.getenv('MESHLEARN_TEST_DATA_DIR', TEST_DATA_DIR)
 
 @pytest.fixture

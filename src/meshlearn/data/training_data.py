@@ -52,7 +52,7 @@ class TrainingData():
         return vert_coords, faces, pvd_data
 
 
-    def neighborhoods_from_raw_data_parallel(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, exactly=False, num_samples_per_file=None, df=True, verbose=False, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None):
+    def neighborhoods_from_raw_data_parallel(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, exactly=False, num_samples_per_file=None, df=True, verbose=False, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None, add_local_mesh_descriptors = True, add_global_mesh_descriptors = True):
         """
         Parallel version of `neighborhoods_from_raw_data`. Calls the latter in parallel using multi-threading.
 
@@ -60,22 +60,24 @@ class TrainingData():
 
         Parameters
         ----------
-        datafiles: list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
-        mesh_neighborhood_radius: radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
-        exactly: bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
-        num_samples_per_file: positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `max_num_neighbors`.
-        df : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray)
-        verbose: bool, whether to print output (or be silent)
-        mesh_neighborhood_count: int or None, number of neighbors to consider at most per vertex (even if more were found within the `mesh_neighborhood_radius` during kdtree search). Set to None for all.
-        add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
-        add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
-        num_cores: int, number of cores to use for parallel data loading.
-        num_files_total: int or None, number of files to load. Set to None for all. Consider your available RAM.
-        filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
-        add_desc_brain_bbox: whether to add descriptor: brain bounding box
-        add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
-        reduce_mem: bool, whether to convert all datatypes to memory saving version with lower precision to save RAM (e.g., int64 to in32), if the value range allows it.
-        random_seed: int or None, seed for random number generator.
+        datafiles                    : list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
+        mesh_neighborhood_radius     : radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
+        exactly                      : bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
+        num_samples_per_file         : positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `max_num_neighbors`.
+        df                           : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray). Internal, leave alone, or subsequent functions may fail.
+        verbose                      : bool, whether to print output (or be silent)
+        mesh_neighborhood_count      : int or None, number of neighbors to consider at most per vertex (even if more were found within the `mesh_neighborhood_radius` during kdtree search). Set to None for all.
+        add_desc_vertex_index        : bool, whether to add descriptor: vertex index in mesh
+        add_desc_neigh_size          : bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
+        num_cores                    : int, number of cores to use for parallel data loading.
+        num_files_total              : int or None, number of files to load. Set to None for all. Consider your available RAM.
+        filter_smaller_neighborhoods : bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
+        add_desc_brain_bbox          : bool, whether to add descriptor: brain bounding box
+        add_subject_and_hemi_columns : bool whether to add extra columns contains subject ID and hemi.
+        reduce_mem                   : bool, whether to convert all datatypes to memory saving version with lower precision to save RAM (e.g., int64 to in32), if the value range allows it.
+        random_seed                  : int or None, seed for random number generator.
+        add_local_mesh_descriptors   : bool, whether to add local mesh descriptors, like local curvature.
+        add_global_mesh_descriptors  : bool, whether to add global mesh descriptors, like vertex and edge counts.
 
         Note: Parameter 'num_samples_total' is not supported in parallel mode.
               Use 'num_files_total' (and 'num_samples_per_file') instead
@@ -98,12 +100,12 @@ class TrainingData():
                 datafiles = datafiles_subset
 
         with ThreadPoolExecutor(num_cores) as pool:
-            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, mesh_neighborhood_radius=mesh_neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, mesh_neighborhood_count=mesh_neighborhood_count, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem, random_seed=random_seed)
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, mesh_neighborhood_radius=mesh_neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, mesh_neighborhood_count=mesh_neighborhood_count, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem, random_seed=random_seed, add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
         return df, df.columns, datafiles
 
 
-    def neighborhoods_from_raw_data_seq(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None):
+    def neighborhoods_from_raw_data_seq(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None, add_local_mesh_descriptors = True, add_global_mesh_descriptors = True):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
@@ -114,21 +116,23 @@ class TrainingData():
 
         Parameters
         ----------
-        datafiles: list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
-        mesh_neighborhood_radius: radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
-        num_samples_total: positive integer, the total number of samples (neighborhoods) to return from the mesh files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
-        exactly: bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
-        num_samples_per_file: positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `max_num_neighbors`.
-        df : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray)
-        verbose: bool, whether to print output (or be silent)
-        mesh_neighborhood_count: int, number of neighbors to consider at most per vertex (even if more were found within the `mesh_neighborhood_radius` during kdtree search).
-        add_desc_vertex_index: bool, whether to add descriptor: vertex index in mesh
-        add_desc_neigh_size: bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
-        filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
-        add_desc_brain_bbox: whether to add descriptor: brain bounding box
-        add_subject_and_hemi_columns: bool whether to add extra columns contains subject ID and hemi.
-        reduce_mem: bool, whether to convert all datatypes to memory saving version with lower precision to save RAM (e.g., int64 to in32), if the value range allows it.
-        random_seed: int or None, seed for random number generator.
+        datafiles                    : list of 2-tuples str, 1st elem of each tuple: str, mesh file name. 2nd elem: str, corresponding per-vertex data file name. Must be FreeSurfer surf files and curv files.
+        mesh_neighborhood_radius     : radius for neighborhood sphere, in mesh units (mm for FreeSurfer meshes)
+        num_samples_total            : positive integer, the total number of samples (neighborhoods) to return from the mesh files. Set to None to return all values. A sample consists of the data for a single vertex, i.e., its neighborhood coordinates and its target per-vertex value. Setting to None is slower, because we cannot pre-allocate.
+        exactly                      : bool, whether to force loading exactly 'num_samples_total' samples. If false, and the last chunk loaded from a file leads to more samples, this function will return all loaded ones. If true, the extra ones will be discarded and exactly 'num_samples_total' samples will be returned.
+        num_samples_per_file         : positive integer, the number of samples (neighborhoods) to load at max per mesh file. Can be used to read data from more different subjects, while still keeping the total training data size reasonable. Note that the function may return less, if filtering by size is active via `max_num_neighbors`.
+        df                           : bool, whether to return as pandas.DataFrame (instead of numpy.ndarray)
+        verbose                      : bool, whether to print output (or be silent)
+        mesh_neighborhood_count      : int, number of neighbors to consider at most per vertex (even if more were found within the `mesh_neighborhood_radius` during kdtree search).
+        add_desc_vertex_index        : bool, whether to add descriptor: vertex index in mesh
+        add_desc_neigh_size          : bool, whether to add descriptor: number of neighbors in ball query radius (before any filtering due to `mesh_neighborhood_count`)
+        filter_smaller_neighborhoods : bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
+        add_desc_brain_bbox          : bool, whether to add descriptor: brain bounding box
+        add_subject_and_hemi_columns : bool whether to add extra columns contains subject ID and hemi.
+        reduce_mem                   : bool, whether to convert all datatypes to memory saving version with lower precision to save RAM (e.g., int64 to in32), if the value range allows it.
+        random_seed                  : int or None, seed for random number generator.
+        add_local_mesh_descriptors   : bool, whether to add local mesh descriptors, like local curvature.
+        add_global_mesh_descriptors  : bool, whether to add global mesh descriptors, like vertex and edge counts.
 
 
         Returns
@@ -225,9 +229,6 @@ class TrainingData():
                     extra_columns['subject'] = np.array([subject] * num_verts_total)
                     extra_columns['hemi'] = np.array([hemi] * num_verts_total)
 
-            add_local_mesh_descriptors = True  # TODO: expose as function parameter
-            add_global_mesh_descriptors = True  # TODO: expose as function parameter
-
             if add_local_mesh_descriptors:
                 from meshlearn.data.curvature import Curvature
                 c = Curvature(mesh_file_name)
@@ -318,9 +319,6 @@ class TrainingData():
 
 
 
-
-
-
 def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_settings = {'num_samples_total': None,
                      'num_samples_per_file': None,
                      'random_seed': None,
@@ -329,13 +327,18 @@ def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_se
                      }):
     """
     Perform loading and pre-processing for a single mesh file. Useful when predicting.
+
+    Parameters
+    ----------
+    mesh_file        : str, the mesh to load.
+    preproc_settings : dict, the pre-processing settings for the mesh. Must match those used for the model when predicting, get them from the model JSON file.
+    verbose          : bool, whether to print output.
+    data_settings    : dict, the data settings which are related to which samples are loaded, but do not change descriptors (i.e., they affect row, but not columns in the dataset). Leave alone for prediction, as people want to predict for the whole mesh anyways.
     """
     input_filepair_list = [(mesh_file, None, )]
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}
 
-    if 'cortex_label' in preproc_settings and preproc_settings['cortex_label'] is not None:
-        print(f"Notice: Ignoring parameter 'cortex_label' during preprocessing of mesh for prediction.")
-    _ = preproc_settings.pop('cortex_label', None)
+    preproc_settings.pop('cortex_label', None)
 
 
 
@@ -344,7 +347,6 @@ def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_se
     dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list,
                                                                                **data_settings,
                                                                                **preproc_settings)
-    #neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], max_num_neighbors=preproc_settings['mesh_neighborhood_count'], , add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'],
     load_end = time.time()
     load_execution_time = load_end - load_start
     if verbose:
@@ -384,8 +386,10 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
         filter_smaller_neighborhoods: bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
         add_desc_brain_bbox: whether to add descriptor: brain bounding box
         add_subject_and_hemi_columns: bool whether to add extra columns containing subject identifier and hemi.
+        add_local_mesh_descriptors   : bool, whether to add local mesh descriptors, like local curvature.
+        add_global_mesh_descriptors  : bool, whether to add global mesh descriptors, like vertex and edge counts.
     """
-    if preproc_settings['cortex_label']:
+    if preproc_settings.get('cortex_label', False):
         raise ValueError("Parameter preproc_settings['cortex_label'] must be False: not implemented yet.")
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}
     discover_start = time.time()
@@ -395,7 +399,7 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
 
     assert len(mesh_files) == len(desc_files)
     assert len(mesh_files) == len(files_hemi)
-    if preproc_settings['cortex_label']:
+    if preproc_settings.get('cortex_label', False):
         assert len(cortex_files) == len(mesh_files)
     else:
         assert len(cortex_files) == 0
@@ -458,7 +462,7 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
             print(f"Will load at most {data_settings['num_samples_per_file']} vertex neighborhoods per mesh file.")
 
         neigh_size_tag = "auto-determined neighborhood size" if preproc_settings['mesh_neighborhood_count'] is None or preproc_settings['mesh_neighborhood_count'] == 0 else f"neighborhood size {preproc_settings['mesh_neighborhood_count']}"
-        if preproc_settings['filter_smaller_neighborhoods']:
+        if preproc_settings.get('filter_smaller_neighborhoods', False):
             print(f"Will filter (remove) all neighborhoods smaller than {neigh_size_tag}.")
         else:
             print(f"NOTICE: Will fill the respective missing columns of neighborhoods smaller than {neigh_size_tag} with NAN values. You will have to handle NAN values before training! (Set 'filter_smaller_neighborhoods' to 'True' to ignore them instead.)")
@@ -466,10 +470,14 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
 
     load_start = time.time()
     tdl = TrainingData()
+
+    add_local_mesh_descriptors = preproc_settings.get("add_local_mesh_descriptors", True)
+    add_global_mesh_descriptors = preproc_settings.get("add_global_mesh_descriptors", True)
+
     if data_settings['sequential']:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None))
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors)
     else:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None))
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors)
     load_end = time.time()
     load_execution_time = load_end - load_start
     if verbose:

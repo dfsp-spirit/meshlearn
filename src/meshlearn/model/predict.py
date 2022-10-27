@@ -179,7 +179,7 @@ class MeshPredictLgi(MeshPredict):
             output_surf_dir = subj_surf_dir
             if outdir is not None:
                 output_surf_dir = os.path.join(outdir, subject, 'surf')
-                output_surf_dir.mkdir(parents = True,  exist_ok = True)
+                Path(output_surf_dir).mkdir(parents = True,  exist_ok = True)
             for hemi in hemis:
                 mesh_file = os.path.join(subj_surf_dir, hemi + "." + surface)
                 if os.path.isfile(mesh_file):

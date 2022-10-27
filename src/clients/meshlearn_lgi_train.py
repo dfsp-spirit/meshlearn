@@ -157,15 +157,19 @@ def train_lgi():
     args = parser.parse_args()
 
     # Data settings not exposed on cmd line. Change here if needed.
-    add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation
-    add_desc_neigh_size = True  # whether to add vertex neighborhood size (before pruning) as desriptor column to observation
     surface = 'pial'  # The mesh to use.
     descriptor = 'pial_lgi'  # The label descriptor, what you want to predict on the mesh.
-    cortex_label = False  # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
-    filter_smaller_neighborhoods = False  # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
-    load_per_file_force_exactly = True # Whether to load exactly the requested number of entries per file, even if the file contains more (and more where thus read when reading it).
-    add_desc_brain_bbox = True
     random_state = 42
+    load_per_file_force_exactly = True # Whether to load exactly the requested number of entries per file, even if the file contains more (and more where thus read when reading it).
+
+    # Preproc settings which are not exposed on the command line. (They are not exposed because changing them is most likely not need or a bad idea).
+    cortex_label = False  # Whether to load FreeSurfer 'cortex.label' files and filter verts by them. Not implemented yet.
+    add_desc_vertex_index = True  # whether to add vertex index as desriptor column to observation
+    add_desc_neigh_size = True  # whether to add vertex neighborhood size (before pruning) as desriptor column to observation
+    filter_smaller_neighborhoods = False  # Whether to filter (remove) neighborhoods smaller than 'args.neigh_count' (True), or fill the missing columns with 'np.nan' values instead. Note that, if you set to False, you will have to deal with the NAN values in some way before using the data, as most ML models cannot cope with NAN values.
+    add_desc_brain_bbox = True
+    add_local_mesh_descriptors = True
+    add_global_mesh_descriptors = True
 
     ### Construct data settings from command line and other data setting above.
 
@@ -176,7 +180,9 @@ def train_lgi():
                         'mesh_neighborhood_radius':int(args.neigh_radius),
                         'mesh_neighborhood_count':int(args.neigh_count),
                         'filter_smaller_neighborhoods': filter_smaller_neighborhoods,
-                        'add_desc_brain_bbox': add_desc_brain_bbox
+                        'add_desc_brain_bbox': add_desc_brain_bbox,
+                        'add_local_mesh_descriptors' : add_local_mesh_descriptors,
+                        'add_global_mesh_descriptors': add_global_mesh_descriptors
                     }
 
     ## All settings relevant for deciding which meshes to load, how to load them, and what data to keep from them.

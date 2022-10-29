@@ -144,15 +144,18 @@ def train_lgi():
     # Parse command line arguments
     example_text = '''Examples:
 
+ # Use neighborhood radius 15mm, and coords/normals for max 300 vertices in radius, load 500k vertex neighborhoods:
  meshlearn_lgi_train -v -n 300 -r 15 -l 500000 -s -c 4 $SUBJECTS_DIR
+ # Use neighborhood defaults, load 35k samples per file from 48 files, 8 in parallel. Persist dataset before training:
  meshlearn_lgi_train -p 35000 -f 48 -c 8 -t "_v2" -w . $SUBJECTS_DIR
+ # After running the previous command, load the persisted dataset for training new model (with changed training settings in script):
  meshlearn_lgi_train -t "_v2" -w . $SUBJECTS_DIR
 
- Note that the dataset to be loaded must fit into RAM. To get great results, we suggest
+ Note: The dataset to be loaded must fit into RAM. To get great results, we suggest
  running model training on a machine with at least 128 GB of RAM, and to load a diverse
- set of training files which amount to 50 - 60 GB of data im memory. Use slighly less
+ set of training files (-p) which amount to 50 - 60 GB of data im memory. Use slighly less
  than half of the available RAM for the data to load (many ops need to temporarily store
- 2 copies of the data in RAM).
+ another copy of the data in RAM).
  '''
     parser = argparse.ArgumentParser(prog='meshlarn_lgi_train',
                                      description="Train and evaluate an lGI prediction model.",

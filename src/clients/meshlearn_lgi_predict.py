@@ -13,8 +13,10 @@ def predict_lgi():
 
     example_text = '''Examples:
 
+ # Predict for a single mesh file, in verbose mode, using the model and implicitely given json file .../ml_model.json:
  meshlearn_lgi_predict -p $SUBJECTS_DIR/subject1/surf/lh.pial -v tests/test_data/models/lgbm_lgi/ml_model.pkl
- meshlearn_lgi_predict -r $SUBJECTS_DIR tests/test_data/models/lgbm_lgi/ml_model.pkl
+ # Predict for all mesh files in recon-all output dir, using the model and explicitely given json file:
+ meshlearn_lgi_predict -r $SUBJECTS_DIR -j ./ml_model_metadata.json tests/test_data/models/lgbm_lgi/ml_model.pkl
  '''
 
     parser = argparse.ArgumentParser(prog='meshlarn_lgi_predict',

@@ -7,6 +7,10 @@ This includes a python package and API (`meshlearn`) and two command line applic
 
 
 
+![Vis0](./web/meshlearn_brain_blank_and_lgi_web.jpg?raw=true "Left: Brain surface, faces drawn. Right: Visualization of predicted lGI per-vertex data on the mesh, using the viridis colormap.")
+**Fig. 0** *Left: Brain surface, faces drawn. Right: Visualization of predicted lGI per-vertex data on the mesh, using the viridis colormap.*
+
+
 ## About
 
 Predict per-vertex descriptors like the local gyrification index (lGI) or other local descriptors for a mesh.
@@ -17,7 +21,7 @@ Predict per-vertex descriptors like the local gyrification index (lGI) or other 
 
 ![Vis1](./web/brain_mesh_full.jpg?raw=true "Brain mesh, white surface.")
 
-**Fig. 1** *A mesh representing the human cortex.*
+**Fig. 1** *A mesh representing the human cortex, edges drawn.*
 
 ![Vis2](./web/brain_mesh_vertices.jpg?raw=true "Brain mesh, zoomed view that shows the mesh structure.")
 

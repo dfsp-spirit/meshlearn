@@ -142,7 +142,24 @@ def train_lgi():
     """
 
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Train and evaluate an lGI prediction model.")
+    example_text = '''Examples:
+
+ meshlearn_lgi_train -v -n 300 -r 15 -l 500000 -s -c 4 $SUBJECTS_DIR
+ meshlearn_lgi_train -p 35000 -f 48 -c 8 -t "_v2" -w . $SUBJECTS_DIR
+ meshlearn_lgi_train -t "_v2" -w . $SUBJECTS_DIR
+
+ Note that the dataset to be loaded must fit into RAM. To get great results, we suggest
+ running model training on a machine with at least 128 GB of RAM, and to load a diverse
+ set of training files which amount to 50 - 60 GB of data im memory. Use slighly less
+ than half of the available RAM for the data to load (many ops need to temporarily store
+ 2 copies of the data in RAM).
+ '''
+    parser = argparse.ArgumentParser(prog='meshlarn_lgi_train',
+                                     description="Train and evaluate an lGI prediction model.",
+                                     epilog=example_text,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter
+                                     )
+
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
     parser.add_argument('data_dir', help="The recon-all data directory, created by FreeSurfer's recon-all on your sMRI images, or the directory containing the pickled data. Must be given unless -t is used and the input pkl file already exists.")
     parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="500")

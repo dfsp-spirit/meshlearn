@@ -5,11 +5,23 @@ import argparse
 import os
 from meshlearn.model.predict import MeshPredictLgi
 import brainload.nitools as nit
+import brainload.meshexport as meshexport
 import nibabel.freesurfer.io as fsio
 
 
 def predict_lgi():
-    parser = argparse.ArgumentParser(description="Use trained model to predict per-vertex lGI descriptor for a brain mesh.")
+
+    example_text = '''Examples:
+
+ meshlearn_lgi_predict -p $SUBJECTS_DIR/subject1/surf/lh.pial -v tests/test_data/models/lgbm_lgi/ml_model.pkl
+ meshlearn_lgi_predict -r $SUBJECTS_DIR tests/test_data/models/lgbm_lgi/ml_model.pkl
+ '''
+
+    parser = argparse.ArgumentParser(prog='meshlarn_lgi_predict',
+                                     description="Use trained model to predict per-vertex lGI descriptor for a brain mesh.",
+                                     epilog=example_text,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter
+                                     )
     parser.add_argument("model", help="str, the model file containg the model to load and to use for predictions. Must be a pickle file (.pkl file extension). Will search for a matching metadata JSON file in the same directory, with file extension '.json', unless -j is given.")
     parser.add_argument("-j", "--json_metadata", help="str, optional. The model-metadata JSON file. If omitted, the filename will be auto-determined based on the 'model' parameter, as described there.", default="")
     predict_group = parser.add_mutually_exclusive_group(required=True)
@@ -17,6 +29,7 @@ def predict_lgi():
     predict_group.add_argument("-r", "--predict-recon-dir", help="List of 'recon-all' directory/directories to predict lGI for.", nargs="+")
     parser.add_argument("-o", "--outfile-suffix", help="str, the output suffix for the predicted descriptor files. The output format will be FreeSurfer curv format. A prefix based on the hemisphere (one of `lh.` or `rh.`) will be added to construct the full file name (in '-r' mode this is know, in '-p' mode the first 3 chars of the respective input file are used). Note that this must not include any directories, see '--outdir' to control that.", default="pial_lgi_p")
     parser.add_argument("-d", "--outdir", help="str, alternate output directory. If omitted, with '-r', output will be written into the input directories, in the (sub)-directories where the respective input mesh file is located. If given, it must exist. When used with -r and several recon-dirs, the output of all of them is written to this single directory.", default="")
+    parser.add_argument("-l", "--ply", help="Whether to write predicted PVD data additionally as vertex-colored PLY format meshes. Filename will be the one of the output curv file, but with additional '.ply' suffix.", action="store_true")
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
     args = parser.parse_args()
 
@@ -45,18 +58,34 @@ def predict_lgi():
         outdirs = [os.path.dirname(pf) for pf in args.predict_file]
         if len(args.outdir) > 0:
             outdirs = [args.outdir for _ in args.predict_file]
-        for pf_idx, pf in enumerate(args.predict_file):
-                lgi_predicted = Mp.predict(args.predict_file[pf_idx])
+
+        for mesh_file_idx, mesh_file in enumerate(args.predict_file):
+            lgi_predicted = Mp.predict(mesh_file)
+
+            try:
+                outfile = os.path.join(outdirs[mesh_file_idx], os.path.basename(mesh_file)[0:3] + args.outfile_suffix)
+            except Exception as ex:
+                print(f"ERROR: Could not construct outfile name from input filename '{mesh_file}'. The basename '{os.path.basename(mesh_file)}' must contain at least 3 chars (and should start with a prefix 'lh.' or 'rh.').")
+                continue
+            try:
+                fsio.write_morph_data(outfile, lgi_predicted)
+                if args.verbose:
+                    print(f"Predicted values for input file '{mesh_file}' written to output file '{outfile}'.")
+            except Exception as ex:
+                print(f"ERROR: Failed to write morph data for input file '{mesh_file}' to output file '{outfile}': {str(ex)}")
+
+            if args.ply:
                 try:
-                    outfile = os.path.join(outdirs[pf_idx], os.path.basename(pf)[0:3] + args.outfile_suffix)
-                except Exception as ex:
-                    print(f"ERROR: Could not construct outfile name from input filename '{pf}'. The basename '{os.path.basename(pf)}' must contain at least 3 chars (and should start with a prefix 'lh.' or 'rh.').")
-                try:
-                    fsio.write_morph_data(outfile, lgi_predicted)
+                    vert_coords, faces = fsio.read_geometry(mesh_file)
+                    vertex_colors = meshexport.scalars_to_colors_matplotlib(lgi_predicted, "viridis")
+                    ply_str = meshexport.mesh_to_ply(vert_coords, faces, vertex_colors=vertex_colors)
+                    ply_outfile = outfile + ".ply"
+                    with open(ply_outfile, "w") as text_file:
+                        text_file.write(ply_str)
                     if args.verbose:
-                        print(f"Predicted values for input file '{pf}' written to output file '{outfile}'.")
+                        print(f"Predicted per-vertex descriptor data for mesh '{mesh_file}' written in PLY format to '{ply_outfile}'.")
                 except Exception as ex:
-                    print(f"ERROR: Failed to write morph data for input file '{pf}' to output file '{outfile}': {str(ex)}")
+                    print(f"Failed to write predicted per-vertex descriptor data for mesh '{mesh_file}' in PLY format to '{ply_outfile}': {str(ex)}")
 
     if args.predict_recon_dir:
         print(f"Predicting for recon-all dirs: {args.predict_recon_dir}")

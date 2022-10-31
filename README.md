@@ -129,9 +129,7 @@ pytest
 
 #### Test coverage
 
-The test coverage on the CI system seems quite low, but the reason is that GitHub CI cannot run large parts of the tests due to the very limited amount of memory:
-
-[![codecov](https://codecov.io/github/dfsp-spirit/meshlearn/branch/main/graph/badge.svg?token=IX2WWVM0WV)](https://codecov.io/github/dfsp-spirit/meshlearn)
+The test coverage on the CI system seems quite low, but the reason is that GitHub CI cannot run large parts of the tests due to the very limited amount of memory (see [here](https://codecov.io/github/dfsp-spirit/meshlearn)), which shows 49% coverage at the time of this writing, while I have 71% coverage locally).
 
 To see realistic coverage while working on the code, I would currently recommend to run it locally, in your dev installation. E.g.:
 

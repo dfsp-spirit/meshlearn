@@ -39,9 +39,11 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 
 Currently meshlearn comes with one pre-trained model for predicting the local gyrification index (lGI, Schaer et al.) for full-resolution, native space [FreeSurfer meshes](https://freesurfer.net/). These meshes are (a part of) the result of running FreeSurfer's `recon-all` pipeline on structural MRI scans of the human brain.
 
-The model is a gradiant-boosting machine as implemented in [lightgbm](https://github.com/microsoft/LightGBM), and it was trained on a diverse training set of about 60 GB of pre-processed mesh data, obtained from the publicly available, multi-site [ABIDE I dataset](https://fcon_1000.projects.nitrc.org/indi/abide/). The model can be found at [tests/test_data/models/lgbm_lgi/](./tests/test_data/models/lgbm_lgi/), and consists of the model file (`ml_model.pkl`, the pickled lightgbm model) and a metadata file (`ml_model.json`) that contains the pre-processing settings used to train the model. These settings must also be used when predicting for a new mesh.
+The model is a gradiant-boosting machine as implemented in [lightgbm](https://github.com/microsoft/LightGBM), and it was trained on a diverse training set of about 60 GB of pre-processed mesh data, obtained from the publicly available, multi-site [ABIDE I dataset](https://fcon_1000.projects.nitrc.org/indi/abide/). The model can be found at [tests/test_data/models/lgbm_lgi/](./tests/test_data/models/lgbm_lgi/), and consists of the model file (`ml_model.pkl`, the pickled lightgbm model) and a metadata file ([ml_model.json](tests/test_data/models/lgbm_lgi/ml_model.json)) that contains the pre-processing settings used to train the model. These settings must also be used when predicting for a new mesh.
 
 The `meshlearn_lgi_predict` command line application that is part of meshlearn can be used to predict lGI for your own FreeSurfer meshes using the supplied model or alternative models. After installation of meshlearn, run `meshlearn_lgi_predict --help` for available options. (For now, you will need to follow the installation instructions in the development section below, as there is not official release yet.)
+
+Information on model performance can be found in the mentioned [ml_model.json file](tests/test_data/models/lgbm_lgi/ml_model.json), under the key `model_info.evaluation`. The model has not been fine-tuned yet.
 
 ### Training your own model
 

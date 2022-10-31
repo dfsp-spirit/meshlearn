@@ -1,11 +1,9 @@
+[![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)](https://github.com/dfsp-spirit/meshlearn/actions)
+
 # meshlearn
 AI model to predict computationally expensive local, vertex-wise descriptors like the local gyrification index from the local mesh neighborhood.
 
 This includes a python package and API (`meshlearn`) and two command line applications for training and predicting lGI, `meshlearn_lgi_train` and `meshlearn_lgi_predict`. End users are most likely interested only in the `meshlearn_lgi_predict` command, in combination with one of our pre-trained models.
-
-[![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)](https://github.com/dfsp-spirit/meshlearn/actions)
-
-
 
 ![Vis0](./web/meshlearn_brain_blank_and_lgi_web.jpg?raw=true "Left: Brain surface, faces drawn. Right: Visualization of predicted lGI per-vertex data on the mesh, using the viridis colormap.")
 **Fig. 0** *Left: Brain surface, faces drawn. Right: Visualization of predicted lGI per-vertex data on the mesh, using the viridis colormap.*

@@ -31,6 +31,18 @@ This implementation uses Python, with `tensorflow` and `lightgbm` for the machin
 
 Computing lGI and some other mesh properties for brain surface meshes is slow and sometimes fails even for good quality meshes, leading to exclusion of the respective MRI scans. The lGI computation also requires Matlab, which is inconvenient and prevents the computation of lGI on high performance computer clusters (due to the excessive licensing costs), which would be a way to deal with the long computation times. This project aims to provide a trained model that will predict the lGI for a vertex based on the mesh neighborhood. The aim is to have a faster and more robust method to compute lGI, based on free software.
 
+## Usage
+
+**Please keep in mind that meshlearn is in the alpha stage, use in production is not yet recommended. You are free to play around with it though!**
+
+Currently meshlearn comes with one pre-trained model for predicting the local gyrification index (lGI, Schaer et al.) for full-resolution, native space [FreeSurfer meshes](https://freesurfer.net/). These meshes are (a part of) the result of running FreeSurfer's `recon-all` pipeline on structural MRI scans of the human brain.
+
+The model is a gradiant-boosting machine as implemented in [lightgbm](https://github.com/microsoft/LightGBM), and it was trained on a diverse training set of about 60 GB of pre-processed mesh data, obtained from the publicly available, multi-site [ABIDE I dataset](https://fcon_1000.projects.nitrc.org/indi/abide/). The model can be found at [tests/test_data/models/lgbm_lgi/](./tests/test_data/models/lgbm_lgi/), and consists of the model file (`ml_model.pkl`, the pickled lightgbm model) and a metadata file (`ml_model.json`) that contains the pre-processing setting used to train the model, that must also be used when predicting for a new mesh.
+
+The `meshlearn_lgi_predict` command line application that is part of meshlearn can be used to predict lGI for your own FreeSurfer meshes using the supplied model or alternative models.
+
+If you want to train your own model, you will need training data and a powerful machine with 128+ GB of RAM. Please following the devlopment instructions for details.
+
 ## Development
 
 ### Development state

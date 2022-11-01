@@ -56,7 +56,7 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
             start_index = 0
             end_index = batch_size if neigh_pool.shape[0] >= batch_size else neigh_pool.shape[0]  # There may only be less left at the end.
             batch_df = neigh_pool.iloc[start_index:end_index]
-            neigh_pool.drop(neigh_pool.index[range(start_index, end_index)], axis=0, inplace=True) # Remove used ones from the top.
+            neigh_pool.drop(neigh_pool.index[start_index:end_index,], inplace=True) # Remove used rows from the top.
             neigh_pool.reset_index(inplace=True, drop=True)
 
             print(f"Returning batch_df with top {batch_df.shape[0]} neighborhoods, {neigh_pool.shape[0]} left in pool.")

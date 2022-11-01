@@ -28,8 +28,8 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     surface       : str, surface file to load. 'white', 'pial', 'sphere', etc
     descriptor    : str or None, desc to load (per-vertex data). Something like 'thickness', 'volume', 'area', or 'None' for no desciptor.
     verbose       : bool, whether to print status info
-    subjects_file : str, path to subjects file. assumed to be recon_dir/subjects.txt if omitted
-    subjects_list : list of str, the subjects to load. Used only if no subjects_file is given.
+    subjects_file : str or None, path to subjects text file with one subject per line (CSV without header, with one column). Assumed to be `recon_dir/subjects.txt` if omitted and `subjects_list` is also `None`. Use this or `subjects_list`, not both.
+    subjects_list : list of str, None, or 'autodetect'. Defines the subjects to load. If a list of str, these are interpreted as subject names (sub directories if the `recon_dir`). If the str `autodetect`, valid sub directories under `recon_dir` are auto-detected and their names are used as the subjects list. Used only if no `subjects_file` is given. Use this or `subjects_file`, not both.
     hemis         : list of str, containing one or both of 'lh', 'rh'
     cortex_label  : bool, whether to also require label/<hemi>.cortex.label files.
 
@@ -43,11 +43,16 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     if subjects_file is not None and subjects_list is not None:
         raise ValueError("Pass only one of 'subjects_file' and 'subjects_list', not both.")
 
+    if isinstance(subjects_list, str):
+        if subjects_list == "autodetect":
+            subjects_list = nit.detect_subjects_in_directory(recon_dir)
+        else:
+            raise ValueError(f"Invalid 'subjects_list' parameter. Must be None, a list of str, or 'autodetect' but found single, invalid string '{subjects_list}'.")
+
     if subjects_list is None:
         if subjects_file is None:  # Assume standard subjects file in data dir.
             subjects_file = os.path.join(recon_dir, "subjects.txt")
             print(f"INFO: No 'subjects_list' and no 'subjects_file' given for loading data, assuming subjects file '{subjects_file}'.")
-
         if not os.path.isfile(subjects_file):
             raise ValueError(f"Subjects file '{subjects_file}' cannot be read.")
         subjects_list = nit.read_subjects_file(subjects_file)

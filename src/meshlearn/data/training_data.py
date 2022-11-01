@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 
 """
-Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory.
+Read FreeSurfer brain meshes and pre-computed lgi per-vertex data for them from a directory
+and perform mesh pre-processing (including computation of global and local mesh descriptors)
+on them to create a full dataset.
 
 This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for details.
 """
@@ -319,7 +321,7 @@ class TrainingData():
 
 
 
-def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_settings = {'num_samples_total': None,
+def compute_dataset_for_mesh(mesh_file, preproc_settings, descriptor_file=None, verbose=False, data_settings = {'num_samples_total': None,
                      'num_samples_per_file': None,
                      'random_seed': None,
                      'exactly': False,
@@ -331,11 +333,12 @@ def compute_dataset_for_mesh(mesh_file, preproc_settings, verbose=False, data_se
     Parameters
     ----------
     mesh_file        : str, the mesh to load.
+    descriptor_file  : str or None, the per-vertex descriptor file to load. Can be None if you only want to load and pre-process the mesh, without adding a label column. If you supply it, the last column of the returned DataFrame will hold the labels read from this file.
     preproc_settings : dict, the pre-processing settings for the mesh. Must match those used for the model when predicting, get them from the model JSON file.
     verbose          : bool, whether to print output.
     data_settings    : dict, the data settings which are related to which samples are loaded, but do not change descriptors (i.e., they affect row, but not columns in the dataset). Leave alone for prediction, as people want to predict for the whole mesh anyways.
     """
-    input_filepair_list = [(mesh_file, None, )]
+    input_filepair_list = [(mesh_file, descriptor_file, )]
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}
 
     preproc_settings.pop('cortex_label', None)
@@ -422,6 +425,10 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
     if verbose:
         print(f"=== Discovering data files done, it took: {timedelta(seconds=discover_execution_time)} ===")
 
+    # Adding a subject and hemi column allows users to filter by subject or hemi later, but a better way
+    # is to have them provide an input directory that only contains the files they want, so this option
+    # is not exposed to users currently, and turned off (because we do not want the model to learn from the
+    # subject name and hemisphere at this time).
     add_subject_and_hemi_columns = False
     if add_subject_and_hemi_columns:
         input_filepair_list = list(zip(mesh_files, desc_files, files_subject, files_hemi))  # List of 4-tuples, for each tuple first elem is mesh_file, 2nd is desc_file, 3rd is source subject, 4th is source hemi ('lh' or 'rh').

@@ -107,7 +107,7 @@ class MeshPredictLgi(MeshPredict):
         res_list = []
 
         for file_idx, meshf in enumerate(mfl):
-            dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings)
+            dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings=preproc_settings)
 
             if self.verbose:
                 print(f"Handling mesh file '{meshf}'.")

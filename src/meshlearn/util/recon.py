@@ -15,7 +15,6 @@ import brainload.nitools as nit
 import numpy as np
 import os.path
 import glob
-from sys import getsizeof
 
 
 def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descriptor="pial_lgi", verbose=True, subjects_file=None, subjects_list=None, hemis=["lh", "rh"], cortex_label=False):
@@ -30,8 +29,17 @@ def get_valid_mesh_desc_file_pairs_reconall(recon_dir, surface="pial", descripto
     verbose       : bool, whether to print status info
     subjects_file : str or None, path to subjects text file with one subject per line (CSV without header, with one column). Assumed to be `recon_dir/subjects.txt` if omitted and `subjects_list` is also `None`. Use this or `subjects_list`, not both.
     subjects_list : list of str, None, or 'autodetect'. Defines the subjects to load. If a list of str, these are interpreted as subject names (sub directories if the `recon_dir`). If the str `autodetect`, valid sub directories under `recon_dir` are auto-detected and their names are used as the subjects list. Used only if no `subjects_file` is given. Use this or `subjects_file`, not both.
-    hemis         : list of str, containing one or both of 'lh', 'rh'
-    cortex_label  : bool, whether to also require label/<hemi>.cortex.label files.
+    hemis         : list of str, containing one or both of 'lh', 'rh'. Can be used to get only files for one hemisphere.
+    cortex_label  : bool, whether to also require `label/<hemi>.cortex.label` files for the subjects, and return them in `valid_labl_files` return value.
+
+    Returns
+    -------
+    valid_mesh_files           : list of str, filenames of valid mesh files. Valid means that the other required files for this mesh files also exist (the `descriptor_file` and the `cortex_label` file, if requested).
+    valid_desc_files           : list of str, filenames of descriptor files for the valid_mesh_files. If not requested, a list of None.
+    valid_labl_files           : list of str, filenames of cortex label files for the valid_mesh_files. If not requested, a list of None.
+    valid_files_subject        : list of str, for all valid_mesh_files, the subject to which the mesh belongs.
+    valid_files_hemi           : list of str, for all valid_mesh_files, the hemisphere to which the mesh belongs ('lh' or 'rh').
+    subjects_missing_some_file : list of str, the subject names that were missing some files. Note that subjects can occur twice, if both their hemis were requested and some file was missing for each hemisphere.
 
     See also
     --------

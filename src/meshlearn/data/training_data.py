@@ -396,9 +396,9 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
         raise ValueError("Parameter preproc_settings['cortex_label'] must be False: not implemented yet.")
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}
     discover_start = time.time()
-    mesh_files, desc_files, cortex_files, files_subject, files_hemi, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_settings['data_dir'], surface=data_settings['surface'], descriptor=data_settings['descriptor'], cortex_label=preproc_settings['cortex_label'])
+    mesh_files, desc_files, cortex_files, files_subject, files_hemi, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_settings['data_dir'], surface=data_settings['surface'], descriptor=data_settings['descriptor'], cortex_label=preproc_settings.get('cortex_label', False), verbose=data_settings.get("verbose", True), subjects_file=data_settings.get('subjects_file', None), subjects_list=data_settings.get('subjects_list', None), hemis=data_settings.get('hemis', ["lh", "rh"]))
 
-    verbose = data_settings['verbose']
+    verbose = data_settings.get('verbose', True)
 
     assert len(mesh_files) == len(desc_files)
     assert len(mesh_files) == len(files_hemi)

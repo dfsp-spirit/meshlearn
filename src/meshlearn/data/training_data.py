@@ -337,6 +337,12 @@ def compute_dataset_for_mesh(mesh_file, preproc_settings, descriptor_file=None, 
     preproc_settings : dict, the pre-processing settings for the mesh. Must match those used for the model when predicting, get them from the model JSON file.
     verbose          : bool, whether to print output.
     data_settings    : dict, the data settings which are related to which samples are loaded, but do not change descriptors (i.e., they affect row, but not columns in the dataset). Leave alone for prediction, as people want to predict for the whole mesh anyways.
+
+    Returns
+    -------
+    dataset      : pd.DataFrame
+    col_names    : list of str, the dataset column headers
+    settings_out : dict
     """
     input_filepair_list = [(mesh_file, descriptor_file, )]
     settings_out = {'data_settings': data_settings, 'preproc_settings': preproc_settings, 'log': dict()}

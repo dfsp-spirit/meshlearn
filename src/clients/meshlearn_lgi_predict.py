@@ -19,7 +19,7 @@ def predict_lgi():
  meshlearn_lgi_predict -r $SUBJECTS_DIR -j ./ml_model_metadata.json tests/test_data/models/lgbm_lgi/ml_model.pkl
  '''
 
-    parser = argparse.ArgumentParser(prog='meshlarn_lgi_predict',
+    parser = argparse.ArgumentParser(prog='meshlearn_lgi_predict',
                                      description="Use trained model to predict per-vertex lGI descriptor for a brain mesh.",
                                      epilog=example_text,
                                      formatter_class=argparse.RawDescriptionHelpFormatter

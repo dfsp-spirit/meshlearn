@@ -12,6 +12,7 @@ import json
 import os
 import numpy as np
 from datetime import timedelta
+import tensorflow as tf
 
 def save_model(model, model_and_data_info, model_save_file, model_settings_file, verbose=True):
     """
@@ -68,7 +69,7 @@ def save_model(model, model_and_data_info, model_save_file, model_settings_file,
     pickle_model_save_time = pickle_model_end - pickle_model_start
     pickle_file_size_mb = int(os.path.getsize(model_save_file) / 1024. / 1024.)
     if verbose:
-        print(f"INFO: Saved trained model to pickle file '{model_save_file}' ({pickle_file_size_mb} MB), ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
+        print(f"INFO: Saved trained model to file '{model_save_file}' ({pickle_file_size_mb} MB), ready to load later. Saving model took {timedelta(seconds=pickle_model_save_time)}.")
 
 
 def load_model(model_file, model_settings_file, verbose=True):
@@ -77,21 +78,42 @@ def load_model(model_file, model_settings_file, verbose=True):
 
     Parameters
     ----------
-    model_fil     e     : str, the filename from which to load the model (Pickle file), must end with '.pkl' or a warning will be printed.
-    model_settings_file : str or None, the filename from which to load the model metadata (JSON), must end with '.json' or a warning will be printed. If it contains a path, that path must exist. Set to `None` if you do not have a metadata file or do not want to load it.
+    model_file          : str, the filename from which to load the model (Pickle or HDF5 file), must end with '.pkl' or '.h5', otherwise a warning will be printed.
+    model_settings_file : str or None, the filename from which to load the model metadata (JSON), must end with '.json' or a warning will be printed.
+                          If it contains a path, that path must exist. Set to `None` if you do not have a metadata file or do not want to load it.
+                          Note that without metadata, you must have some other way to determine the settings used to pre-process the meshes during
+                          training of the model, so that you can pass appropriate input.
     verbose             : bool, whether to print status info to stdout. Does not affect warnings, which will be printed even if `verbose=False`.
 
     Returns
     -------
-    model               : the loaded model, some sklearn or lightgbm model typically.
+    model               : the loaded model, some sklearn, tensorflow.keras or lightgbm model typically.
     model_and_data_info : dict or None. Contains the model metadata loaded from the JSON file.
     """
-    if not model_file.endswith('.pkl'):
-        print(f"WARNING: Given model filename '{model_file}' does not have '.pkl' file extension.")
+    if not (model_file.endswith('.pkl') or model_file.endswith('.h5')):
+        print(f"WARNING: Given model filename '{model_file}' does not have '.pkl' or '.h5' file extension.")
     pickle_file_size_mb = int(os.path.getsize(model_file) / 1024. / 1024.)
     if verbose:
         print(f"Loading model from {pickle_file_size_mb} MB file '{model_file}'.")
-    model = pickle.load(open(model_file, 'rb'))
+
+    model = None
+    if model_file.endswith('.pkl'):
+        model = pickle.load(open(model_file, 'rb'))
+    elif model_file.endswith('.h5'):
+        model = tf.keras.models.load_model(model_file)
+    else: # try both
+        print(f"Cannot decide model type from file name, trying.")
+        try:
+            model = pickle.load(open(model_file, 'rb'))
+        except Exception as ex:
+            print(f"Could not load model file '{model_file}' as lightgbm/scikit (pkl file) model: {str(ex)}")
+        try:
+            model = tf.keras.models.load_model(model_file)
+        except Exception as ex:
+            print(f"Could not load model file '{model_file}' as tensorflow/keras (HDF5 file) model: {str(ex)}")
+    if model is None:
+        raise ValueError(f"Failed not load model file '{model_file}'.")
+
     model_and_data_info = None
     if model_settings_file is not None:
         if not model_settings_file.endswith('.json'):

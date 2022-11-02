@@ -7,14 +7,18 @@ This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for
 """
 
 from abc import abstractmethod
-from tabnanny import verbose
 import numpy as np
+import pandas as pd
+import psutil
 import os
-from meshlearn.model.persistance import load_model
 import brainload.nitools as nit
 import brainload.meshexport as meshexport
 import nibabel.freesurfer.io as fsio
+
+from meshlearn.model.persistance import load_model
 from meshlearn.data.training_data import compute_dataset_for_mesh
+from meshlearn.data.postproc import postproc_settings
+
 import time
 from datetime import timedelta
 from pathlib import Path
@@ -42,6 +46,15 @@ class MeshPredictLgi(MeshPredict):
     """
     Predict lGI for a mesh file.
     """
+    # These settings become part of the pre-proc pipeline. They are currently used here
+    # and in the training clients (both thelightgbm client and the keras dataset generator),
+    # which is quite ugly. They need to match between training data pre-processing and pre-processing
+    # of the data to predict on.
+    do_replace_nan = postproc_settings['do_replace_nan']
+    replace_nan_with = postproc_settings['replace_nan_with']
+    do_scale_descriptors = postproc_settings['do_scale_descriptors']
+    scale_func = postproc_settings['scale_func']
+
     def __init__(self, model_file, model_settings_file, verbose=True):
         self.verbose = verbose
         if isinstance(model_file, str) and isinstance(model_settings_file, str):
@@ -107,10 +120,32 @@ class MeshPredictLgi(MeshPredict):
         res_list = []
 
         for file_idx, meshf in enumerate(mfl):
-            dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings=preproc_settings)
-
             if self.verbose:
                 print(f"Handling mesh file '{meshf}'.")
+            dataset, _, _ = compute_dataset_for_mesh(meshf, preproc_settings=preproc_settings)
+
+            if self.do_replace_nan:
+                row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
+                if row_indices_with_nan_values.size > 0:
+                    if self.verbose:
+                        print(f" - Mesh data contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
+                    dataset = dataset.fillna(self.replace_nan_with, inplace=False)
+                    if self.verbose:
+                        print(f" - Filling NAN values in {row_indices_with_nan_values.size} columns in mesh data with value '{self.replace_nan_with}'.")
+                    row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
+                    if self.verbose:
+                        print(f" - Mesh data contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+                else:
+                    if self.verbose:
+                        print(f" - Mesh data contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+                del row_indices_with_nan_values
+
+            if self.do_scale_predictors:
+                if self.verbose:
+                    print(f" - Scaling mesh data.")
+                dataset = self.scale_func(dataset)
+
+            if self.verbose:
                 preproc_end = time.time()
                 preproc_execution_time = preproc_end - preproc_start
                 preproc_execution_time_readable = timedelta(seconds=preproc_execution_time)

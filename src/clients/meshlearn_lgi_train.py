@@ -25,6 +25,7 @@ plt.ion()
 from meshlearn.data.training_data import get_dataset_pickle
 from meshlearn.model.eval import eval_model_train_test_split, report_feature_importances
 from meshlearn.model.persistance import save_model, load_model
+from meshlearn.data.postproc import postproc_settings
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -157,7 +158,7 @@ def train_lgi():
  than half of the available RAM for the data to load (many ops need to temporarily store
  another copy of the data in RAM).
  '''
-    parser = argparse.ArgumentParser(prog='meshlarn_lgi_train',
+    parser = argparse.ArgumentParser(prog='meshlearn_lgi_train',
                                      description="Train and evaluate an lGI prediction model.",
                                      epilog=example_text,
                                      formatter_class=argparse.RawDescriptionHelpFormatter
@@ -172,7 +173,7 @@ def train_lgi():
     parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only (see -s).", default="96")
     parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default). Not recommended. See also '-c'.", action="store_true")
     parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to all. (Model fitting always uses all cores.)", default=None)
-    parser.add_argument("-t", "--pickle_tag", help="Optional, a tag (arbitrary string that will become a filename part) if you want to use pickling (saving/restoring) for datasets. If given the tag will be used to construct 1) the filename from/to which to unpickle/pickle the pre-processed dataset as 'ml<dataset_tag>_dataset.pkl', and 2) of the JSON metadata file for the dataset as 'ml<dataset_tag>_dataset.json'. If the model file does not exist, it will be created during the first run (with the respective JSON file), and used in subsequent runs with the same '--pickle-tag'. Can save a lot of time during model tuning if the dataset is final. Example: '_v1'.", default="")
+    parser.add_argument("-t", "--pickle_tag", help="Optional, a tag (arbitrary string that will become a filename part) if you want to use pickling (saving/restoring) for datasets. If given the tag will be used to construct 1) the filename from/to which to unpickle/pickle the pre-processed dataset as 'ml<dataset_tag>_dataset.pkl', and 2) of the JSON metadata file for the dataset as 'ml<dataset_tag>_dataset.json'. If the model file does not exist, it will be created during the first run (with the respective JSON file), and used in subsequent runs with the same '--pickle-tag'. Can save a lot of time during model tuning if the dataset is final. Example: '_lgbmv1'.", default="")
     parser.add_argument("-w", "--write_dir", help="Optional writeable directory in which to save and from which to load pickled models and datasets, instead of in the data_dir. Useful if the latter is needed for the source data but is read-only. Ignored unless '-t' is also specified.")
     args = parser.parse_args()
 
@@ -190,6 +191,16 @@ def train_lgi():
     add_desc_brain_bbox = True
     add_local_mesh_descriptors = True
     add_global_mesh_descriptors = True
+
+    # Data post-processing options (stuff that happens after loading).
+    # These should become part of the data pre-processing pipeline (and preproc_settings), but that requires us to load training and
+    # eval/testing data completely separately, which is not done yet. (The current method is okay,
+    # it's just not that beautiful, and we need to take during data post-processing not to cause any leakage).
+    # We also need to make sure to apply the same settings during prediction.
+    do_replace_nan = postproc_settings['do_replace_nan']
+    replace_nan_with = postproc_settings['replace_nan_with']
+    do_scale_descriptors = postproc_settings['do_scale_descriptors']
+    scale_func = postproc_settings['scale_func']
 
     ### Construct data settings from command line and other data setting above.
 
@@ -324,12 +335,14 @@ def train_lgi():
 
     dataset, _, data_settings = get_dataset_pickle(data_settings_in, preproc_settings, do_pickle_data, dataset_pickle_file, dataset_settings_file)
 
-    print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+    if data_settings_in['verbose']:
+        print(f"Obtained dataset of {int(getsizeof(dataset) / 1024. / 1024.)} MB, containing {dataset.shape[0]} observations, and {dataset.shape[1]} columns ({dataset.shape[1]-1} features + 1 label). {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
 
     dataset_postproc_start = time.time()
 
     # Shuffle the entire dataset, to prevent the model from training only on (consecutive) vertices from some of the meshes in the set of input files.
-    print(f"Shuffling the rows (row order) of the dataframe.")
+    if data_settings_in['verbose']:
+        print(f"Shuffling the rows (row order) of the dataframe.")
     #dataset = dataset.sample(frac=1, random_state=random_state).reset_index(drop=True)
     from sklearn.utils import shuffle # We use sklearn.utils.shuffle over pandas.DataFrame.sample, as that is buggy in my pandas version and allocates lots of memory (more than 2x size of MB in RAM), crashing this script for large datasets.
     dataset = shuffle(dataset, random_state=random_state)
@@ -338,17 +351,24 @@ def train_lgi():
 
     ### NAN handling. Only needed if 'filter_smaller_neighborhoods' is False.
     # WARNING: If doing non-trivial stuff, perform this separately on the train, test and evaluation data sets to prevent leakage!
-    row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
-    if row_indices_with_nan_values.size > 0:
-        print(f"NOTICE: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
-        print(f"NOTICE: You will have to replace these for most models. Set 'filter_smaller_neighborhoods' to 'True' to ignore them when loading data.")
-        dataset = dataset.fillna(0, inplace=False) # TODO: replace with something better? Like col mean? But if you do that, do NOT do it here, on the entire dataset! In that case, it has to be done separately on the test, train and eval datasets.
-        print(f"Filling NAN values in {row_indices_with_nan_values.size} columns with 0.")
+    if do_replace_nan:
         row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
-        print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+        if row_indices_with_nan_values.size > 0:
+            if data_settings_in['verbose']:
+                print(f"NOTICE: Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total).")
+            dataset = dataset.fillna(replace_nan_with, inplace=False) # TODO: replace with something better? Like col mean? But if you do that, do NOT do it here, on the entire dataset! In that case, it has to be done separately on the test, train and eval datasets.
+            if data_settings_in['verbose']:
+                print(f"Filling NAN values in {row_indices_with_nan_values.size} columns with value '{replace_nan_with}'.")
+            row_indices_with_nan_values = pd.isnull(dataset).any(1).to_numpy().nonzero()[0]
+            if data_settings_in['verbose']:
+                print(f"Dataset contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {dataset.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+        else:
+            if data_settings_in['verbose']:
+                print(f"Dataset contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+        del row_indices_with_nan_values
     else:
-        print(f"Dataset contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
-    del row_indices_with_nan_values
+        if data_settings_in['verbose']:
+            print(f"Not trying to replace NAN values (if any).")
 
 
     nc = len(dataset.columns)
@@ -385,19 +405,17 @@ def train_lgi():
         dataset_postproc_execution_time = dataset_postproc_end - dataset_postproc_start
         print(f"=== Post-processing dataset done (shuffle, NAN-fill, train/test/validation-split), it took: {timedelta(seconds=dataset_postproc_execution_time)} ===")
 
+    if do_scale:
+        print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
-    print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
+        #sc = StandardScaler()
+        #X_train = sc.fit_transform(X_train)
+        #X_test = sc.transform(X_test)
+        #X_eval = sc.transform(X_eval)
 
-    #sc = StandardScaler()
-    #X_train = sc.fit_transform(X_train)
-    #X_test = sc.transform(X_test)
-    #X_eval = sc.transform(X_eval)
-
-    scale = lambda x : x - x.min(0) / x.ptp(0)
-
-    X_train = scale(X_train)
-    X_test = scale(X_test)
-    X_eval = scale(X_eval)
+        X_train = scale_func(X_train)
+        X_test = scale_func(X_test)
+        X_eval = scale_func(X_eval)
 
 
     print(f"Fitting with LightGBM Regressor with {lightgbm_num_estimators} estimators on {num_cores_fit} cores. (Started at {time.ctime()}.)")

@@ -71,6 +71,8 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
             start_index = 0
             end_index = batch_size if neigh_pool.shape[0] >= batch_size else neigh_pool.shape[0]  # There may only be less left at the end.
             batch_df = neigh_pool.iloc[start_index:end_index]
+            assert isinstance(batch_df, pd.DataFrame)
+            assert len(batch_df.shape) == 2, f"batch_df has shape {batch_df.shape} with len {len(batch_df.shape)}, expected len 2."
             neigh_pool.drop(neigh_pool.index[start_index:end_index,], inplace=True) # Remove used rows from the top.
             neigh_pool.reset_index(inplace=True, drop=True)
 
@@ -94,6 +96,8 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
                         print(f"Batch contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
                 del row_indices_with_nan_values
 
+            assert isinstance(batch_df, pd.DataFrame)
+            assert len(batch_df.shape) == 2, f"batch_df has shape {batch_df.shape} with len {len(batch_df.shape)}, expected len 2."
             nc = len(batch_df.columns)
             labels = batch_df[:, (nc-1)]
             descriptors = batch_df[:, 0:(nc-1)]

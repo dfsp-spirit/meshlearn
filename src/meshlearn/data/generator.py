@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import numpy as np
 import pandas as pd
 import psutil
 
@@ -104,7 +105,10 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
             labels = batch_df.iloc[:, (nc-1)].to_numpy()
             descriptors = batch_df.iloc[:, 0:(nc-1)]
             if do_scale_descriptors:
-                descriptors = scale_func(descriptors.to_numpy())
+                with np.errstate(divide='ignore'):  # Ignore run-time warnings about division by zero, we fix the resulting NAN values (if any) below.
+                    descriptors = scale_func(descriptors.to_numpy())
+                descriptors[np.isnan(descriptors)] = replace_nan_with
+
             yield descriptors, labels
 
 

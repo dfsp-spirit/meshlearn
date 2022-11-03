@@ -14,10 +14,10 @@ dependencies:
   - nibabel >= 2.1
   - pytest >= 7.0
   - pytest-console-scripts >= 1.3
-  - pytest-console-scripts
+  - tensorflow >= 2.9
   - pip
   - pip:
     - brainload >= 0.3
-    - coverage
+    - coverage >= 6.0
 
 

@@ -13,12 +13,13 @@ import os
 import glob
 
 import tensorflow as tf
-from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras import Sequential
 from tensorflow.keras import optimizers
 from sklearn.preprocessing import StandardScaler
 import argparse
+
+from meshlearn.data.generator import neighborhood_generator_reconall_dir
 
 ##### Settings #####
 
@@ -49,11 +50,11 @@ def train_lgi_dnn():
 
     parser.add_argument("-v", "--verbose", help="Increase output verbosity.", action="store_true")
     parser.add_argument('data_dir', help="The recon-all data directory, created by FreeSurfer's recon-all on your sMRI images, or the directory containing the pickled data. Must be given unless -t is used and the input pkl file already exists.")
-    parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="500")
+    parser.add_argument('-n', '--neigh_count', help="Number of vertices to consider at max in the edge neighborhoods for Euclidean dist.", default="100")
     parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
     parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
     parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file. Useful to sample data from more different subjects and still not exhaust your RAM.", default="50000")
-    parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only (see -s).", default="96")
+    parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only (see -s).", default="8")
     parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default). Not recommended. See also '-c'.", action="store_true")
     parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to all. (Model fitting always uses all cores.)", default=None)
     parser.add_argument("-t", "--pickle_tag", help="Optional, a tag (arbitrary string that will become a filename part) if you want to use pickling (saving/restoring) for datasets. If given the tag will be used to construct 1) the filename from/to which to unpickle/pickle the pre-processed dataset as 'ml<dataset_tag>_dataset.pkl', and 2) of the JSON metadata file for the dataset as 'ml<dataset_tag>_dataset.json'. If the model file does not exist, it will be created during the first run (with the respective JSON file), and used in subsequent runs with the same '--pickle-tag'. Can save a lot of time during model tuning if the dataset is final. Example: '_lgbmv1'.", default="")
@@ -138,6 +139,8 @@ def train_lgi_dnn():
 
     ##### Fit model #####
 
+    gen = neighborhood_generator_reconall_dir(batch_size=10000, data_settings=data_settings_in, preproc_settings=preproc_settings, verbose=True)
+    batch = next(gen)
     #history = model.fit(epochs=25, x=train_features, y=train_labels, validation_data=(test_features, test_labels), verbose=1)
 
     ##### Analyze training #####

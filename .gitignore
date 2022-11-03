@@ -127,3 +127,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Meshlearn-specific stuff
+tests/test_data/abide/

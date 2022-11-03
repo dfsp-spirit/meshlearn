@@ -140,7 +140,7 @@ class MeshPredictLgi(MeshPredict):
                         print(f" - Mesh data contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
                 del row_indices_with_nan_values
 
-            if self.do_scale_predictors:
+            if self.do_scale_descriptors:
                 if self.verbose:
                     print(f" - Scaling mesh data.")
                 dataset = self.scale_func(dataset)

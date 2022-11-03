@@ -140,7 +140,9 @@ def train_lgi_dnn():
     ##### Fit model #####
 
     gen = neighborhood_generator_reconall_dir(batch_size=10000, data_settings=data_settings_in, preproc_settings=preproc_settings, verbose=True)
-    batch = next(gen)
+    for batch_idx in range(20):
+        print(f"Fetching batch {batch_idx}...")
+        batch = next(gen)
     #history = model.fit(epochs=25, x=train_features, y=train_labels, validation_data=(test_features, test_labels), verbose=1)
 
     ##### Analyze training #####
@@ -164,8 +166,8 @@ def train_lgi_dnn():
     #model.evaluate(test_features, test_labels)
 
     model_output_file = "trained_meshlearn_model_edge_neigh_dist_5.h5"
-    model.save(model_output_file)
-    print(f"Saved trained model to '{model_output_file}'.")
+    #model.save(model_output_file)
+    #print(f"Saved trained model to '{model_output_file}'.")
 
 
     ### NOTE: To use saved model on new data:

@@ -54,8 +54,9 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
                 mesh_file, pvd_file = filepair
                 if verbose:
                     print(f"Pool contains {neigh_pool.shape[0]} neighborhoods, batch size is {batch_size}. Adding data from mesh file #{pair_idx} '{mesh_file}'.")
-                df = compute_dataset_for_mesh(mesh_file, preproc_settings, descriptor_file=pvd_file)
-                neigh_pool = neigh_pool.append(df, ignore_index=True)
+                df, col_names, settings_out = compute_dataset_for_mesh(mesh_file, preproc_settings, descriptor_file=pvd_file)
+                #neigh_pool = neigh_pool.append(df, ignore_index=True)
+                neigh_pool = pd.concat([neigh_pool, df], axis=0, ignore_index=True)
                 pair_idx += 1
 
             if pair_idx == len(input_filepair_list):
@@ -93,16 +94,17 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
                         print(f"Batch contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {batch_df.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
                 else:
                     if verbose:
-                        print(f"Batch contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+                        print(f"Batch contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left. Batch shape is {batch_df.shape}.")
                 del row_indices_with_nan_values
 
             assert isinstance(batch_df, pd.DataFrame)
             assert len(batch_df.shape) == 2, f"batch_df has shape {batch_df.shape} with len {len(batch_df.shape)}, expected len 2."
             nc = len(batch_df.columns)
-            labels = batch_df[:, (nc-1)]
-            descriptors = batch_df[:, 0:(nc-1)]
+            print(f"Batch shape is {batch_df.shape}, with {nc} columns.")
+            labels = batch_df.iloc[:, (nc-1)].to_numpy()
+            descriptors = batch_df.iloc[:, 0:(nc-1)]
             if do_scale_descriptors:
-                descriptors = scale_func(descriptors)
+                descriptors = scale_func(descriptors.to_numpy())
             yield descriptors, labels
 
 

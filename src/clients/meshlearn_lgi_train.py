@@ -405,7 +405,7 @@ def train_lgi():
         dataset_postproc_execution_time = dataset_postproc_end - dataset_postproc_start
         print(f"=== Post-processing dataset done (shuffle, NAN-fill, train/test/validation-split), it took: {timedelta(seconds=dataset_postproc_execution_time)} ===")
 
-    if do_scale:
+    if do_scale_descriptors:
         print(f"Scaling... (Started at {time.ctime()}, {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.)")
 
         #sc = StandardScaler()

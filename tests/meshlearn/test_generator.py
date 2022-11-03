@@ -3,6 +3,7 @@
 import os
 import pytest
 import pandas as pd
+import numpy as np
 from meshlearn.data.generator import neighborhood_generator_filepairs, neighborhood_generator_reconall_dir
 from meshlearn.util.recon import get_valid_mesh_desc_file_pairs_reconall
 
@@ -49,8 +50,9 @@ def test_neighborhood_generator_filepairs(data_settings, preproc_settings):
     input_filepair_list = list(zip(mesh_files, desc_files))
     gen = neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_settings=preproc_settings, verbose=verbose)
     for i in range(5):
-        data = next(gen)
-        assert isinstance(data, pd.DataFrame)
+        descriptors, labels = next(gen)
+        assert isinstance(descriptors, np.ndarray)
+        assert isinstance(labels, np.ndarray)
 
 
 def test_neighborhood_generator_reconall_dir(data_settings, preproc_settings):
@@ -59,5 +61,6 @@ def test_neighborhood_generator_reconall_dir(data_settings, preproc_settings):
 
     gen = neighborhood_generator_reconall_dir(batch_size, data_settings=data_settings, preproc_settings=preproc_settings, verbose=verbose)
     for i in range(5):
-        data = next(gen)
-        assert isinstance(data, pd.DataFrame)
+        descriptors, labels = next(gen)
+        assert isinstance(descriptors, np.ndarray)
+        assert isinstance(labels, np.ndarray)

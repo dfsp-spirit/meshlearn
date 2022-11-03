@@ -17,9 +17,14 @@ This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for
 """
 
 
-def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_settings, verbose=True):
+def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_settings, verbose=False):
     """
     Generator for vertex neighborhood data from filepair list.
+
+    This keeps a reservoir of neighborhoods (in a `pd.DataFrame`), and only loads and pre-processes a new mesh file
+    if a new batch is requested and and the reservoir has less entries that the current `batch_size`.
+
+    This could be improved to use async-io.
 
     Parameters
     ----------
@@ -46,7 +51,7 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
         pair_idx += 1
 
         if verbose:
-            print(f"Added first file '{mesh_file}' to pool, now at size {neigh_pool.shape[0]} neighborhoods.")
+            print(f"[gen] Added first file '{mesh_file}' to pool, now at size {neigh_pool.shape[0]} neighborhoods.")
 
         while neigh_pool.shape[0] > 0:  # Iterate through all neighborhoods in all files.
             # If the neigh_pool is not full enough, fill it up.
@@ -54,7 +59,7 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
                 filepair = input_filepair_list[pair_idx]
                 mesh_file, pvd_file = filepair
                 if verbose:
-                    print(f"Pool contains {neigh_pool.shape[0]} neighborhoods, batch size is {batch_size}. Adding data from mesh file #{pair_idx} '{mesh_file}'.")
+                    print(f"[gen] Pool contains {neigh_pool.shape[0]} neighborhoods, batch size is {batch_size}. Adding data from mesh file #{pair_idx} '{mesh_file}'.")
                 df, col_names, settings_out = compute_dataset_for_mesh(mesh_file, preproc_settings, descriptor_file=pvd_file)
                 #neigh_pool = neigh_pool.append(df, ignore_index=True)
                 neigh_pool = pd.concat([neigh_pool, df], axis=0, ignore_index=True)
@@ -62,10 +67,10 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
 
             if pair_idx == len(input_filepair_list):
                 if verbose:
-                    print(f"No files left, pool contains {neigh_pool.shape[0]} neighborhoods now, batch size is {batch_size}.")
+                    print(f"[gen] No files left, pool contains {neigh_pool.shape[0]} neighborhoods now, batch size is {batch_size}.")
             else:
                 if verbose:
-                    print(f"Fill cycle done, pool contains {neigh_pool.shape[0]} neighborhoods now, batch size is {batch_size}.")
+                    print(f"[gen] Fill cycle done, pool contains {neigh_pool.shape[0]} neighborhoods now, batch size is {batch_size}.")
 
             # The pool is filled, we can return from it. We always return from the top, and remove the ones we returned from the pool.
             neigh_pool.reset_index(inplace=True, drop=True)
@@ -79,29 +84,30 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
             neigh_pool.reset_index(inplace=True, drop=True)
 
             if verbose:
-                print(f"Returning batch_df with top {batch_df.shape[0]} neighborhoods, {neigh_pool.shape[0]} left in pool.")
+                print(f"[gen] Returning batch_df with top {batch_df.shape[0]} neighborhoods, {neigh_pool.shape[0]} left in pool.")
 
             # Handle NaN values.
             if do_replace_nan:
                 row_indices_with_nan_values = pd.isnull(batch_df).any(1).to_numpy().nonzero()[0]
                 if row_indices_with_nan_values.size > 0:
                     if verbose:
-                        print(f"NOTICE: Batch contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {batch_df.shape[0]} observations total).")
+                        print(f"[gen] Batch contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {batch_df.shape[0]} observations total).")
                     batch_df = batch_df.fillna(replace_nan_with, inplace=False)
                     if verbose:
-                        print(f"Replacing NAN values in {row_indices_with_nan_values.size} columns with value '{replace_nan_with}'.")
+                        print(f"[gen] Replacing NAN values in {row_indices_with_nan_values.size} columns with value '{replace_nan_with}'.")
                     row_indices_with_nan_values = pd.isnull(batch_df).any(1).to_numpy().nonzero()[0]
                     if verbose:
-                        print(f"Batch contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {batch_df.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
+                        print(f"[gen] Batch contains {row_indices_with_nan_values.size} rows (observations) with NAN values (of {batch_df.shape[0]} observations total) after filling. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left.")
                 else:
                     if verbose:
-                        print(f"Batch contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left. Batch shape is {batch_df.shape}.")
+                        print(f"[gen] Batch contains no NAN values. {int(psutil.virtual_memory().available / 1024. / 1024.)} MB RAM left. Batch shape is {batch_df.shape}.")
                 del row_indices_with_nan_values
 
             assert isinstance(batch_df, pd.DataFrame)
             assert len(batch_df.shape) == 2, f"batch_df has shape {batch_df.shape} with len {len(batch_df.shape)}, expected len 2."
             nc = len(batch_df.columns)
-            print(f"Batch shape is {batch_df.shape}, with {nc} columns.")
+            if verbose:
+                print(f"[gen] Batch shape is {batch_df.shape}, with {nc} columns.")
             labels = batch_df.iloc[:, (nc-1)].to_numpy()
             descriptors = batch_df.iloc[:, 0:(nc-1)]
             if do_scale_descriptors:
@@ -113,7 +119,7 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
 
 
 
-def neighborhood_generator_reconall_dir(batch_size, data_settings, preproc_settings, verbose=True):
+def neighborhood_generator_reconall_dir(batch_size, data_settings, preproc_settings, verbose=None):
     """
     Generator for vertex neighborhood data from mesh files in recon-all output directory.
 
@@ -122,9 +128,12 @@ def neighborhood_generator_reconall_dir(batch_size, data_settings, preproc_setti
     batch_size        : int, number of rows to return in each batch. Depends on model and your machine's memory (RAM).
     data_settings     : dict containing the data settings, like 'data_dir', 'surface', and 'descriptor'.
     proproc_settings  : dict containing the preproc settings.
+    verbose           : bool or None, whether to print verbose output. If None, the boolean `data_settings['verbose']` is used, and if it does not exist, the fallback value is `False`.
     """
     if not isinstance(data_settings, dict):
         raise ValueError("Parameter 'data_settings' must be a dict.")
-    mesh_files, desc_files, cortex_files, files_subject, files_hemi, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_settings['data_dir'], surface=data_settings['surface'], descriptor=data_settings['descriptor'], cortex_label=preproc_settings.get('cortex_label', False), verbose=data_settings.get("verbose", True), subjects_file=data_settings.get('subjects_file', None), subjects_list=data_settings.get('subjects_list', None), hemis=data_settings.get('hemis', ["lh", "rh"]))
+    if verbose is None:
+        verbose = data_settings.get('verbose', False)
+    mesh_files, desc_files, cortex_files, files_subject, files_hemi, miss_subjects = get_valid_mesh_desc_file_pairs_reconall(data_settings['data_dir'], surface=data_settings['surface'], descriptor=data_settings['descriptor'], cortex_label=preproc_settings.get('cortex_label', False), verbose=verbose, subjects_file=data_settings.get('subjects_file', None), subjects_list=data_settings.get('subjects_list', None), hemis=data_settings.get('hemis', ["lh", "rh"]))
     input_filepair_list = list(zip(mesh_files, desc_files))
     return neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_settings, verbose=verbose)

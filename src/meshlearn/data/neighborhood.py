@@ -168,7 +168,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
     rfactor_colums = {}
     for rf_idx, rfactor in enumerate(neighborhood_radius_factors):
-        rfactor_colname = "nrf_idx" + rf_idx + "_nn"
+        rfactor_colname = "nrf_idx" + str(rf_idx) + "_nn"
         extra_fields.append(rfactor_colname)
         neighbor_indices_cur_radius = kdtree.query_ball_point(x=query_vert_coords, r=neighborhood_radius * rfactor) # list of arrays
         neigh_lengths_cur_radius = np.array([len(neigh) for neigh in neighbor_indices_cur_radius])

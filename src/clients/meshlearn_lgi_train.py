@@ -191,6 +191,7 @@ def train_lgi():
     add_desc_brain_bbox = True
     add_local_mesh_descriptors = True
     add_global_mesh_descriptors = True
+    neighborhood_radius_factors = []
 
     # Data post-processing options (stuff that happens after loading).
     # These should become part of the data pre-processing pipeline (and preproc_settings), but that requires us to load training and
@@ -213,7 +214,8 @@ def train_lgi():
                         'filter_smaller_neighborhoods': filter_smaller_neighborhoods,
                         'add_desc_brain_bbox': add_desc_brain_bbox,
                         'add_local_mesh_descriptors' : add_local_mesh_descriptors,
-                        'add_global_mesh_descriptors': add_global_mesh_descriptors
+                        'add_global_mesh_descriptors': add_global_mesh_descriptors,
+                        'neighborhood_radius_factors': neighborhood_radius_factors
                     }
 
     ## All settings relevant for deciding which meshes to load, how to load them, and what data to keep from them.

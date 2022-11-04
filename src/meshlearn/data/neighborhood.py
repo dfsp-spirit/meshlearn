@@ -39,7 +39,7 @@ def _get_mesh_neighborhood_feature_count(neigh_count, with_normals=True, extra_f
         return neigh_count * num_per_vertex_features + len(extra_fields) + int(with_label)
 
 
-def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, extra_columns = {}):
+def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kdtree, neighborhood_radius, mesh, pvd_data, max_num_neighbors=0, add_desc_vertex_index=True, add_desc_neigh_size=True, verbose=True, filter_smaller_neighborhoods=False, neighborhood_radius_factors=[], extra_columns = {}):
     """
     Compute the vertex neighborhood of the Tmesh for a given vertex using Euclidean distance (ball point).
 
@@ -59,6 +59,7 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     verbose                      : bool, whether to print output (or be silent)
     filter_smaller_neighborhoods : bool, whether to skip neighborhoods smaller than `mesh_neighborhood_count`. If false, missing vertex values are filled with NAN.
     extra_columns                : dict, the keys are strings and define the column name, the values are 1D float np.ndarrays with one value per mesh vertex (size equal to that of `pvd_data`).
+    neighborhood_radius_factors  : list of float, extra factors to create additional radii based on `neighborhood_radius`, in which the number of vertices in the radius will be computed for each query vertex, and the resulting data will be added as an extra descriptor column.
 
 
     Returns
@@ -69,6 +70,8 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     """
 
     do_insert_by_column = True  # bool, internal, leave alone. Leaving this at the default of True is much faster, but does not alter results.
+
+
 
     if kdtree is None:
         raise ValueError("No kdtree initialized yet.")
@@ -163,6 +166,15 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         extra_fields.append(ec_key)
         assert np.array(extra_columns[ec_key]).size == mesh_num_verts, f"Expected {mesh_num_verts} per-vertex data values in extra_column '{ec_key}' for mesh with {mesh_num_verts} verts, but found {np.array(extra_columns[ec_key]).size} pvd values."
 
+    rfactor_colums = {}
+    for rf_idx, rfactor in enumerate(neighborhood_radius_factors):
+        rfactor_colname = "nrf_idx" + rf_idx + "_nn"
+        extra_fields.append(rfactor_colname)
+        neighbor_indices_cur_radius = kdtree.query_ball_point(x=query_vert_coords, r=neighborhood_radius * rfactor) # list of arrays
+        neigh_lengths_cur_radius = np.array([len(neigh) for neigh in neighbor_indices_cur_radius])
+        neigh_lengths_cur_radius = neigh_lengths_cur_radius[kept_vertex_indices_rel]
+        rfactor_colums[rfactor_colname] = neigh_lengths_cur_radius
+
     with_label = pvd_data is not None  # Add label if pvd_data is available.
     neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=with_label)
     # 3 (x,y,z) coord entries per neighbor, 3 (x,y,z) vertex normal entries per neighbor, 1 pvd label value per neighborhood (or None)
@@ -179,16 +191,18 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     col_names = []
     for n_idx in range(max_num_neighbors):
         for coord in ["x", "y", "z"]:
-            col_names.append("nc" + str(n_idx) + coord) # "coord) # nc for neighbor coord
+            col_names.append("nc" + str(n_idx) + coord)  # "coord) # nc for neighbor coord
     for n_idx in range(max_num_neighbors):
         for coord in ["x", "y", "z"]:
-            col_names.append("nn" + str(n_idx) + coord) # nn for neighbor normal
+            col_names.append("nn" + str(n_idx) + coord)  # nn for neighbor normal
     if add_desc_vertex_index:
-        col_names.append("svidx") # 'svidx' for source vertex index (in mesh)
+        col_names.append("svidx")  # 'svidx' for source vertex index (in mesh)
     if add_desc_neigh_size:
-        col_names.append("nsize") # 'nsize' for neighborhood size
-    for ec_key in extra_columns.keys():
+        col_names.append("nsize")  # 'nsize' for neighborhood size
+    for ec_key in extra_columns.keys():  # Extra columns passed to function as param.
         col_names.append(ec_key)
+    for rfactor_key in rfactor_colums.keys():  # Extra columns resulting from 'neighborhood_radius_factors' param. (Dict may be empty.)
+        col_names.append(rfactor_key)
     if with_label:
         col_names.append("label")
 
@@ -256,6 +270,9 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
         for ec_key in extra_columns.keys():
             neighborhoods[:, current_col_idx] = np.squeeze(extra_columns[ec_key][kept_vertex_indices_mesh])   # Add extra_column pvd-value for the vertex.
             current_col_idx += 1
+        for rfactor_key in rfactor_colums.keys():
+            neighborhoods[:, current_col_idx] = rfactor_colums[rfactor_key]   # Add neighbor counts with extra radii (derived from neighborhood_radius_factors)
+            current_col_idx += 1
         if with_label:
             neighborhoods[:, current_col_idx] = pvd_data[kept_vertex_indices_mesh] # Add label (lgi, thickness, or whatever)
             current_col_idx += 1
@@ -294,6 +311,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
 
             for ec_key in extra_columns.keys():
                 neighborhoods[central_vert_rel_idx, col_idx] = extra_columns[ec_key][central_vert_rel_idx]   # Add extra_column pvd-value for the vertex.
+                col_idx += 1
+
+            for rfactor_key in rfactor_colums.keys():
+                neighborhoods[central_vert_rel_idx, col_idx] = rfactor_colums[rfactor_key][central_vert_rel_idx]   # Add neighbor counts with extra radii (derived from neighborhood_radius_factors)
                 col_idx += 1
 
             if with_label:

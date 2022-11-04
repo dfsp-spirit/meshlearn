@@ -31,6 +31,11 @@ def neighborhood_generator_filepairs(batch_size, input_filepair_list, preproc_se
     batch_size          : int, number of rows to return in each batch. Depends on model and your machine's memory (RAM).
     input_filepair_list : list of 2-tuples of type str, str. The first entry is a mesh file, the 2nd entry the respective pvd-data file. Must not be empty.
     proproc_settings    : dict containing the preproc settings.
+
+    Returns
+    -------
+    desciptors: 2D NxM np.ndarray, containing N observations of M descriptors.
+    labels: 1D np.ndarray of size N, the labels for the observations.
     """
     if not isinstance(input_filepair_list, list):
         raise ValueError("Parameter 'input_filepair_list' must be a list.")
@@ -129,6 +134,11 @@ def neighborhood_generator_reconall_dir(batch_size, data_settings, preproc_setti
     data_settings     : dict containing the data settings, like 'data_dir', 'surface', and 'descriptor'.
     proproc_settings  : dict containing the preproc settings.
     verbose           : bool or None, whether to print verbose output. If None, the boolean `data_settings['verbose']` is used, and if it does not exist, the fallback value is `False`.
+
+    Returns
+    -------
+    desciptors: 2D NxM np.ndarray, containing N observations of M descriptors.
+    labels: 1D np.ndarray of size N, the labels for the observations.
     """
     if not isinstance(data_settings, dict):
         raise ValueError("Parameter 'data_settings' must be a dict.")

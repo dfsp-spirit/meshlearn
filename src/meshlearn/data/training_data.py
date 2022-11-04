@@ -54,7 +54,7 @@ class TrainingData():
         return vert_coords, faces, pvd_data
 
 
-    def neighborhoods_from_raw_data_parallel(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, exactly=False, num_samples_per_file=None, df=True, verbose=False, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None, add_local_mesh_descriptors = True, add_global_mesh_descriptors = True):
+    def neighborhoods_from_raw_data_parallel(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, exactly=False, num_samples_per_file=None, df=True, verbose=False, add_desc_vertex_index=False, add_desc_neigh_size=False, num_cores=8, num_files_total=None, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None, add_local_mesh_descriptors = True, add_global_mesh_descriptors = True, neighborhood_radius_factors=[]):
         """
         Parallel version of `neighborhoods_from_raw_data`. Calls the latter in parallel using multi-threading.
 
@@ -80,6 +80,7 @@ class TrainingData():
         random_seed                  : int or None, seed for random number generator.
         add_local_mesh_descriptors   : bool, whether to add local mesh descriptors, like local curvature.
         add_global_mesh_descriptors  : bool, whether to add global mesh descriptors, like vertex and edge counts.
+        neighborhood_radius_factors  : list of float
 
         Note: Parameter 'num_samples_total' is not supported in parallel mode.
               Use 'num_files_total' (and 'num_samples_per_file') instead
@@ -102,12 +103,12 @@ class TrainingData():
                 datafiles = datafiles_subset
 
         with ThreadPoolExecutor(num_cores) as pool:
-            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, mesh_neighborhood_radius=mesh_neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, mesh_neighborhood_count=mesh_neighborhood_count, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem, random_seed=random_seed, add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors)
+            neighborhoods_from_raw_single_file_pair = partial(self.neighborhoods_from_raw_data_seq, mesh_neighborhood_radius=mesh_neighborhood_radius, num_samples_total=None, exactly=exactly, num_samples_per_file=num_samples_per_file, df=df, verbose=verbose, mesh_neighborhood_count=mesh_neighborhood_count, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, filter_smaller_neighborhoods=filter_smaller_neighborhoods, add_desc_brain_bbox=add_desc_brain_bbox, add_subject_and_hemi_columns=add_subject_and_hemi_columns, reduce_mem=reduce_mem, random_seed=random_seed, add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors)
             df = pd.concat(pool.map(neighborhoods_from_raw_single_file_pair, datafiles))
         return df, df.columns, datafiles
 
 
-    def neighborhoods_from_raw_data_seq(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None, add_local_mesh_descriptors = True, add_global_mesh_descriptors = True):
+    def neighborhoods_from_raw_data_seq(self, datafiles, mesh_neighborhood_radius, mesh_neighborhood_count, num_samples_total=None, exactly=False, num_samples_per_file=None, df=True, verbose=True, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=False, add_desc_brain_bbox=True, add_subject_and_hemi_columns=False, reduce_mem=True, random_seed=None, add_local_mesh_descriptors = True, add_global_mesh_descriptors = True, neighborhood_radius_factors=[]):
         """Loader for training data from FreeSurfer format (non-preprocessed) files, also does the preprocessing on the fly.
 
         Will load mesh and descriptor files, and use a kdtree to quickly find, for each vertex, all neighbors withing Euclidean distance 'neighborhood_radius'.
@@ -135,6 +136,7 @@ class TrainingData():
         random_seed                  : int or None, seed for random number generator.
         add_local_mesh_descriptors   : bool, whether to add local mesh descriptors, like local curvature.
         add_global_mesh_descriptors  : bool, whether to add global mesh descriptors, like vertex and edge counts.
+        neighborhood_radius_factors  : list of float
 
 
         Returns
@@ -264,7 +266,7 @@ class TrainingData():
             if verbose:
                 print(f"[load]  - Computing neighborhoods based on radius {mesh_neighborhood_radius} for {query_vert_coords.shape[0]} of {num_verts_total} vertices in mesh file '{mesh_file_name}'.")
 
-            neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=mesh_neighborhood_radius, mesh=mesh, max_num_neighbors=mesh_neighborhood_count, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose, filter_smaller_neighborhoods=filter_smaller_neighborhoods, extra_columns=extra_columns)
+            neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=mesh_neighborhood_radius, mesh=mesh, max_num_neighbors=mesh_neighborhood_count, pvd_data=pvd_data, add_desc_vertex_index=add_desc_vertex_index, add_desc_neigh_size=add_desc_neigh_size, verbose=verbose, filter_smaller_neighborhoods=filter_smaller_neighborhoods, extra_columns=extra_columns, neighborhood_radius_factors=neighborhood_radius_factors)
 
             num_files_loaded += 1
 
@@ -397,6 +399,7 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
         add_subject_and_hemi_columns: bool whether to add extra columns containing subject identifier and hemi.
         add_local_mesh_descriptors   : bool, whether to add local mesh descriptors, like local curvature.
         add_global_mesh_descriptors  : bool, whether to add global mesh descriptors, like vertex and edge counts.
+        neighborhood_radius_factors  : list of float
     """
     if preproc_settings.get('cortex_label', False):
         raise ValueError("Parameter preproc_settings['cortex_label'] must be False: not implemented yet.")
@@ -486,11 +489,12 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
 
     add_local_mesh_descriptors = preproc_settings.get("add_local_mesh_descriptors", True)
     add_global_mesh_descriptors = preproc_settings.get("add_global_mesh_descriptors", True)
+    neighborhood_radius_factors = preproc_settings.get("neighborhood_radius_factors", [])
 
     if data_settings['sequential']:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors)
     else:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors)
     load_end = time.time()
     load_execution_time = load_end - load_start
     if verbose:
@@ -513,6 +517,7 @@ def get_dataset_pickle(data_settings_in, preproc_settings, do_pickle_data, datas
     Parameters
     ----------
     data_settings_in: dict, passed on as kwargs to compute_dataset if we do not load a pickled dataset. Ignored otherwise.
+    preproc_settings: dict, the preproc settings. All settings that determine column count of training data.
     do_pickle_data: bool, whether to pickle data (compute and then save if no file found, load if found.)
     dataset_pickle_file: str, the pkl file to load the pickled dataset from, or save it to if not exists. Ignored if do_pickle_data=False.
     dataset_settings_file: str, the JSON file to load the dataset metadata from, or save it to if not exists. Ignored if do_pickle_data=False.

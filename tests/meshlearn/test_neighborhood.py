@@ -108,3 +108,21 @@ def test_neighborhoods_euclid_around_points_some_nofilter(mesh_and_pvd_data):
     assert len(col_names) == max_num_neighbors * 6 + 1
     assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
 
+@pytest.mark.slow  # Use `pytest -v -m "not slow"` to exlude all tests marked as 'slow'.
+def test_neighborhood_radius_factors(mesh_and_pvd_data):
+    vert_coords, faces, pvd_data = mesh_and_pvd_data
+    max_num_neighbors = 600
+    filter_smaller_neighborhoods = True
+    neighborhood_radius_factors = [0.5, 1.5, 2.0, 2.5]
+
+    query_vert_coords = vert_coords[0:1000, :]
+    num_query_coords = query_vert_coords.shape[0]
+    query_vert_indices = np.arange(num_query_coords)
+    mesh = tm.Trimesh(vertices=vert_coords, faces=faces)
+
+    neighborhoods, col_names, kept_vertex_indices_mesh = neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, KDTree(vert_coords), neighborhood_radius=10.0, mesh=mesh, pvd_data=pvd_data, max_num_neighbors=max_num_neighbors, verbose=False, add_desc_vertex_index=False, add_desc_neigh_size=False, filter_smaller_neighborhoods=filter_smaller_neighborhoods, neighborhood_radius_factors=neighborhood_radius_factors)
+    assert isinstance(neighborhoods, np.ndarray)
+    assert neighborhoods.shape[0] < num_query_coords  # Some will have been filtered.
+    assert len(col_names) == max_num_neighbors * 6 + 1 + len(neighborhood_radius_factors)
+    assert kept_vertex_indices_mesh.size == neighborhoods.shape[0]
+

@@ -35,7 +35,7 @@ Computing lGI and some other mesh properties for brain surface meshes is slow an
 
 ### Predicting using pre-trained models
 
-**Please keep in mind that meshlearn is in the alpha stage, use in production is not yet recommended. You are free to play around with it though!**
+*Please keep in mind that meshlearn is in the alpha stage, use in production is not yet recommended. You are free to play around with it though!*
 
 Currently meshlearn comes with one pre-trained model for predicting the local gyrification index (lGI, Schaer et al.) for full-resolution, native space [FreeSurfer meshes](https://freesurfer.net/). These meshes are (a part of) the result of running FreeSurfer's `recon-all` pipeline on structural MRI scans of the human brain.
 

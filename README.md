@@ -62,41 +62,45 @@ Note: This will most likely work under a number of different operating systems i
 We highly recommend to work in a [conda](https://www.anaconda.com/products/distribution) environment, especially when using `tensorflow-gpu` instead of the CPU-version `tensorflow`:
 
 
-#### Step 1 of 2: Create conda env and install conda packages into it
 
-If you want to run the neural network scripts that use tensorflow and you have a powerful GPU, I highly recommend that you install `tensorflow-gpu` to use it. Here is how I did it under Ubuntu 20.04 LTS:
+#### Step 1 of 2: Checkout the meshlearn repo ####
+
+Checkout the repo using git. I assume you want to put it directly into your user home.
+
+```bash
+git clone https://github.com/dfsp-spirit/meshlearn ~/meshlearn
+```
+
+#### Step 2 of 2: Create conda env and install packages into it
+
+Install all dependencies of meshlearn via the [environment.yml file](./environment.yml). Th file is also used in our [CI workflow](.github/workflows/cov_test_workflow.yml) where the unit tests are run. It is the safest option to ensure you have the right package versions.
+
 
 ```shell
-conda create -y --name meshlearn python=3.7
+conda env create --name meshlearn --file environment.yml
 conda activate meshlearn
-conda install -y tensorflow-gpu  # Or just 'tensorflow' if you don't have a suitable GPU.
-conda install -y pandas matplotlib ipython scikit-learn psutil lightgbm
-conda install -y -c conda-forge scikit-learn-intelex  # Not strictly needed, speedups for scikit-learn.
-conda install -y -c conda-forge trimesh igl
 ```
 
-If you do not have a suitable GPU, simply replace `tensorflow-gpu` with `tensorflow` to run on CPU.
 
-Alternatively, one can use the [environment.yml file we now provide](./environment.yml) to setup the conda environment. This is guaranteed to be up-to-date and to work, as this is the way we also install on our [CI workflow](.github/workflows/cov_test_workflow.yml) where the unit tests are run.
-
-
-
-#### Step 2 of 2: Install meshlearn into the conda env ####
-
-Checkout the repo using git:
+Then install meshlearn from the local clone of the repo:
 
 ```bash
-conda activate meshlearn  # If not done already.
-git clone https://github.com/dfsp-spirit/meshlearn
-cd meshlearn
+cd ~/meshlearn
+pip install -e .
 ```
 
-Then install:
+##### Optional: Extra packages for improved performance
 
-```bash
-pip3 install --upgrade pip
-pip3 install -e .
+If you do have a suitable GPU and CPU, you can install `tensorflow-gpu`, and optionally the `scikit-learn-intelex` package to accelerate `scikit-learn`:
+
+```shell
+conda activate meshlearn
+conda install -y tensorflow-gpu                       # Optional, GPU support for tensorflow. Actual usage requires custom code in your client.
+conda install -y -c conda-forge scikit-learn-intelex  # Optional, speedups for scikit-learn. Actual usage requires custom code in your client.
 ```
+
+
+
 
 ### Running the development version
 
@@ -108,15 +112,23 @@ pip3 install -e .
 With some computational resources and experience with structural neuroimaging, you can generate your own training data:
 
 * Download a suitable, large collection of T1-weighted (and optionally T2-weighted) structural MRI scans from many healthy subjects. To avoid bias, only use controls in case its a clinical dataset. Make sure to include subjects from as many sites (different scanners) as possible, as well as a wide age range, different genders, etc.
-     - An option is to use all controls from the ABIDE dataset.
+     - An option is to use all controls from the ABIDE dataset, or subjects from the IXI dataset.
      - The more sites and subjects, the better. We suggest at least 20 sites and 300 subjects.
      - Consider excluding bad quality scans.
-* Pre-process all scans with FreeSurfer v6 (full recon-all pipeline). This takes about 12 - 18 hours per subject when done sequentially on a single core of a 2022 consumer desktop computer.
-     - When pre-processing is done, compute pial-lgi for all subjects.
+* Pre-process all scans with FreeSurfer v6 (full `recon-all` pipeline). This takes about 12 - 18 hours per subject when done sequentially on a single core of a 2022 consumer desktop computer.
+     - When pre-processing is done, compute pial-lgi for all subjects using `recon-all` (requires Matlab).
 
 ##### Option 2: Downloading our training data
 
 We now make our training data publicly available. See the [native space lgi data for all ABIDE I subjects](https://doi.org/10.5281/zenodo.7132610) on Zenodo (6.5 GB download).
+
+The download includes only the files required for meshlearn training, for the ABIDE I dataset. These are the following files per subject:
+
+* `<subject>/surf/lh.pial`
+* `<subject>/surf/rh.pial`
+* `<subject>/surf/lh.pial_lgi`
+* `<subject>/surf/rh.pial_lgi`
+
 
 
 #### Running model training

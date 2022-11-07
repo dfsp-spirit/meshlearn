@@ -156,8 +156,6 @@ class TrainingData():
                 datafiles_tmp = list()
                 datafiles_tmp.append(datafiles)
                 datafiles = datafiles_tmp   # We wrap this into a list (with 1 element) because the sequential function works with a list.
-                if verbose:
-                    print(f"[seq, wrapped in parallel] Wrapping tuple ({datafiles[0][0]}, {datafiles[0][1]},) into list.")
                 is_parallel_wrapped = True
             else:
                 raise ValueError(f"[seq] Received tuple (assuming parallel mode) with length {len(datafiles)}, but required is length 2.")
@@ -175,7 +173,7 @@ class TrainingData():
 
         num_files_loaded = 0
         datafiles_loaded = []
-        if verbose:
+        if verbose and not is_parallel_wrapped:
                 print(f"[load] Loading data.")
         for filepair in datafiles:
             subject = None
@@ -463,14 +461,16 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
 
         if data_settings['sequential']:
             if data_settings['num_neighborhoods_to_load'] is None:
-                print(f"Will load all data from the {len(input_filepair_list)} files{seq_par_tag}.")
+                print(f"Will load all data from the {len(input_filepair_list)} files{seq_par_tag} sequentially.")
             else:
-                print(f"Will load {data_settings['num_neighborhoods_to_load']} samples in total from the {len(input_filepair_list)} files.")
+                print(f"Will load {data_settings['num_neighborhoods_to_load']} samples in total from the {len(input_filepair_list)} files sequentially.")
         else:
             if data_settings['num_files_to_load'] is None:
-                print(f"Will load data from all {len(input_filepair_list)} files{seq_par_tag}.")
+                print(f"Will load data from all {len(input_filepair_list)} files{seq_par_tag} in parallel.")
             else:
-                print(f"Will load data from {data_settings['num_files_to_load']} input files.")
+                print(f"Will load data from up to {data_settings['num_files_to_load']} input files in parallel.")
+                if len(input_filepair_list) < data_settings['num_files_to_load']:
+                    print(f"NOTICE: Requested to load up to {data_settings['num_files_to_load']} input files, but only {len(input_filepair_list)} were detected and will be loaded.")
 
         if data_settings['num_samples_per_file'] is None:
             print(f"Will load all suitably sized vertex neighborhoods from each mesh file.")
@@ -481,7 +481,7 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
         if preproc_settings.get('filter_smaller_neighborhoods', False):
             print(f"Will filter (remove) all neighborhoods smaller than {neigh_size_tag}.")
         else:
-            print(f"NOTICE: Will fill the respective missing columns of neighborhoods smaller than {neigh_size_tag} with NAN values. You will have to handle NAN values before training! (Set 'filter_smaller_neighborhoods' to 'True' to ignore them instead.)")
+            print(f"NOTICE: Will fill the missing columns of neighborhoods smaller than {neigh_size_tag} verts with NANs, you may have to replace them before training.")
 
 
     load_start = time.time()
@@ -490,11 +490,12 @@ def compute_dataset_from_datadir(data_settings, preproc_settings):
     add_local_mesh_descriptors = preproc_settings.get("add_local_mesh_descriptors", True)
     add_global_mesh_descriptors = preproc_settings.get("add_global_mesh_descriptors", True)
     neighborhood_radius_factors = preproc_settings.get("neighborhood_radius_factors", [])
+    verbose = data_settings.get("verbose", False)
 
     if data_settings['sequential']:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_seq(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_samples_total=data_settings['num_neighborhoods_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors, verbose=verbose)
     else:
-        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors)
+        dataset, col_names, datafiles_loaded = tdl.neighborhoods_from_raw_data_parallel(input_filepair_list, mesh_neighborhood_radius=preproc_settings['mesh_neighborhood_radius'], mesh_neighborhood_count=preproc_settings['mesh_neighborhood_count'], num_files_total=data_settings['num_files_to_load'], num_samples_per_file=data_settings['num_samples_per_file'], add_desc_vertex_index=preproc_settings['add_desc_vertex_index'], add_desc_neigh_size=preproc_settings['add_desc_neigh_size'], num_cores=data_settings['num_cores'], filter_smaller_neighborhoods=preproc_settings['filter_smaller_neighborhoods'], exactly=data_settings['exactly'], add_desc_brain_bbox=preproc_settings['add_desc_brain_bbox'], add_subject_and_hemi_columns=add_subject_and_hemi_columns, random_seed=data_settings.get('random_seed', None), add_local_mesh_descriptors=add_local_mesh_descriptors, add_global_mesh_descriptors=add_global_mesh_descriptors, neighborhood_radius_factors=neighborhood_radius_factors, verbose=verbose)
     load_end = time.time()
     load_execution_time = load_end - load_start
     if verbose:

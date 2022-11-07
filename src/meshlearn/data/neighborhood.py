@@ -19,6 +19,7 @@ This file is part of meshlearn, see https://github.com/dfsp-spirit/meshlearn for
 """
 
 import numpy as np
+import psutil
 
 
 
@@ -151,6 +152,10 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     else:
         raise ValueError(f"Invalid 'too_small_action' to apply to neighborhoods smaller than {max_num_neighbors} vertices.")
 
+    del neighbor_indices_filtered
+
+    if verbose:
+        print(f"[load] Neighborhood vertices and normals computed, RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
     assert any([any(np.isnan(x)) for x in neighbor_indices]) == False, f"Expected no NaN-values in neighbor_indices, but found some."
     neigh_lengths_after_preproc = [len(neigh) for neigh in neighbor_indices]
@@ -170,10 +175,12 @@ def neighborhoods_euclid_around_points(query_vert_coords, query_vert_indices, kd
     for rf_idx, rfactor in enumerate(neighborhood_radius_factors):
         rfactor_colname = "nrf_idx" + str(rf_idx) + "_nn"
         extra_fields.append(rfactor_colname)
-        neighbor_indices_cur_radius = kdtree.query_ball_point(x=query_vert_coords, r=neighborhood_radius * rfactor) # list of arrays
-        neigh_lengths_cur_radius = np.array([len(neigh) for neigh in neighbor_indices_cur_radius])
-        neigh_lengths_cur_radius = neigh_lengths_cur_radius[kept_vertex_indices_rel]
-        rfactor_colums[rfactor_colname] = neigh_lengths_cur_radius
+        if verbose:
+            print(f"[load] Computing extra ball radius {neighborhood_radius * rfactor} descriptor column ({rf_idx+1} of {len(neighborhood_radius_factors)}), RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
+        rfactor_colums[rfactor_colname] = np.array([len(neigh) for neigh in kdtree.query_ball_point(x=query_vert_coords, r=neighborhood_radius * rfactor)])[kept_vertex_indices_rel]
+
+    if verbose:
+        print(f"[load] Added {len(neighborhood_radius_factors)} extra ball radius descriptor columns, RAM available is about {int(psutil.virtual_memory().available / 1024. / 1024.)} MB")
 
     with_label = pvd_data is not None  # Add label if pvd_data is available.
     neighborhood_col_num_values = _get_mesh_neighborhood_feature_count(max_num_neighbors, with_normals=True, extra_fields=extra_fields, with_label=with_label)

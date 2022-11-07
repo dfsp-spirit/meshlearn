@@ -1,4 +1,5 @@
 [![status](https://github.com/dfsp-spirit/meshlearn/actions/workflows/cov_test_workflow.yml/badge.svg)](https://github.com/dfsp-spirit/meshlearn/actions)
+[![license](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT)
 
 # meshlearn
 AI model to predict computationally expensive local, vertex-wise descriptors like the local gyrification index from the local mesh neighborhood.

@@ -32,7 +32,7 @@ from sklearn.model_selection import train_test_split
 
 
 def fit_regression_model_lightgbm(X_train, y_train, X_val, y_val,
-                                  model_settings = {'n_estimators':50, 'random_state':42, 'n_jobs':8},
+                                  model_settings = {'random_state':42, 'n_jobs':8},
                                   opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0,
                                                       'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688} ):
     """Fit a lightgbm model with hard-coded parameters. Pass params obtained via `hyperparameter_optimization_lightgbm` in an earlier run as `opt_fit_settings`."""
@@ -179,7 +179,7 @@ def train_lgi():
     parser.add_argument('-r', '--neigh_radius', help="Radius for sphere for Euclidean dist, in spatial units of mesh (e.g., mm).", default="10")
     parser.add_argument('-l', '--load_max', help="Total number of samples to load. Set to 0 for all in the files discovered in the data_dir. Used in sequential mode only.", default="0")
     parser.add_argument('-p', '--load_per_file', help="Total number of samples to load per file. Set to 0 for all in the respective mesh file. Useful to sample data from more different subjects and still not exhaust your RAM.", default="50000")
-    parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only (see -s).", default="384")
+    parser.add_argument('-f', '--load_files', help="Total number of files to load. Set to 0 for all in the data_dir. Used in parallel mode only (see -s).", default="200")
     parser.add_argument("-s", "--sequential", help="Load data sequentially (as opposed to in parallel, the default). Not recommended. See also '-c'.", action="store_true")
     parser.add_argument("-c", "--cores", help="Number of cores to use when loading data in parallel. Defaults to all. (Model fitting always uses all cores.) Warning: loading data in parallel requires more RAM due to duplicate temporary data.", default=None)
     parser.add_argument("-t", "--pickle_tag", help="Optional, a tag (arbitrary string that will become a filename part) if you want to use pickling (saving/restoring) for datasets. If given the tag will be used to construct 1) the filename from/to which to unpickle/pickle the pre-processed dataset as 'ml<dataset_tag>_dataset.pkl', and 2) of the JSON metadata file for the dataset as 'ml<dataset_tag>_dataset.json'. If the model file does not exist, it will be created during the first run (with the respective JSON file), and used in subsequent runs with the same '--pickle-tag'. Can save a lot of time during model tuning if the dataset is final. Example: '_lgbmv1'.", default="")
@@ -264,14 +264,18 @@ def train_lgi():
     # Model settings
     lightgbm_num_estimators = 144 * 3  # The number of estimators (trees) to use during final model fitting.
     do_hyperparam_opt = False  # Dramatically increases computational time (depends on hyperparm opt settings, but 60 times to 200 times is typical). Do this ONCE on a medium sized dataset, copy the obtained params and hard-code them in the source code of the fit function to re-use (and set this to FALSE then).
-    do_hyperparam_opt_flaml = True
+    do_hyperparam_opt_flaml = False
     hyper_tune_num_iter = 20   # Number of search iterations for hyperparam tuning. Only used when do_hyperparam_opt=True.
     hyper_tune_inner_cv_k = 3  # The k for k-fold cross-validation during hyperparam tuning. Only used when do_hyperparam_opt=True.
     hpt_num_estimators = 100   # The number of estimators (trees) to use during hyperparam tuning, equivalent to `lightgbm_num_estimators`. Only used when do_hyperparam_opt=True
 
-    # Obtained from hyperparam optimization run, hard-coded here.
-    opt_fit_settings = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0,
+    # Obtained from hyperparam optimization run with scikit-learn grid search, hard-coded here. neighborhood size used: 500.
+    opt_fit_settings_sklearn = {'colsample_bytree': 0.8532168461905915, 'min_child_samples': 489, 'min_child_weight': 10.0,
                                                         'num_leaves': 47, 'reg_alpha': 2, 'reg_lambda': 20, 'subsample': 0.22505063396444688}
+
+    # Obtained with flaml. neighborhood size used: 100.
+    opt_fit_settings_flaml = { 'n_estimators': 4797, 'num_leaves': 122, 'min_child_samples': 2, 'learning_rate': 0.022635758411078528, 'colsample_bytree': 0.7019911744574896, 'reg_alpha': 0.004252223402511765, 'reg_lambda': 0.11288241427227624, 'max_bin': 511, 'verbose': -1}
+    opt_fit_settings = opt_fit_settings_flaml
 
     ####################################### End of settings. #########################################
 
@@ -442,12 +446,14 @@ def train_lgi():
         else:
             "Running flaml hyperparameter optimization..."
             hp = hyperparam_opt_lightgbm_flaml(X_train, y_train)
+            model_settings_lightgbm = { 'random_state':random_state, 'n_jobs':num_cores_fit}
+            model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm, opt_fit_settings=hp)
     else:
-        model_settings_lightgbm = {'n_estimators':lightgbm_num_estimators, 'random_state':random_state, 'n_jobs':num_cores_fit}
+        model_settings_lightgbm = { 'random_state':random_state, 'n_jobs':num_cores_fit}
         model, model_info = fit_regression_model_lightgbm(X_train, y_train, X_eval, y_eval, model_settings=model_settings_lightgbm, opt_fit_settings=opt_fit_settings)
 
-    ax = lightgbm.plot_metric(model)
     try:
+        ax = lightgbm.plot_metric(model)
         plt.savefig(training_history_image_filename)
     except Exception as ex:
         print(f"Could not save training history plot to file '{training_history_image_filename}': {str(ex)}")

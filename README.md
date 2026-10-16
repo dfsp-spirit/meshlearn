@@ -48,5 +48,5 @@ Information on model performance can be found in the mentioned [ml_model.json fi
 
 ### Training your own model
 
-If you want to *train your own model* instead of using one of our models, you will need suitable training data, Matlab and a powerful multi-core machine with 128+ GB of RAM. Please see the [development instructions](./README_DEV.md) for more details.
+If you want to *train your own model* instead of using one of our models, you will need suitable training data, Python and a powerful multi-core machine with 128+ GB of RAM. Please see the [development instructions](./README_DEV.md) for more details.
 
